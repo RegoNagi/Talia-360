@@ -402,7 +402,31 @@ const EditTeacherModal: React.FC<{ teacher: any; gradeLevels: string[]; onClose:
   );
 };
 
+// بيحوّل ParentInfo (اللي جايه من قاعدة البيانات) لشكل الحقول المفرودة اللي فورم Step2 عايزه (fatherFirstName, fatherEmail, إلخ)
+function parentInfoToFormFields(prefix: 'father' | 'mother', info: any) {
+  if (!info) return {};
+  return {
+    [`${prefix}FirstName`]: info.firstName || '',
+    [`${prefix}SecondName`]: info.secondName || '',
+    [`${prefix}ThirdName`]: info.thirdName || '',
+    [`${prefix}LastName`]: info.lastName || '',
+    [`${prefix}Nationality`]: info.nationality || '',
+    [`${prefix}SecondNationality`]: info.secondNationality || '',
+    [`${prefix}IdNumber`]: info.idNumber || '',
+    [`${prefix}AcademicDegree`]: info.academicDegree || '',
+    [`${prefix}Marital`]: info.marital || '',
+    [`${prefix}EmploymentStatus`]: info.employmentStatus || '',
+    [`${prefix}JobTitle`]: info.jobTitle || '',
+    [`${prefix}CompanyName`]: info.companyName || '',
+    [`${prefix}Email`]: info.email || '',
+    [`${prefix}Mobile`]: info.mobile || '',
+    [`${prefix}Whatsapp`]: info.whatsapp || '',
+    [`${prefix}Deceased`]: info.deceased || false,
+  };
+}
+
 const EditStudentModal: React.FC<{ student: any; gradeLevels: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean> }> = ({ student, gradeLevels, onClose, onSubmit }) => {
+  const [activeTab, setActiveTab] = useState<'basic' | 'family'>('basic');
   const [form, setForm] = useState({
     name: student.name || '',
     grade: student.grade || 'الصف 10',
@@ -410,8 +434,14 @@ const EditStudentModal: React.FC<{ student: any; gradeLevels: string[]; onClose:
     status: student.status || 'Active',
     email: student.email || '',
     password: '',
-  });
+    legalGuardian: student.legalGuardian || '',
+    guardianRelationship: student.guardianRelationship || '',
+    ...parentInfoToFormFields('father', student.fatherInfo),
+    ...parentInfoToFormFields('mother', student.motherInfo),
+  } as any);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const updateForm = (field: string, value: any) => setForm((prev: any) => ({ ...prev, [field]: value }));
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return;
@@ -423,11 +453,18 @@ const EditStudentModal: React.FC<{ student: any; gradeLevels: string[]; onClose:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
-       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
              <h3 className="text-xl font-bold text-gray-900">تعديل بيانات الطالب</h3>
              <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={24}/></button>
           </div>
+
+          <div className="flex gap-2 mb-6 border-b border-gray-100">
+             <button onClick={() => setActiveTab('basic')} className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${activeTab === 'basic' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>البيانات الأساسية</button>
+             <button onClick={() => setActiveTab('family')} className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${activeTab === 'family' ? 'border-violet-600 text-violet-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>بيانات الأسرة</button>
+          </div>
+
+          {activeTab === 'basic' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div className="md:col-span-2">
                 <label className="block text-sm font-bold text-gray-700 mb-2">الاسم الكامل</label>
@@ -460,6 +497,24 @@ const EditStudentModal: React.FC<{ student: any; gradeLevels: string[]; onClose:
                 <input type="text" placeholder="•••••••" value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
              </div>
           </div>
+          )}
+
+          {activeTab === 'family' && (
+          <div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">ولي الأمر القانوني</label>
+                   <input type="text" value={form.legalGuardian} onChange={(e) => updateForm('legalGuardian', e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" placeholder="اسم ولي الأمر" />
+                </div>
+                <div>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">صلة القرابة بالطفل</label>
+                   <input type="text" value={form.guardianRelationship} onChange={(e) => updateForm('guardianRelationship', e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" placeholder="مثال: الأب" />
+                </div>
+             </div>
+             <Step2 formData={form} updateForm={updateForm} />
+          </div>
+          )}
+
           <div className="flex gap-4 mt-8 pt-4 border-t border-gray-100">
              <Button variant="secondary" className="flex-1" onClick={onClose}>إلغاء</Button>
              <Button variant="primary" className="flex-1" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? 'جاري الحفظ...' : 'حفظ التعديلات'}</Button>
