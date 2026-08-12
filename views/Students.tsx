@@ -8,6 +8,7 @@ import { Language, Student, Teacher, Admin, Parent, UserRole } from '../types';
 import { ParentsManagement } from './ParentsManagement';
 import { StudentProfile } from './StudentProfile';
 import { Button } from '../components/Button';
+import { Step2 } from '../components/steps/Step2';
 import { 
   Search, 
   Plus, 
