@@ -46,6 +46,7 @@ import taliaLogo from './assets/talia-360-logo.png';
 const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>(Language.AR);
   const [activeView, setActiveView] = useState('moe-dashboard');
+  const [editProfileStudentId, setEditProfileStudentId] = useState<string | null>(null);
   const [lessonPlanContext, setLessonPlanContext] = useState<{ mode: 'edit' | 'view'; planId: string } | null>(null);
   const previousViewBeforePlanRef = useRef<string>('lessons-library');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -338,7 +339,7 @@ const App: React.FC = () => {
           'users-students': 'students',
         };
         const activeTabStr = tabMap[activeView] as 'students' | 'parents' | 'teachers' | 'admins';
-        return <UserManagement language={language} role={user.role} permissions={userPermissions} onEditProfile={() => setActiveView('edit-profile')} activeTabProp={activeTabStr} onTabChange={(tab) => {
+        return <UserManagement language={language} role={user.role} permissions={userPermissions} onEditProfile={(studentId: string) => { setEditProfileStudentId(studentId); setActiveView('edit-profile'); }} activeTabProp={activeTabStr} onTabChange={(tab) => {
           const viewMap: Record<string, string> = {
             'students': 'users-students',
             'parents': 'users-parents',
@@ -359,7 +360,8 @@ const App: React.FC = () => {
       case 'settings':
         return <Settings role={user.role} language={language} />;
       case 'edit-profile':
-        return <EditStudentProfile onBack={() => setActiveView('users')} />;
+        case 'edit-profile':
+        return editProfileStudentId ? <EditStudentProfile studentId={editProfileStudentId} onBack={() => setActiveView('users')} /> : null;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
