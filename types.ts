@@ -149,6 +149,20 @@ export interface Student {
   motherInfo?: ParentInfo;
   legalGuardian?: string;
   guardianRelationship?: string;
+  identityInfo?: {
+    firstName?: string; secondName?: string; thirdName?: string; lastName?: string;
+    firstNameAr?: string; secondNameAr?: string; thirdNameAr?: string; lastNameAr?: string;
+    gender?: string; religion?: string; secondNationality?: string;
+    nativeLanguage?: string; secondLanguage?: string; englishProficiency?: string;
+  };
+  emergencyContact1?: { firstName?: string; secondName?: string; thirdName?: string; lastName?: string; relativity?: string; mobile?: string };
+  emergencyContact2?: { firstName?: string; secondName?: string; thirdName?: string; lastName?: string; relativity?: string; mobile?: string };
+  homeAddress?: { city?: string; area?: string; street?: string; building?: string; apartment?: string; landline?: string };
+  additionalInfo?: {
+    hasMedical?: string; medicalDetails?: string; hasMedication?: string; medicationDetails?: string;
+    busService?: string; hasSiblings?: string; siblingName?: string; siblingYearGroup?: string;
+    appliedBefore?: string; hobbies?: string; marketing?: string; additionalNotes?: string;
+  };
 }
 
 export interface LessonPlan {
