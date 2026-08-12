@@ -1152,7 +1152,7 @@ Result: ${doc.gradeAverage}`;
              <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => setIsMessageModalOpen(true)}>
                <MessageSquare size={16} /> مراسلة
              </Button>
-             <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => onEditProfile?.(student.id)}
+             <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => onEditProfile?.(student.id)}>
                <Edit size={16} /> تعديل الملف
              </Button>
           </div>
