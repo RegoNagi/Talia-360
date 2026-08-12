@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole, Language, User, ClassSection, AttendanceSession, AttendanceStatus, CurriculumSystem, Student, Teacher } from '../types';
-import { MOCK_ATTENDANCE_SESSION } from '../services/mockData';
 import { getStudents, getClassSections, getTeachers, createClassSection, saveAttendanceSession, getTodayAttendanceForSection, updateClassSection, deleteClassSection, bulkDeleteClassSections, addEnrollment, removeEnrollment, getGradeLevels } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { confirmDialog } from '../components/ConfirmDialog';
