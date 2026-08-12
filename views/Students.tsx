@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { MOCK_PARENTS, CLASSES } from '../services/mockData';
+import { CLASSES } from '../services/mockData';
 import { getStudents, getTeachers, createTeacher, createStudent, updateTeacher, deleteTeacher, updateStudent, deleteStudent, bulkDeleteStudents, bulkDeleteTeachers, getAdmins, createAdmin, updateAdmin, deleteAdmin, bulkDeleteAdmins, getGradeLevels } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { confirmDialog } from '../components/ConfirmDialog';
