@@ -125,6 +125,11 @@ export async function updateStudent(input: {
   motherInfo?: any;
   legalGuardian?: string;
   guardianRelationship?: string;
+  identityInfo?: any;
+  emergencyContact1?: any;
+  emergencyContact2?: any;
+  homeAddress?: any;
+  additionalInfo?: any;
 }): Promise<boolean> {
   const userUpdate: any = { name: input.name };
   if (input.email !== undefined) userUpdate.email = input.email?.trim() ? input.email.trim() : null;
