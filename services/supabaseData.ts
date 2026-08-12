@@ -144,6 +144,11 @@ export async function updateStudent(input: {
       mother_info: input.motherInfo ?? null,
       legal_guardian: input.legalGuardian ?? null,
       guardian_relationship: input.guardianRelationship ?? null,
+      identity_info: input.identityInfo ?? null,
+      emergency_contact_1: input.emergencyContact1 ?? null,
+      emergency_contact_2: input.emergencyContact2 ?? null,
+      home_address: input.homeAddress ?? null,
+      additional_info: input.additionalInfo ?? null,
     })
     .eq('id', input.studentId);
   if (studentError) {
