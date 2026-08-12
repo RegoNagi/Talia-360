@@ -152,7 +152,7 @@ export interface Student {
   identityInfo?: {
     firstName?: string; secondName?: string; thirdName?: string; lastName?: string;
     firstNameAr?: string; secondNameAr?: string; thirdNameAr?: string; lastNameAr?: string;
-    gender?: string; religion?: string; secondNationality?: string;
+    gender?: string; religion?: string; nationality?: string; academicYear?: string; secondNationality?: string;
     nativeLanguage?: string; secondLanguage?: string; englishProficiency?: string;
   };
   emergencyContact1?: { firstName?: string; secondName?: string; thirdName?: string; lastName?: string; relativity?: string; mobile?: string };
