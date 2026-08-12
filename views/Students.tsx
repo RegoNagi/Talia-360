@@ -39,7 +39,7 @@ import { useEffect } from 'react';
 interface UserManagementProps {
   language: Language;
   role: UserRole;
-  onEditProfile?: () => void;
+  onEditProfile?: (studentId: string) => void;
   activeTabProp?: 'students' | 'parents' | 'teachers' | 'admins';
   onTabChange?: (tab: 'students' | 'parents' | 'teachers' | 'admins') => void;
   permissions?: string[];
