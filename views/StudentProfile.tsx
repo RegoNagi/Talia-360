@@ -39,7 +39,7 @@ interface StudentProfileProps {
   student: Student;
   language: Language;
   onBack: () => void;
-  onEditProfile?: () => void;
+  onEditProfile?: (studentId: string) => void;
 }
 
 export const StudentProfile: React.FC<StudentProfileProps> = ({ student, language, onBack, onEditProfile }) => {
@@ -1152,7 +1152,7 @@ Result: ${doc.gradeAverage}`;
              <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => setIsMessageModalOpen(true)}>
                <MessageSquare size={16} /> مراسلة
              </Button>
-             <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={onEditProfile}>
+             <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => onEditProfile?.(student.id)}
                <Edit size={16} /> تعديل الملف
              </Button>
           </div>
