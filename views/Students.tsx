@@ -720,7 +720,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
   // studentsList بيتم تحميلها الآن من قاعدة بيانات حقيقية (Supabase) بدل الـ mock data
   const [studentsList, setStudentsList] = useState<Student[]>([]);
   const [studentsLoading, setStudentsLoading] = useState<boolean>(true);
-  const [parentsList, setParentsList] = useState<Parent[]>(MOCK_PARENTS);
   const [teachersList, setTeachersList] = useState<Teacher[]>([]);
   const [teachersLoading, setTeachersLoading] = useState<boolean>(true);
   const [adminsList, setAdminsList] = useState<any[]>([]);
