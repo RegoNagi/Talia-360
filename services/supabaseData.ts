@@ -153,6 +153,65 @@ export async function updateStudent(input: {
   return true;
 }
 
+// بيجيب بيانات طالب واحد كاملة (لملف بيانات الطالب الشامل)
+export async function getStudentById(studentId: string): Promise<(Student & { userId: string; email: string }) | null> {
+  const { data, error } = await supabase
+    .from('students')
+    .select(`
+      id,
+      user_id,
+      grade,
+      national_id,
+      dob,
+      enrollment_date,
+      status,
+      father_info,
+      mother_info,
+      legal_guardian,
+      guardian_relationship,
+      identity_info,
+      emergency_contact_1,
+      emergency_contact_2,
+      home_address,
+      additional_info,
+      users ( name, email )
+    `)
+    .eq('id', studentId)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error('Error fetching student by id:', error);
+    return null;
+  }
+
+  const row: any = data;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.users?.name ?? 'بدون اسم',
+    email: row.users?.email ?? '',
+    grade: row.grade ?? '',
+    attendance: 0,
+    performance: 0,
+    status: row.status ?? 'Active',
+    fees: [],
+    installmentPlans: [],
+    reportCards: [],
+    dob: row.dob ?? undefined,
+    nationalId: row.national_id ?? undefined,
+    enrollmentDate: row.enrollment_date ?? undefined,
+    fatherInfo: row.father_info ?? undefined,
+    motherInfo: row.mother_info ?? undefined,
+    legalGuardian: row.legal_guardian ?? undefined,
+    guardianRelationship: row.guardian_relationship ?? undefined,
+    identityInfo: row.identity_info ?? undefined,
+    emergencyContact1: row.emergency_contact_1 ?? undefined,
+    emergencyContact2: row.emergency_contact_2 ?? undefined,
+    homeAddress: row.home_address ?? undefined,
+    additionalInfo: row.additional_info ?? undefined,
+  };
+}
+
 // بيمسح طالب واحد (مسح اليوزر بيمسح معاه سجل الطالب والتسجيلات تلقائيًا بسبب CASCADE)
 export async function deleteStudent(userId: string): Promise<boolean> {
   const { error } = await supabase.from('users').delete().eq('id', userId);
