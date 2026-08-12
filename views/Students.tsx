@@ -884,6 +884,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
       status: form.status,
       email: form.email,
       password: form.password,
+      fatherInfo: { firstName: form.fatherFirstName, secondName: form.fatherSecondName, thirdName: form.fatherThirdName, lastName: form.fatherLastName, nationality: form.fatherNationality, secondNationality: form.fatherSecondNationality, idNumber: form.fatherIdNumber, academicDegree: form.fatherAcademicDegree, marital: form.fatherMarital, employmentStatus: form.fatherEmploymentStatus, jobTitle: form.fatherJobTitle, companyName: form.fatherCompanyName, email: form.fatherEmail, mobile: form.fatherMobile, whatsapp: form.fatherWhatsapp, deceased: form.fatherDeceased },
+      motherInfo: { firstName: form.motherFirstName, secondName: form.motherSecondName, thirdName: form.motherThirdName, lastName: form.motherLastName, nationality: form.motherNationality, secondNationality: form.motherSecondNationality, idNumber: form.motherIdNumber, academicDegree: form.motherAcademicDegree, marital: form.motherMarital, employmentStatus: form.motherEmploymentStatus, jobTitle: form.motherJobTitle, companyName: form.motherCompanyName, email: form.motherEmail, mobile: form.motherMobile, whatsapp: form.motherWhatsapp, deceased: form.motherDeceased },
+      legalGuardian: form.legalGuardian,
+      guardianRelationship: form.guardianRelationship,
     });
     if (ok) {
       refreshStudents();
