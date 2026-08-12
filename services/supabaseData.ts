@@ -75,6 +75,10 @@ export async function getStudents(): Promise<(Student & { userId: string; email:
       dob,
       enrollment_date,
       status,
+      father_info,
+      mother_info,
+      legal_guardian,
+      guardian_relationship,
       users ( name, email )
     `);
 
@@ -100,6 +104,10 @@ export async function getStudents(): Promise<(Student & { userId: string; email:
     dob: row.dob ?? undefined,
     nationalId: row.national_id ?? undefined,
     enrollmentDate: row.enrollment_date ?? undefined,
+    fatherInfo: row.father_info ?? undefined,
+    motherInfo: row.mother_info ?? undefined,
+    legalGuardian: row.legal_guardian ?? undefined,
+    guardianRelationship: row.guardian_relationship ?? undefined,
   }));
 }
 
@@ -113,6 +121,10 @@ export async function updateStudent(input: {
   status: string;
   email?: string;
   password?: string;
+  fatherInfo?: any;
+  motherInfo?: any;
+  legalGuardian?: string;
+  guardianRelationship?: string;
 }): Promise<boolean> {
   const userUpdate: any = { name: input.name };
   if (input.email !== undefined) userUpdate.email = input.email?.trim() ? input.email.trim() : null;
@@ -124,7 +136,15 @@ export async function updateStudent(input: {
   }
   const { error: studentError } = await supabase
     .from('students')
-    .update({ grade: input.grade, dob: input.dob || null, status: input.status })
+    .update({
+      grade: input.grade,
+      dob: input.dob || null,
+      status: input.status,
+      father_info: input.fatherInfo ?? null,
+      mother_info: input.motherInfo ?? null,
+      legal_guardian: input.legalGuardian ?? null,
+      guardian_relationship: input.guardianRelationship ?? null,
+    })
     .eq('id', input.studentId);
   if (studentError) {
     console.error('Error updating student record:', studentError);
