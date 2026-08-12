@@ -111,14 +111,23 @@ export interface TranscriptData {
   honors?: string;
 }
 
-export interface Parent {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  childrenIds: string[];
-  status: 'Active' | 'Inactive';
-  avatar?: string;
+export interface ParentInfo {
+  deceased?: boolean;
+  firstName?: string;
+  secondName?: string;
+  thirdName?: string;
+  lastName?: string;
+  nationality?: string;
+  secondNationality?: string;
+  idNumber?: string;
+  academicDegree?: string;
+  marital?: string;
+  employmentStatus?: string;
+  jobTitle?: string;
+  companyName?: string;
+  email?: string;
+  mobile?: string;
+  whatsapp?: string;
 }
 
 export interface Student {
@@ -136,6 +145,10 @@ export interface Student {
   nationalId?: string;
   enrollmentDate?: string;
   avatar?: string;
+  fatherInfo?: ParentInfo;
+  motherInfo?: ParentInfo;
+  legalGuardian?: string;
+  guardianRelationship?: string;
 }
 
 export interface LessonPlan {
