@@ -2608,344 +2608,104 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
             </div>
           </div>
         )}
-
-          {activeTab === SettingsTab.SPACE_MANAGEMENT && (
+{activeTab === SettingsTab.SPACE_MANAGEMENT && (
             <div className="flex-1 flex flex-col space-y-8 animate-fadeIn">
               {/* Header */}
-              <div className="flex justify-between items-end">
-                <div>
-                  <h3 className="text-3xl font-black text-gray-900 tracking-tight">
-                    {isRTL ? 'إدارة المساحات التعليمية' : 'Space Management'}
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-2">
-                    {isRTL ? 'تكوين مساحات الفصول والتحكم في الحوكمة والاعتدال.' : 'Configure class spaces and control governance and moderation.'}
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+                  {isRTL ? 'إدارة المساحات التعليمية' : 'Space Management'}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {isRTL ? 'كل مساحة تمثل فصل + مادة، بالإضافة لمساحة إعلانات المدرسة العامة.' : 'Each space represents a class + subject, plus the general school announcements space.'}
+                </p>
+              </div>
+
+              {spacesLoading ? (
+                <div className="text-center py-16 text-gray-400">{isRTL ? 'جاري التحميل...' : 'Loading...'}</div>
+              ) : spacesList.length === 0 ? (
+                <div className="bg-white rounded-3xl border border-gray-100 p-16 text-center text-gray-400">
+                  {isRTL ? 'لسه مفيش مساحات فعلية — هتظهر هنا أول ما تتحدد حصص للفصول.' : 'No real spaces yet — they will appear once class periods are scheduled.'}
+                </div>
+              ) : (
+              <div className="flex flex-col lg:flex-row gap-6">
+                {/* List */}
+                <div className="lg:w-2/5 bg-white rounded-3xl border border-gray-100 overflow-hidden">
+                  <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
+                    {spacesList.map((space) => (
+                      <button
+                        key={space.id}
+                        onClick={() => setSelectedSpaceId(space.id)}
+                        className={`w-full text-left p-4 flex items-center justify-between transition-colors ${selectedSpaceId === space.id ? 'bg-violet-50' : 'hover:bg-gray-50'}`}
+                      >
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">{space.className}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {isRTL ? `${space.postCount} بوست` : `${space.postCount} posts`}
+                            {space.lastActivity && ` • ${new Date(space.lastActivity).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${space.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                          {space.status === 'Active' ? (isRTL ? 'نشطة' : 'Active') : (isRTL ? 'مؤرشفة' : 'Archived')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Detail panel */}
+                {selectedSpace && (
+                <div className="lg:w-3/5 bg-white rounded-3xl border border-gray-100 p-8">
+                  <h3 className="text-xl font-black text-gray-900">{selectedSpace.className}</h3>
+                  <p className="text-sm text-gray-400 mt-1">
+                    {selectedSpace.classId ? (isRTL ? 'مساحة فصل ومادة' : 'Class + subject space') : (isRTL ? 'مساحة إعلانات المدرسة' : 'School announcements space')}
                   </p>
+
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    <div className="bg-gray-50 rounded-2xl p-4">
+                      <p className="text-xs font-bold text-gray-400 uppercase">{isRTL ? 'عدد البوستات' : 'Posts'}</p>
+                      <p className="text-2xl font-black text-gray-900 mt-1">{selectedSpace.postCount}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-2xl p-4">
+                      <p className="text-xs font-bold text-gray-400 uppercase">{isRTL ? 'آخر نشاط' : 'Last Activity'}</p>
+                      <p className="text-sm font-bold text-gray-900 mt-2">
+                        {selectedSpace.lastActivity ? new Date(selectedSpace.lastActivity).toLocaleString() : (isRTL ? 'لا يوجد' : 'None yet')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-gray-800 text-sm">{isRTL ? 'حالة المساحة' : 'Space Status'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {isRTL ? 'المساحة المؤرشفة مايقدرش حد ينشر فيها بوستات جديدة.' : 'An archived space cannot receive new posts.'}
+                      </p>
+                    </div>
+                    <button
+                      disabled={isTogglingSpace}
+                      onClick={async () => {
+                        setIsTogglingSpace(true);
+                        const newStatus = selectedSpace.status === 'Active' ? 'Archived' : 'Active';
+                        const ok = await updateSpaceStatus(selectedSpace.classId, selectedSpace.subject, newStatus);
+                        if (ok) {
+                          await refreshSpaces();
+                          showToast(isRTL ? 'تم تحديث حالة المساحة.' : 'Space status updated.', 'success');
+                        } else {
+                          showToast(isRTL ? 'حصل خطأ أثناء التحديث.' : 'Error updating status.', 'error');
+                        }
+                        setIsTogglingSpace(false);
+                      }}
+                      className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60 ${selectedSpace.status === 'Active' ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                    >
+                      {isTogglingSpace ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : selectedSpace.status === 'Active' ? (isRTL ? 'أرشفة المساحة' : 'Archive Space') : (isRTL ? 'تفعيل المساحة' : 'Activate Space')}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-3">
-                  <Button variant="secondary" className="flex items-center gap-2">
-                    <RefreshCw size={18} /> {isRTL ? 'مزامنة الفصول' : 'Sync Classes'}
-                  </Button>
-                  <Button variant="primary" className="flex items-center gap-2">
-                    <Plus size={18} /> {isRTL ? 'قالب جديد' : 'New Template'}
-                  </Button>
-                </div>
+                )}
               </div>
-
-              {/* Main Split View */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                {/* Left Side: Class List */}
-                <div className="lg:col-span-4 space-y-4">
-                  <div className="relative">
-                    <Search className={`absolute ${isRTL ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-gray-400`} size={18} />
-                    <input 
-                      type="text" 
-                      placeholder={isRTL ? 'ابحث عن فصل...' : 'Search classes...'}
-                      className={`w-full bg-white border border-gray-100 rounded-2xl py-4 ${isRTL ? 'pr-12' : 'pl-12'} pr-4 text-sm outline-none focus:ring-2 focus:ring-violet-500 shadow-sm transition-all`}
-                    />
-                  </div>
-
-                  <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-                      <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">All Class Sections</h4>
-                      <span className="bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-full">{spaces.length} Total</span>
-                    </div>
-                    <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
-                      {spaces.map(space => (
-                        <button 
-                          key={space.id}
-                          onClick={() => setSelectedSpaceId(space.id)}
-                          className={`w-full p-6 text-left flex items-center gap-4 transition-all hover:bg-gray-50 ${selectedSpaceId === space.id ? 'bg-violet-50/50 border-r-4 border-violet-600' : ''}`}
-                        >
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black ${
-                            space.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                          }`}>
-                            {space.name.split(' ')[1]}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-gray-900 truncate">{space.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className={`w-2 h-2 rounded-full ${space.status === 'Active' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                              <span className="text-[10px] font-bold text-gray-400 uppercase">{space.status}</span>
-                            </div>
-                          </div>
-                          {space.pendingFlags > 0 && (
-                            <div className="bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                              {space.pendingFlags}
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Health Dashboard Mini */}
-                  <div className="bg-indigo-900 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl shadow-indigo-200">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-                    <div className="relative z-10">
-                      <div className="flex items-center gap-3 mb-6">
-                        <Activity size={20} className="text-indigo-300" />
-                        <h4 className="text-sm font-black uppercase tracking-widest">Space Health</h4>
-                      </div>
-                      <div className="space-y-6">
-                        <div>
-                          <div className="flex justify-between text-xs mb-2">
-                            <span className="text-indigo-300">Avg. Engagement</span>
-                            <span className="font-bold">74%</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-indigo-400 w-[74%] rounded-full"></div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex-1 bg-white/5 rounded-2xl p-4 border border-white/10">
-                            <p className="text-[10px] text-indigo-300 uppercase font-black mb-1">Mood</p>
-                            <p className="text-lg font-black">{selectedSpace.mood}</p>
-                          </div>
-                          <div className="flex-1 bg-white/5 rounded-2xl p-4 border border-white/10">
-                            <p className="text-[10px] text-indigo-300 uppercase font-black mb-1">Flags</p>
-                            <p className="text-lg font-black">{selectedSpace.pendingFlags}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Side: Governance Panel */}
-                <div className="lg:col-span-8 space-y-8">
-                  <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="p-10 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm">
-                          <ShieldCheck size={28} />
-                        </div>
-                        <div>
-                          <h3 className="text-2xl font-black text-gray-900 tracking-tight">Space Governance</h3>
-                          <p className="text-sm text-gray-500">Configuring <span className="font-bold text-indigo-600">{selectedSpace.name}</span></p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-gray-100 shadow-sm">
-                        <Users size={16} className="text-gray-400" />
-                        <span className="text-xs font-bold text-gray-600">Moderator: Teacher ID {selectedSpace.teacherId}</span>
-                      </div>
-                    </div>
-
-                    <div className="p-10 grid grid-cols-1 md:grid-cols-2 gap-10">
-                      {/* Provisioning & Structure */}
-                      <div className="space-y-6">
-                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                          <Settings2 size={14} /> Provisioning & Structure
-                        </h4>
-                        
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-all cursor-pointer group" onClick={() => {
-                            const newSpaces = spaces.map(s => s.id === selectedSpaceId ? { ...s, settings: { ...s.settings, enableSocialWall: !s.settings.enableSocialWall } } : s);
-                            setSpaces(newSpaces);
-                          }}>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedSpace.settings.enableSocialWall ? 'bg-violet-100 text-violet-600' : 'bg-gray-100 text-gray-400'}`}>
-                                <Radio size={20} />
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900">Enable Social Wall</p>
-                                <p className="text-[10px] text-gray-400">Allows class-wide feed</p>
-                              </div>
-                            </div>
-                            {selectedSpace.settings.enableSocialWall ? <ToggleRight size={32} className="text-violet-600" /> : <ToggleLeft size={32} className="text-gray-300" />}
-                          </div>
-
-                          <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-all cursor-pointer group" onClick={() => {
-                            const newSpaces = spaces.map(s => s.id === selectedSpaceId ? { ...s, settings: { ...s.settings, parentObserverAccess: !s.settings.parentObserverAccess } } : s);
-                            setSpaces(newSpaces);
-                          }}>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedSpace.settings.parentObserverAccess ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
-                                <Eye size={20} />
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900">Parent Observer Access</p>
-                                <p className="text-[10px] text-gray-400">Parents can view feed</p>
-                              </div>
-                            </div>
-                            {selectedSpace.settings.parentObserverAccess ? <ToggleRight size={32} className="text-indigo-600" /> : <ToggleLeft size={32} className="text-gray-300" />}
-                          </div>
-
-                          <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-all cursor-pointer group" onClick={() => {
-                            const newSpaces = spaces.map(s => s.id === selectedSpaceId ? { ...s, settings: { ...s.settings, classDrive: !s.settings.classDrive } } : s);
-                            setSpaces(newSpaces);
-                          }}>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedSpace.settings.classDrive ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                                <FolderOpen size={20} />
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900">Class Drive</p>
-                                <p className="text-[10px] text-gray-400">Shared resource library</p>
-                              </div>
-                            </div>
-                            {selectedSpace.settings.classDrive ? <ToggleRight size={32} className="text-emerald-600" /> : <ToggleLeft size={32} className="text-gray-300" />}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Moderation & Safety */}
-                      <div className="space-y-6">
-                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                          <ShieldAlert size={14} /> Moderation & Safety
-                        </h4>
-                        
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-all cursor-pointer group" onClick={() => {
-                            const newSpaces = spaces.map(s => s.id === selectedSpaceId ? { ...s, settings: { ...s.settings, aiContentFiltering: !s.settings.aiContentFiltering } } : s);
-                            setSpaces(newSpaces);
-                          }}>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedSpace.settings.aiContentFiltering ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-400'}`}>
-                                <Bot size={20} />
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900">AI Content Filtering</p>
-                                <p className="text-[10px] text-gray-400">Auto-detect off-topic/bullying</p>
-                              </div>
-                            </div>
-                            {selectedSpace.settings.aiContentFiltering ? <ToggleRight size={32} className="text-purple-600" /> : <ToggleLeft size={32} className="text-gray-300" />}
-                          </div>
-
-                          <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-all cursor-pointer group" onClick={() => {
-                            const newSpaces = spaces.map(s => s.id === selectedSpaceId ? { ...s, settings: { ...s.settings, postApprovalMode: !s.settings.postApprovalMode } } : s);
-                            setSpaces(newSpaces);
-                          }}>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedSpace.settings.postApprovalMode ? 'bg-violet-100 text-violet-600' : 'bg-gray-100 text-gray-400'}`}>
-                                <CheckCircle2 size={20} />
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900">Post Approval Mode</p>
-                                <p className="text-[10px] text-gray-400">Teacher must approve posts</p>
-                              </div>
-                            </div>
-                            {selectedSpace.settings.postApprovalMode ? <ToggleRight size={32} className="text-violet-600" /> : <ToggleLeft size={32} className="text-gray-300" />}
-                          </div>
-
-                          <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-all cursor-pointer group" onClick={() => {
-                            const newSpaces = spaces.map(s => s.id === selectedSpaceId ? { ...s, settings: { ...s.settings, lockWallAfterHours: !s.settings.lockWallAfterHours } } : s);
-                            setSpaces(newSpaces);
-                          }}>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${selectedSpace.settings.lockWallAfterHours ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'}`}>
-                                <Lock size={20} />
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900">Lock Wall After Hours</p>
-                                <p className="text-[10px] text-gray-400">Prevents late-night posting</p>
-                              </div>
-                            </div>
-                            {selectedSpace.settings.lockWallAfterHours ? <ToggleRight size={32} className="text-red-600" /> : <ToggleLeft size={32} className="text-gray-300" />}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-10 border-t border-gray-50 bg-gray-50/20">
-                      <div className="flex items-center justify-between mb-8">
-                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">Live Preview (Student View)</h4>
-                        <div className="flex gap-2">
-                          <button className="p-2 bg-white rounded-lg border border-gray-100 text-gray-400 hover:text-violet-600 shadow-sm transition-all">
-                            <Smartphone size={16} />
-                          </button>
-                          <button className="p-2 bg-white rounded-lg border border-gray-100 text-gray-400 hover:text-violet-600 shadow-sm transition-all">
-                            <Monitor size={16} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Mobile Mockup */}
-                      <div className="max-w-[320px] mx-auto bg-gray-900 rounded-[3rem] p-3 shadow-2xl border-4 border-gray-800">
-                        <div className="bg-white rounded-[2.5rem] h-[500px] overflow-hidden flex flex-col font-sans">
-                          {/* Mock App Header */}
-                          <div className="bg-violet-600 p-6 text-white">
-                            <div className="flex justify-between items-center mb-4">
-                              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                                <Menu size={16} />
-                              </div>
-                              <div className="flex gap-2">
-                                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                                  <Bell size={16} />
-                                </div>
-                                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                                  <Search size={16} />
-                                </div>
-                              </div>
-                            </div>
-                            <h5 className="text-xl font-black">{selectedSpace.name}</h5>
-                            <p className="text-[10px] text-violet-100 opacity-80">Teacher: Mr. Ahmed Vance</p>
-                            
-                            <div className="flex gap-4 mt-6 border-b border-white/10">
-                              <button className="pb-2 text-xs font-bold border-b-2 border-white">Wall</button>
-                              <button className="pb-2 text-xs font-bold opacity-60">Classwork</button>
-                              <button className="pb-2 text-xs font-bold opacity-60">Members</button>
-                            </div>
-                          </div>
-
-                          {/* Mock Feed */}
-                          <div className="flex-1 bg-gray-50 p-4 space-y-4 overflow-y-auto">
-                            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                              <div className="flex items-center gap-2 mb-3">
-                                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">AV</div>
-                                <div>
-                                  <p className="text-[10px] font-bold">Ahmed Vance</p>
-                                  <p className="text-[8px] text-gray-400">2 hours ago • Announcement</p>
-                                </div>
-                              </div>
-                              <p className="text-[10px] text-gray-600 leading-relaxed">
-                                Good morning class! Don't forget our field trip tomorrow. Please bring your signed permission slips.
-                              </p>
-                              <div className="mt-3 pt-3 border-t border-gray-50 flex gap-4">
-                                <div className="flex items-center gap-1 text-[8px] font-bold text-gray-400">
-                                  <MessageSquare size={10} /> 12 Replies
-                                </div>
-                                <div className="flex items-center gap-1 text-[8px] font-bold text-gray-400">
-                                  <Heart size={10} /> 24 Likes
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 border-l-4 border-violet-500">
-                              <div className="flex items-center gap-2 mb-3">
-                                <div className="w-8 h-8 bg-violet-100 rounded-full flex items-center justify-center text-violet-600 font-bold text-xs">HW</div>
-                                <div>
-                                  <p className="text-[10px] font-bold">Homework Assignment</p>
-                                  <p className="text-[8px] text-gray-400">5 hours ago • Due: Friday</p>
-                                </div>
-                              </div>
-                              <h6 className="text-xs font-bold mb-1">Chapter 4 Review Questions</h6>
-                              <p className="text-[10px] text-gray-500 mb-3">Complete questions 1-15 on page 84.</p>
-                              <button className="w-full py-2 bg-violet-600 text-white rounded-xl text-[10px] font-bold">Submit Assignment</button>
-                            </div>
-                          </div>
-
-                          {/* Mock Input */}
-                          {selectedSpace.settings.studentPosting && (
-                            <div className="p-4 bg-white border-t border-gray-100 flex gap-3 items-center">
-                              <div className="w-8 h-8 bg-gray-100 rounded-full"></div>
-                              <div className="flex-1 bg-gray-50 rounded-full px-4 py-2 text-[10px] text-gray-400">
-                                Share something with your class...
-                              </div>
-                              <div className="text-violet-600">
-                                <Plus size={18} />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
-
+          
           {activeTab === SettingsTab.GENERAL && (
             <div className="flex-1 flex flex-col">
               {/* Tab Header */}
