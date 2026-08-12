@@ -1713,3 +1713,93 @@ export async function upsertSubjectTheme(subjectName: string, theme: SubjectThem
   }
   return true;
 }
+// بيجيب كل المساحات الحقيقية: كل (فصل+مادة) موجودة فعليًا + مساحة إعلانات المدرسة، مع عدد بوستات حقيقي وآخر نشاط
+export interface SpaceInfo {
+  id: string;
+  classId: string | null;
+  subject: string | null;
+  className: string;
+  status: 'Active' | 'Archived';
+  postCount: number;
+  lastActivity: string | null;
+}
+
+export async function getSpaces(): Promise<SpaceInfo[]> {
+  const { data: periods, error: periodsError } = await supabase
+    .from('class_periods')
+    .select('subject, section_id, class_sections ( name, grade_level )');
+  if (periodsError) {
+    console.error('Error fetching class periods for spaces:', periodsError);
+    return [];
+  }
+
+  const comboMap = new Map<string, { classId: string; subject: string; className: string }>();
+  (periods || []).forEach((row: any) => {
+    const key = `${row.section_id}|${row.subject}`;
+    if (!comboMap.has(key)) {
+      comboMap.set(key, {
+        classId: row.section_id,
+        subject: row.subject,
+        className: `${row.class_sections?.name || ''} — ${row.subject}`,
+      });
+    }
+  });
+
+  const { data: settingsRows } = await supabase.from('class_space_settings').select('class_id, subject, status');
+  const settingsMap = new Map<string, string>();
+  (settingsRows || []).forEach((r: any) => {
+    const key = r.class_id ? `${r.class_id}|${r.subject}` : 'school';
+    settingsMap.set(key, r.status);
+  });
+
+  const { data: posts } = await supabase.from('class_posts').select('class_id, subject, created_at');
+  const postStats = new Map<string, { count: number; last: string }>();
+  (posts || []).forEach((p: any) => {
+    const key = p.class_id ? `${p.class_id}|${p.subject}` : 'school';
+    const cur = postStats.get(key) || { count: 0, last: '' };
+    cur.count++;
+    if (!cur.last || p.created_at > cur.last) cur.last = p.created_at;
+    postStats.set(key, cur);
+  });
+
+  const spaces: SpaceInfo[] = [];
+  comboMap.forEach((combo, key) => {
+    const stat = postStats.get(key);
+    spaces.push({
+      id: key,
+      classId: combo.classId,
+      subject: combo.subject,
+      className: combo.className,
+      status: (settingsMap.get(key) as any) || 'Active',
+      postCount: stat?.count || 0,
+      lastActivity: stat?.last || null,
+    });
+  });
+
+  const schoolStat = postStats.get('school');
+  spaces.push({
+    id: 'school',
+    classId: null,
+    subject: null,
+    className: 'إعلانات المدرسة',
+    status: (settingsMap.get('school') as any) || 'Active',
+    postCount: schoolStat?.count || 0,
+    lastActivity: schoolStat?.last || null,
+  });
+
+  return spaces;
+}
+
+// بيغيّر حالة مساحة (نشطة/مؤرشفة) — لو مفيش صف إعدادات ليها لسه، بينشئ واحد
+export async function updateSpaceStatus(classId: string | null, subject: string | null, status: 'Active' | 'Archived'): Promise<boolean> {
+  let query = supabase.from('class_space_settings').select('id');
+  query = classId ? query.eq('class_id', classId).eq('subject', subject as string) : query.is('class_id', null).is('subject', null);
+  const { data: existing } = await query.maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase.from('class_space_settings').update({ status, updated_at: new Date().toISOString() }).eq('id', (existing as any).id);
+    return !error;
+  }
+  const { error } = await supabase.from('class_space_settings').insert({ class_id: classId, subject, status });
+  return !error;
+}
