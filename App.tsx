@@ -360,8 +360,7 @@ const App: React.FC = () => {
       case 'settings':
         return <Settings role={user.role} language={language} />;
       case 'edit-profile':
-        case 'edit-profile':
-        return editProfileStudentId ? <EditStudentProfile studentId={editProfileStudentId} onBack={() => setActiveView('users')} /> : null;
+          return editProfileStudentId ? <EditStudentProfile studentId={editProfileStudentId} onBack={() => setActiveView('users')} /> : null;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
