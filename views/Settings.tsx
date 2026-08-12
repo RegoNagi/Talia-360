@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Language, UserRole, SettingsTab, Course, AcademicYearConfig, Holiday, TimetableEvent, NotificationSettings, NotificationChannel, NotificationCategory, NotificationTrigger, ClassSpace, SpaceGovernance } from '../types';
+import { Language, UserRole, SettingsTab, Course, AcademicYearConfig, Holiday, TimetableEvent, NotificationSettings, NotificationChannel, NotificationCategory, NotificationTrigger } from '../types';
 import { Button } from '../components/Button';
 import { confirmDialog } from '../components/ConfirmDialog';
 import { showToast } from '../components/Toast';
-import { getAllCurriculumSubjectsWithGrade, addCurriculumSubject, updateCurriculumSubjectById, removeCurriculumSubjectById, getTerms, createTerm, updateTerm, deleteTerm, getSubjectThemes, upsertSubjectTheme, getSubjectThemeFor, SubjectTheme } from '../services/supabaseData';
+import { getAllCurriculumSubjectsWithGrade, addCurriculumSubject, updateCurriculumSubjectById, removeCurriculumSubjectById, getTerms, createTerm, updateTerm, deleteTerm, getSubjectThemes, upsertSubjectTheme, getSubjectThemeFor, SubjectTheme, getSpaces, updateSpaceStatus, SpaceInfo } from '../services/supabaseData';
 import { getSubjectIconComponent, SUBJECT_COLOR_OPTIONS, SUBJECT_ICON_OPTIONS } from '../lib/subjectIcons';
 import { getAcademicYears, createAcademicYear, updateAcademicYear, activateAcademicYear, archiveAcademicYear, deleteAcademicYear } from '../services/supabaseData';
 import { getGradeLevels, addGradeLevel, deleteGradeLevel } from '../services/supabaseData';
@@ -113,81 +113,6 @@ const MOCK_COURSES: Course[] = [
   { id: 'c5', code: 'ISL101', nameEn: 'Islamic Studies', nameAr: 'الدراسات الإسلامية', credits: 2, department: 'Social Studies', color: 'bg-emerald-500', gradeLevel: 'Grade 12' },
 ];
 
-const MOCK_SPACES: ClassSpace[] = [
-  {
-    id: 's1',
-    sectionId: 'sec1',
-    name: 'Grade 10-A',
-    teacherId: 't1',
-    coTeachers: ['t2'],
-    status: 'Active',
-    engagementRate: 85,
-    pendingFlags: 0,
-    mood: 'Positive',
-    settings: {
-      enableSocialWall: true,
-      parentObserverAccess: true,
-      aiContentFiltering: true,
-      studentPosting: true,
-      privateMessaging: false,
-      classDrive: true,
-      liveSessionIntegration: true,
-      postApprovalMode: false,
-      keywordFiltering: true,
-      offTopicDetection: true,
-      lockWallAfterHours: true
-    }
-  },
-  {
-    id: 's2',
-    sectionId: 'sec2',
-    name: 'Grade 10-B',
-    teacherId: 't3',
-    coTeachers: [],
-    status: 'Active',
-    engagementRate: 62,
-    pendingFlags: 3,
-    mood: 'Stressed',
-    settings: {
-      enableSocialWall: true,
-      parentObserverAccess: false,
-      aiContentFiltering: true,
-      studentPosting: false,
-      privateMessaging: false,
-      classDrive: true,
-      liveSessionIntegration: true,
-      postApprovalMode: true,
-      keywordFiltering: true,
-      offTopicDetection: true,
-      lockWallAfterHours: false
-    }
-  },
-  {
-    id: 's3',
-    sectionId: 'sec3',
-    name: 'Grade 9-C',
-    teacherId: 't4',
-    coTeachers: ['t5', 't6'],
-    status: 'Maintenance',
-    engagementRate: 0,
-    pendingFlags: 0,
-    mood: 'Neutral',
-    settings: {
-      enableSocialWall: false,
-      parentObserverAccess: true,
-      aiContentFiltering: true,
-      studentPosting: true,
-      privateMessaging: true,
-      classDrive: true,
-      liveSessionIntegration: false,
-      postApprovalMode: false,
-      keywordFiltering: false,
-      offTopicDetection: false,
-      lockWallAfterHours: true
-    }
-  }
-];
-
 export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>(SettingsTab.COURSES);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -222,10 +147,20 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   
-  // Space Management State
-  const [spaces, setSpaces] = useState<ClassSpace[]>(MOCK_SPACES);
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(MOCK_SPACES[0].id);
-  const selectedSpace = spaces.find(s => s.id === selectedSpaceId) || spaces[0];
+  // Space Management State — بيانات حقيقية
+  const [spacesList, setSpacesList] = useState<SpaceInfo[]>([]);
+  const [spacesLoading, setSpacesLoading] = useState(true);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
+  const [isTogglingSpace, setIsTogglingSpace] = useState(false);
+  const selectedSpace = spacesList.find(s => s.id === selectedSpaceId) || spacesList[0];
+  const refreshSpaces = async () => {
+    setSpacesLoading(true);
+    const data = await getSpaces();
+    setSpacesList(data);
+    if (!selectedSpaceId && data.length > 0) setSelectedSpaceId(data[0].id);
+    setSpacesLoading(false);
+  };
+  useEffect(() => { refreshSpaces(); }, []);
 
   // Academic Year State
   const [academicYears, setAcademicYears] = useState<AcademicYearConfig[]>([]);
