@@ -27,6 +27,15 @@ async function getAttendancePercentages(): Promise<Record<string, number>> {
 }
 
 // بينشئ طالب حقيقي جديد (يوزر + سجل طالب)
+// بيولّد كود طالب جديد بالشكل STU-YYYY-00001 — تسلسل منفصل لكل سنة قيد
+async function generateStudentCode(enrollmentYear: string): Promise<string> {
+  const { count } = await supabase
+    .from('students')
+    .select('id', { count: 'exact', head: true })
+    .like('student_code', `STU-${enrollmentYear}-%`);
+  const nextSeq = (count || 0) + 1;
+  return `STU-${enrollmentYear}-${String(nextSeq).padStart(5, '0')}`;
+}
 export async function createStudent(input: {
   name: string;
   grade: string;
@@ -45,14 +54,17 @@ export async function createStudent(input: {
     return null;
   }
 
+  const enrollmentDate = new Date().toISOString().slice(0, 10);
+  const studentCode = await generateStudentCode(enrollmentDate.slice(0, 4));
   const { data: studentRow, error: studentError } = await supabase
     .from('students')
     .insert({
       user_id: userRow.id,
       grade: input.grade,
       dob: input.dob || null,
-      enrollment_date: new Date().toISOString().slice(0, 10),
+      enrollment_date: enrollmentDate,
       status: 'Active',
+      student_code: studentCode,
     })
     .select('id')
     .single();
