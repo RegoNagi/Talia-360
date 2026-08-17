@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { Student, ClassSection, Teacher } from '../types';
+import { calculateWeightedGrade } from '../lib/gradeCalculations';
 
 // بيجيب الطلاب الحقيقيين من قاعدة البيانات (Supabase) بدل الـ mock data.
 // بعض الحقول (fees, reportCards, transcript, attendance, performance) لسه
@@ -1839,4 +1840,31 @@ export async function updateSchoolSettings(input: { id: string; schoolName: stri
     })
     .eq('id', input.id);
   return !error;
+}
+
+export interface StudentSubjectGrade {
+  subject: string;
+  grade: number | null; // null = مفيش نظام درجات معتمد للمادة دي لسه
+}
+
+// بيجيب درجة الطالب الحقيقية في كل مادة من مواد صفه، باستخدام نفس نظام الجريدبوك المعتمد
+export async function getStudentGrades(studentId: string, gradeLevel: string): Promise<StudentSubjectGrade[]> {
+  const [subjects, allConfigs] = await Promise.all([
+    getCurriculumSubjects(gradeLevel),
+    getGradebookConfigs(),
+  ]);
+
+  const results = await Promise.all(subjects.map(async (subject) => {
+    const config = allConfigs.find((c) => c.status === 'approved' && c.subjectName === subject && c.grades.includes(gradeLevel));
+    if (!config) return { subject, grade: null };
+
+    const [assessments, entries] = await Promise.all([getAssessments(config.id), getGradeEntries(config.id)]);
+    const hasAnyEntry = entries.some((e) => e.studentId === studentId);
+    if (!hasAnyEntry) return { subject, grade: null };
+
+    const grade = calculateWeightedGrade(assessments, entries, config.categoryWeights, studentId);
+    return { subject, grade };
+  }));
+
+  return results;
 }
