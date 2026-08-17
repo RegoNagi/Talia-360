@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole, Language, User, ClassSection, AttendanceSession, AttendanceStatus, CurriculumSystem, Student, Teacher } from '../types';
-import { getStudents, getClassSections, getTeachers, createClassSection, saveAttendanceSession, getTodayAttendanceForSection, updateClassSection, deleteClassSection, bulkDeleteClassSections, addEnrollment, removeEnrollment, getGradeLevels } from '../services/supabaseData';
+import { getStudents, getClassSections, getTeachers, createClassSection, saveAttendanceSession, getTodayAttendanceForSection, updateClassSection, deleteClassSection, bulkDeleteClassSections, addEnrollment, removeEnrollment, getGradeLevels, getPeriods, getCurriculumWeeks } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { confirmDialog } from '../components/ConfirmDialog';
 import { Button } from '../components/Button';
@@ -48,44 +48,112 @@ import {
 } from 'lucide-react';
 import { ArrowLeftRight } from 'lucide-react';
 
-const ACADEMIC_PLAN = [
-  {
-    id: 'math',
-    subject: 'Mathematics',
-    icon: Calculator,
-    topics: [
-      { title: 'Introduction to Quadratic Equations', obj: 'Understand ax² + bx + c = 0 form.', status: 'Completed' },
-      { title: 'Factoring Trinomials (Today\'s Focus)', obj: 'Practice factoring common trinomials.', status: 'In Progress' },
-      { title: 'The Quadratic Formula (Tomorrow)', obj: 'Apply the formula to find roots.', status: 'Upcoming' },
-    ]
-  },
-  {
-    id: 'physics',
-    subject: 'Physics',
-    icon: Atom,
-    topics: [
-      { title: 'Newton\'s First Law', obj: 'Understand inertia and equilibrium.', status: 'Completed' },
-      { title: 'Newton\'s Second Law', obj: 'F = ma applications.', status: 'In Progress' },
-      { title: 'Newton\'s Third Law', obj: 'Action and reaction pairs.', status: 'Upcoming' },
-    ]
-  },
-  {
-    id: 'english',
-    subject: 'English Literature',
-    icon: BookOpen,
-    topics: [
-      { title: 'Macbeth: Act 1 Analysis', obj: 'Character introduction and themes.', status: 'Completed' },
-      { title: 'Macbeth: Act 2 Scene 1', obj: 'The dagger soliloquy.', status: 'In Progress' },
-    ]
-  }
-];
+// بيجيب الخطة الأكاديمية الحقيقية للأسبوع الحالي، لكل مادة بتتدرّس في الفصل ده فعليًا
+async function getWeeklyPlanForClass(gradeLevel: string, sectionId: string): Promise<{ subject: string; weekNumber: number | null; startDate: string; endDate: string; topics: string[] }[]> {
+  const periods = await getPeriods(sectionId);
+  const subjects = Array.from(new Set(periods.map((p) => p.subject)));
+  const today = new Date().toISOString().slice(0, 10);
 
-const AcademicPlanAccordion = () => {
-  const [expandedSubject, setExpandedSubject] = useState<string | null>('math');
+  const results = await Promise.all(subjects.map(async (subject) => {
+    const weeks = await getCurriculumWeeks(gradeLevel, subject);
+    const currentWeek = weeks.find((w) => w.startDate && w.endDate && today >= w.startDate && today <= w.endDate);
+    if (!currentWeek) return null;
+    return {
+      subject,
+      weekNumber: currentWeek.weekNumber,
+      startDate: currentWeek.startDate,
+      endDate: currentWeek.endDate,
+      topics: (currentWeek.topics || []).map((t: any) => typeof t === 'string' ? t : (t.text || '')),
+    };
+  }));
 
-  const toggleSubject = (id: string) => {
-    setExpandedSubject(prev => prev === id ? null : id);
+  return results.filter((r): r is NonNullable<typeof r> => r !== null);
+}
+
+const AcademicPlanAccordion = ({ gradeLevel, sectionId }: { gradeLevel: string; sectionId: string }) => {
+  const [plan, setPlan] = useState<{ subject: string; weekNumber: number | null; startDate: string; endDate: string; topics: string[] }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoading(true);
+    getWeeklyPlanForClass(gradeLevel, sectionId).then((data) => {
+      setPlan(data);
+      setExpandedSubject(data[0]?.subject || null);
+      setIsLoading(false);
+    });
+  }, [gradeLevel, sectionId]);
+
+  const toggleSubject = (subject: string) => {
+    setExpandedSubject((prev) => (prev === subject ? null : subject));
   };
+
+  const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }) : '';
+
+  return (
+    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex-1 overflow-y-auto">
+      <div className="mb-6">
+        <h3 className="font-bold text-slate-900 text-lg">الخطة الأكاديمية للأسبوع</h3>
+      </div>
+
+      {isLoading ? (
+        <p className="text-center text-sm text-slate-400 py-8">جاري التحميل...</p>
+      ) : plan.length === 0 ? (
+        <p className="text-center text-sm text-slate-400 py-8">مفيش خطة أسبوعية مسجّلة لأي مادة من مواد الفصل ده للأسبوع الحالي.</p>
+      ) : (
+        <div className="space-y-2">
+          {plan.map((subjectPlan) => {
+            const isExpanded = expandedSubject === subjectPlan.subject;
+            return (
+              <div key={subjectPlan.subject} className="border border-slate-100 rounded-2xl overflow-hidden bg-white">
+                <button
+                  onClick={() => toggleSubject(subjectPlan.subject)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-50 rounded-xl text-slate-600">
+                      <BookOpen size={18} />
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-slate-800 block">{subjectPlan.subject}</span>
+                      <span className="text-[11px] text-slate-400">
+                        {subjectPlan.weekNumber != null && `الأسبوع ${subjectPlan.weekNumber} · `}
+                        {formatDate(subjectPlan.startDate)} - {formatDate(subjectPlan.endDate)}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronDown
+                    size={18}
+                    className={`text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {isExpanded && (
+                  <div className="px-4 pb-4 pt-2 border-t border-slate-50 bg-slate-50/30">
+                    {subjectPlan.topics.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-2">مفيش مواضيع مسجّلة للأسبوع ده.</p>
+                    ) : (
+                      <div className="space-y-2 pt-2">
+                        {subjectPlan.topics.map((topic, idx) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-violet-400 mt-1.5 shrink-0"></div>
+                            <p className="text-sm text-slate-700">{topic}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// (الصفوف الدراسية بقت بتتجاب حقيقي من قاعدة البيانات، مش قايمة ثابتة هنا)
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -795,7 +863,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
 
             {/* Right Col: Class Info & Lesson Plan */}
             <div className="space-y-6 flex flex-col">
-               <AcademicPlanAccordion />
+               <AcademicPlanAccordion gradeLevel={classData.gradeLevel} sectionId={classData.id} />
                <div className="bg-violet-50 rounded-3xl p-6 border border-violet-100">
                   <h4 className="font-bold text-violet-900 mb-2">أداء الفصل</h4>
                   <div className="flex justify-between items-end">
