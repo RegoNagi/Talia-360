@@ -1848,7 +1848,7 @@ export interface StudentSubjectGrade {
 }
 
 // بيجيب درجة الطالب الحقيقية في كل مادة من مواد صفه، باستخدام نفس نظام الجريدبوك المعتمد
-export async function getStudentGrades(studentId: string, gradeLevel: string): Promise<StudentSubjectGrade[]> {
+export async function getStudentGrades(studentId: string, gradeLevel: string, termId?: string): Promise<StudentSubjectGrade[]> {
   const [subjects, allConfigs] = await Promise.all([
     getCurriculumSubjects(gradeLevel),
     getGradebookConfigs(),
@@ -1862,9 +1862,22 @@ export async function getStudentGrades(studentId: string, gradeLevel: string): P
     const hasAnyEntry = entries.some((e) => e.studentId === studentId);
     if (!hasAnyEntry) return { subject, grade: null };
 
-    const grade = calculateWeightedGrade(assessments, entries, config.categoryWeights, studentId);
+    const grade = calculateWeightedGrade(assessments, entries, config.categoryWeights, studentId, termId);
     return { subject, grade };
   }));
 
   return results;
+}
+
+// بيجيب نسبة حضور الطالب الحقيقية في مدى تاريخ معيّن (زي ترم دراسي)
+export async function getStudentAttendanceForTerm(studentId: string, startDate: string, endDate: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('status, attendance_sessions!inner(date)')
+    .eq('student_id', studentId)
+    .gte('attendance_sessions.date', startDate)
+    .lte('attendance_sessions.date', endDate);
+  if (error || !data || data.length === 0) return 0;
+  const present = data.filter((row: any) => row.status === 'Present' || row.status === 'Late').length;
+  return Math.round((present / data.length) * 100);
 }
