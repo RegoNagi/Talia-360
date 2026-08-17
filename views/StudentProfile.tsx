@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Student, Language, ReportCard } from '../types';
+import { getStudentGrades, StudentSubjectGrade } from '../services/supabaseData';
 import { Button } from '../components/Button';
 import { showToast } from '../components/Toast';
 import AdmissionForm from '../components/AdmissionForm';
@@ -48,6 +49,20 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, languag
   const [reports, setReports] = useState<ReportCard[]>(student.reportCards || []);
   const [viewMode, setViewMode] = useState<'profile' | 'report-card' | 'transcript-generator'>('profile');
   const [viewingDocument, setViewingDocument] = useState<ReportCard | null>(null);
+  const [subjectGrades, setSubjectGrades] = useState<StudentSubjectGrade[]>([]);
+  const [isLoadingGrades, setIsLoadingGrades] = useState(true);
+  useEffect(() => {
+    setIsLoadingGrades(true);
+    getStudentGrades(student.id, student.grade).then((grades) => {
+      setSubjectGrades(grades);
+      setIsLoadingGrades(false);
+    });
+  }, [student.id, student.grade]);
+
+  const gradedSubjects = subjectGrades.filter((s) => s.grade !== null);
+  const overallAverage = gradedSubjects.length > 0
+    ? Math.round(gradedSubjects.reduce((sum, s) => sum + (s.grade || 0), 0) / gradedSubjects.length)
+    : null;
   const [isAssigning, setIsAssigning] = useState(false);
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
@@ -155,13 +170,6 @@ Result: ${doc.gradeAverage}`;
 
   const totalFees = student.fees.reduce((sum, f) => sum + f.amount, 0);
   const paidFees = student.fees.filter(f => f.status === 'Paid').reduce((sum, f) => sum + f.amount, 0);
-
-  const performanceData = [
-    { subject: 'رياضيات', student: student.performance, average: 78 },
-    { subject: 'علوم', student: Math.min(100, student.performance + 5), average: 80 },
-    { subject: 'عربي', student: Math.max(50, student.performance - 5), average: 82 },
-    { subject: 'إنجليزي', student: student.performance, average: 75 },
-  ];
 
   if (viewMode === 'transcript-generator') {
     const transcript = student.transcript;
@@ -1139,7 +1147,7 @@ Result: ${doc.gradeAverage}`;
                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center justify-center gap-1">
                  <Award size={14} /> {labels.overview.gpa}
                </p>
-               <p className="text-3xl font-black text-violet-600">{(student.performance / 25).toFixed(2)}</p>
+               <p className="text-3xl font-black text-violet-600">{overallAverage !== null ? `${overallAverage}%` : '—'}</p>
              </div>
           </div>
           <div className="flex flex-wrap gap-2 justify-center md:justify-end">
@@ -1163,19 +1171,25 @@ Result: ${doc.gradeAverage}`;
          {/* Academic Chart */}
          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 lg:col-span-2">
             <h3 className="font-bold text-lg text-gray-900 mb-6">الأداء الأكاديمي</h3>
+            {isLoadingGrades ? (
+              <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">جاري التحميل...</div>
+            ) : gradedSubjects.length === 0 ? (
+              <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm text-center px-8">
+                مفيش درجات مسجّلة لأي مادة لسه — الدرجات بتظهر هنا أول ما يتسجّل نظام تقييم معتمد وتُدخل درجات فعلية.
+              </div>
+            ) : (
             <div className="h-[300px] w-full" dir="ltr">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={performanceData} barGap={12}>
+                <BarChart data={gradedSubjects.map((s) => ({ subject: s.subject, grade: s.grade }))} barGap={12}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                   <XAxis dataKey="subject" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontWeight: 600}} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af'}} domain={[0, 100]} />
                   <Tooltip cursor={{fill: '#fff7ed'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
-                  <Legend />
-                  <Bar name="الطالب" dataKey="student" fill="#9333ea" radius={[6, 6, 0, 0]} barSize={32} />
-                  <Bar name="المتوسط" dataKey="average" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={32} />
+                  <Bar name="الدرجة" dataKey="grade" fill="#9333ea" radius={[6, 6, 0, 0]} barSize={32} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
+            )}
          </div>
 
          {/* المستندات */}
