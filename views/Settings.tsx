@@ -3,7 +3,7 @@ import { Language, UserRole, SettingsTab, Course, AcademicYearConfig, Holiday, T
 import { Button } from '../components/Button';
 import { confirmDialog } from '../components/ConfirmDialog';
 import { showToast } from '../components/Toast';
-import { getAllCurriculumSubjectsWithGrade, addCurriculumSubject, updateCurriculumSubjectById, removeCurriculumSubjectById, getTerms, createTerm, updateTerm, deleteTerm, getSubjectThemes, upsertSubjectTheme, getSubjectThemeFor, SubjectTheme, getSpaces, updateSpaceStatus, SpaceInfo } from '../services/supabaseData';
+import { getAllCurriculumSubjectsWithGrade, addCurriculumSubject, updateCurriculumSubjectById, removeCurriculumSubjectById, getTerms, createTerm, updateTerm, deleteTerm, getSubjectThemes, upsertSubjectTheme, getSubjectThemeFor, SubjectTheme, getSpaces, updateSpaceStatus, SpaceInfo, getSchoolSettings, updateSchoolSettings, SchoolSettings } from '../services/supabaseData';
 import { getSubjectIconComponent, SUBJECT_COLOR_OPTIONS, SUBJECT_ICON_OPTIONS } from '../lib/subjectIcons';
 import { getAcademicYears, createAcademicYear, updateAcademicYear, activateAcademicYear, archiveAcademicYear, deleteAcademicYear } from '../services/supabaseData';
 import { getGradeLevels, addGradeLevel, deleteGradeLevel } from '../services/supabaseData';
@@ -366,6 +366,16 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   const [isAnalyzingPromotion, setIsAnalyzingPromotion] = useState(false);
   const [triggerSearchQuery, setTriggerSearchQuery] = useState('');
   const [expandedSections, setExpandedSections] = useState<string[]>(['identity']);
+  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings | null>(null);
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
+  useEffect(() => { getSchoolSettings().then(setSchoolSettings); }, []);
+  const saveBranding = async () => {
+    if (!schoolSettings) return;
+    setIsSavingBranding(true);
+    const ok = await updateSchoolSettings(schoolSettings);
+    setIsSavingBranding(false);
+    showToast(ok ? 'تم حفظ هوية المدرسة.' : 'حصل خطأ أثناء الحفظ.', ok ? 'success' : 'error');
+  };
 
   const toggleSection = (id: string) => {
     setExpandedSections(prev => 
@@ -2774,36 +2784,62 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                           </div>
                         </div>
 
-                        <div className="space-y-4">
+                       <div className="space-y-4">
                           <h5 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                             <Palette size={16} className="text-pink-500" />
                             {isRTL ? 'جناح الهوية البصرية' : 'Visual Branding Suite'}
                           </h5>
-                          <div className="flex items-center gap-6">
-                            <div className="w-20 h-20 bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-violet-500 hover:text-violet-500 transition-all cursor-pointer">
-                              <Upload size={20} />
-                              <span className="text-[10px] font-bold mt-1 uppercase">Logo</span>
+                          {schoolSettings && (
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">{isRTL ? 'اسم المدرسة (يظهر على المستندات المطبوعة)' : 'School Name (shown on printed documents)'}</label>
+                              <input
+                                type="text"
+                                value={schoolSettings.schoolName}
+                                onChange={(e) => setSchoolSettings({ ...schoolSettings, schoolName: e.target.value })}
+                                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                              />
                             </div>
-                            <div className="flex-1 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-medium text-gray-600">{isRTL ? 'اللون الأساسي' : 'Primary Color'}</span>
-                                <div className="flex gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-violet-600 cursor-pointer border-2 border-white shadow-sm ring-2 ring-violet-100"></div>
-                                  <div className="w-6 h-6 rounded-full bg-blue-600 cursor-pointer border-2 border-white shadow-sm"></div>
-                                  <div className="w-6 h-6 rounded-full bg-emerald-600 cursor-pointer border-2 border-white shadow-sm"></div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">{isRTL ? 'رابط اللوجو' : 'Logo URL'}</label>
+                              <input
+                                type="text"
+                                placeholder="https://..."
+                                value={schoolSettings.logoUrl || ''}
+                                onChange={(e) => setSchoolSettings({ ...schoolSettings, logoUrl: e.target.value })}
+                                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                              {schoolSettings.logoUrl && (
+                                <img src={schoolSettings.logoUrl} alt="Logo preview" className="h-12 mt-2 object-contain" />
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">{isRTL ? 'اللون الأساسي' : 'Primary Color'}</label>
+                                <div className="flex items-center gap-2">
+                                  <input type="color" value={schoolSettings.primaryColor} onChange={(e) => setSchoolSettings({ ...schoolSettings, primaryColor: e.target.value })} className="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer" />
+                                  <span className="text-xs text-gray-500 font-mono">{schoolSettings.primaryColor}</span>
                                 </div>
                               </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-medium text-gray-600">{isRTL ? 'وضع التصميم' : 'Design Mode'}</span>
-                                <div className="flex p-1 bg-gray-100 rounded-lg">
-                                  <button className="px-3 py-1 text-[10px] font-bold bg-white rounded-md shadow-sm">Light</button>
-                                  <button className="px-3 py-1 text-[10px] font-bold text-gray-500">Dark</button>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">{isRTL ? 'اللون الثانوي' : 'Secondary Color'}</label>
+                                <div className="flex items-center gap-2">
+                                  <input type="color" value={schoolSettings.secondaryColor} onChange={(e) => setSchoolSettings({ ...schoolSettings, secondaryColor: e.target.value })} className="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer" />
+                                  <span className="text-xs text-gray-500 font-mono">{schoolSettings.secondaryColor}</span>
                                 </div>
                               </div>
                             </div>
+                            <button
+                              onClick={saveBranding}
+                              disabled={isSavingBranding}
+                              className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors"
+                            >
+                              {isSavingBranding ? 'جاري الحفظ...' : 'حفظ هوية المدرسة'}
+                            </button>
+                            <p className="text-[10px] text-gray-400">{isRTL ? 'دي الهوية اللي هتظهر في سجل الدرجات والسجل الأكاديمي المطبوعين.' : 'This identity will appear on printed report cards and transcripts.'}</p>
                           </div>
+                          )}
                         </div>
-
                         <div className="space-y-4">
                           <h5 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                             <Globe2 size={16} className="text-emerald-500" />
