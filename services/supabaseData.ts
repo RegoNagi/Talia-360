@@ -1803,3 +1803,40 @@ export async function updateSpaceStatus(classId: string | null, subject: string 
   const { error } = await supabase.from('class_space_settings').insert({ class_id: classId, subject, status });
   return !error;
 }
+
+export interface SchoolSettings {
+  id: string;
+  schoolName: string;
+  logoUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+}
+
+// بيجيب إعدادات هوية المدرسة (لوجو وألوان) — دايمًا صف واحد بس
+export async function getSchoolSettings(): Promise<SchoolSettings> {
+  const { data, error } = await supabase.from('school_settings').select('*').limit(1).maybeSingle();
+  if (error || !data) {
+    return { id: '', schoolName: 'اسم المدرسة', logoUrl: null, primaryColor: '#7c3aed', secondaryColor: '#4c1d95' };
+  }
+  return {
+    id: data.id,
+    schoolName: data.school_name || 'اسم المدرسة',
+    logoUrl: data.logo_url || null,
+    primaryColor: data.primary_color || '#7c3aed',
+    secondaryColor: data.secondary_color || '#4c1d95',
+  };
+}
+
+export async function updateSchoolSettings(input: { id: string; schoolName: string; logoUrl?: string | null; primaryColor: string; secondaryColor: string }): Promise<boolean> {
+  const { error } = await supabase
+    .from('school_settings')
+    .update({
+      school_name: input.schoolName,
+      logo_url: input.logoUrl ?? null,
+      primary_color: input.primaryColor,
+      secondary_color: input.secondaryColor,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.id);
+  return !error;
+}
