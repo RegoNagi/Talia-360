@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Student, Language, ReportCard } from '../types';
-import { getStudentGrades, StudentSubjectGrade } from '../services/supabaseData';
+import { getStudentGrades, StudentSubjectGrade, getTerms, getStudentAttendanceForTerm, getSchoolSettings, SchoolSettings } from '../services/supabaseData';
 import { Button } from '../components/Button';
 import { showToast } from '../components/Toast';
 import AdmissionForm from '../components/AdmissionForm';
@@ -33,7 +33,8 @@ import {
   Shield,
   Printer,
   Settings,
-  Check
+  Check,
+  Printer
 } from 'lucide-react';
 
 interface StudentProfileProps {
@@ -62,6 +63,41 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, languag
   const gradedSubjects = subjectGrades.filter((s) => s.grade !== null);
   const overallAverage = gradedSubjects.length > 0
     ? Math.round(gradedSubjects.reduce((sum, s) => sum + (s.grade || 0), 0) / gradedSubjects.length)
+    : null;
+
+  const [reportTerms, setReportTerms] = useState<{ id: string; name: string; startDate: string; endDate: string; status: string }[]>([]);
+  const [reportTermId, setReportTermId] = useState<string | null>(null);
+  const [reportSubjectGrades, setReportSubjectGrades] = useState<StudentSubjectGrade[]>([]);
+  const [reportAttendance, setReportAttendance] = useState(0);
+  const [schoolBranding, setSchoolBranding] = useState<SchoolSettings | null>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(true);
+
+  useEffect(() => {
+    getTerms().then((terms) => {
+      setReportTerms(terms);
+      if (terms.length > 0) setReportTermId(terms[terms.length - 1].id);
+    });
+    getSchoolSettings().then(setSchoolBranding);
+  }, []);
+
+  useEffect(() => {
+    if (!reportTermId) return;
+    const term = reportTerms.find((t) => t.id === reportTermId);
+    if (!term) return;
+    setIsLoadingReport(true);
+    Promise.all([
+      getStudentGrades(student.id, student.grade, reportTermId),
+      getStudentAttendanceForTerm(student.id, term.startDate, term.endDate),
+    ]).then(([grades, attendance]) => {
+      setReportSubjectGrades(grades);
+      setReportAttendance(attendance);
+      setIsLoadingReport(false);
+    });
+  }, [reportTermId, reportTerms, student.id, student.grade]);
+
+  const reportGraded = reportSubjectGrades.filter((s) => s.grade !== null);
+  const reportOverallAverage = reportGraded.length > 0
+    ? Math.round(reportGraded.reduce((sum, s) => sum + (s.grade || 0), 0) / reportGraded.length)
     : null;
   const [isAssigning, setIsAssigning] = useState(false);
   const [docSearchQuery, setDocSearchQuery] = useState('');
@@ -398,271 +434,98 @@ Result: ${doc.gradeAverage}`;
   }
 
   if (viewMode === 'report-card') {
-    const activeReport = reports.find(r => r.type === 'Report Card') || reports[0];
-    
     return (
       <div className="space-y-6 animate-fadeIn pb-10" dir="rtl">
-        <div className="flex justify-between items-center">
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            .printable-report, .printable-report * { visibility: visible; }
+            .printable-report { position: absolute; top: 0; left: 0; width: 100%; box-shadow: none !important; border: none !important; }
+            .no-print { display: none !important; }
+          }
+        `}</style>
+        <div className="flex justify-between items-center no-print">
           <button onClick={() => setViewMode('profile')} className="flex items-center gap-2 text-gray-500 hover:text-violet-600 font-bold transition-colors">
             <ArrowLeft size={20} /> {isRTL ? 'العودة للملف الشخصي' : 'Back to Profile'}
           </button>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => handleDownload(activeReport)}>
-              <Download size={18} /> {isRTL ? 'تحميل' : 'Download'}
-            </Button>
-            <Button variant="secondary" onClick={() => handleShare(activeReport)}>
-              <Share2 size={18} /> {isRTL ? 'مشاركة' : 'Share'}
+          <div className="flex items-center gap-4">
+            {reportTerms.length > 0 && (
+              <select
+                value={reportTermId || ''}
+                onChange={(e) => setReportTermId(e.target.value)}
+                className="border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+              >
+                {reportTerms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            )}
+            <Button variant="secondary" onClick={() => window.print()}>
+              <Printer size={18} /> {isRTL ? 'طباعة' : 'Print'}
             </Button>
           </div>
         </div>
 
-        <div className="bg-white rounded-[2rem] shadow-xl overflow-hidden flex flex-col font-sans border border-gray-100 min-h-screen">
-          {/* Digital Report Card Header */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 lg:p-12 text-white relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative z-10">
-              <div className="flex items-center gap-8">
-                <div className="relative">
-                  <img 
-                    src={student.avatar || `https://ui-avatars.com/api/?name=${student.name}&background=9333ea&color=fff&size=128`} 
-                    alt={student.name}
-                    referrerPolicy="no-referrer"
-                    className="w-24 h-24 rounded-3xl ring-4 ring-white/10 shadow-2xl"
-                  />
-                  <div className="absolute -bottom-2 -right-2 bg-green-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full border-2 border-gray-800 shadow-lg">
-                    تم الترفيع
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-4xl font-black tracking-tight mb-1">{student.name}</h2>
-                  <p className="text-gray-400 font-medium text-lg">{student.grade} • {activeReport.academicYear}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">المعدل التراكمي العام</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-5xl font-black text-violet-400">{activeReport.gradeAverage}</span>
-                    <div className="bg-violet-400/20 text-violet-400 p-1.5 rounded-xl">
-                      <TrendingUp size={20} />
-                    </div>
-                  </div>
-                </div>
-                <div className="h-16 w-px bg-white/10 mx-2"></div>
-                <div className="flex flex-col gap-2">
-                  {activeReport.status === 'Draft' ? (
-                    <Button variant="primary" className="bg-violet-500 hover:bg-violet-600 border-none shadow-xl shadow-violet-500/30 px-8 py-3 rounded-2xl" onClick={() => handlePublish(activeReport)} disabled={isPublishing}>
-                      {isPublishing ? 'جاري النشر...' : 'نشر في مساحة الطالب'}
-                    </Button>
-                  ) : (
-                    <div className="flex items-center gap-3 bg-green-500/20 text-green-400 px-6 py-3 rounded-2xl border border-green-500/30 shadow-lg shadow-green-500/10">
-                      <CheckCircle2 size={20} />
-                      <span className="text-sm font-black uppercase tracking-widest">{isRTL ? 'تم الإصدار' : 'Released'}</span>
-                    </div>
-                  )}
-                </div>
+        <div className="printable-report bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100 p-10 lg:p-14">
+          {/* Header بهوية المدرسة */}
+          <div className="flex items-center justify-between border-b border-gray-100 pb-8 mb-8">
+            <div className="flex items-center gap-4">
+              {schoolBranding?.logoUrl && <img src={schoolBranding.logoUrl} alt="Logo" className="h-14 object-contain" />}
+              <div>
+                <h2 className="text-xl font-black text-gray-900">{schoolBranding?.schoolName || 'اسم المدرسة'}</h2>
+                <p className="text-sm text-gray-400">{isRTL ? 'سجل الدرجات' : 'Report Card'}</p>
               </div>
             </div>
-
-            {/* Progress Ribbon */}
-            <div className="mt-12 flex items-center gap-6 overflow-x-auto pb-4 no-scrollbar">
-              {['Q1', 'Q2', 'Q3', 'Q4'].map((q, i) => (
-                <div key={q} className="flex items-center gap-6 shrink-0">
-                  <div className={`flex flex-col items-center gap-3 transition-all duration-500 ${activeReport.term === q ? 'opacity-100 scale-110' : 'opacity-30 hover:opacity-50'}`}>
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg border-2 shadow-inner ${activeReport.term === q ? 'bg-violet-500 border-violet-500 text-white shadow-violet-400/50' : 'border-gray-600 text-gray-400'}`}>
-                      {q}
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest">{i === 0 ? 'الحالي' : 'قادم'}</span>
-                  </div>
-                  {i < 3 && <div className="w-16 h-0.5 bg-gray-700/50 rounded-full"></div>}
-                </div>
-              ))}
+            <div className="text-left">
+              <p className="text-lg font-bold text-gray-900">{student.name}</p>
+              <p className="text-sm text-gray-400">{student.grade} • {student.id}</p>
             </div>
           </div>
 
-          <div className="p-8 lg:p-12 grid grid-cols-1 lg:grid-cols-3 gap-12 bg-gray-50/30">
-            {/* Main Content: Subject Cards */}
-            <div className="lg:col-span-2 space-y-8">
-              <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">الأداء الأكاديمي</h3>
-                <div className="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-sm shadow-green-200"></div> Excellent</div>
-                  <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-violet-500 shadow-sm shadow-violet-200"></div> Meeting</div>
-                  <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm shadow-red-200"></div> Attention</div>
+          {isLoadingReport ? (
+            <p className="text-center text-gray-400 py-16">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
+          ) : (
+            <>
+              {/* ملخص */}
+              <div className="grid grid-cols-3 gap-6 mb-10">
+                <div className="text-center p-6 rounded-2xl" style={{ backgroundColor: `${schoolBranding?.primaryColor || '#7c3aed'}12` }}>
+                  <p className="text-4xl font-black" style={{ color: schoolBranding?.primaryColor || '#7c3aed' }}>
+                    {reportOverallAverage !== null ? `${reportOverallAverage}%` : '—'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1 font-bold uppercase">{isRTL ? 'المعدل العام' : 'Overall Average'}</p>
+                </div>
+                <div className="text-center p-6 rounded-2xl bg-gray-50">
+                  <p className="text-4xl font-black text-gray-900">{reportAttendance}%</p>
+                  <p className="text-xs text-gray-500 mt-1 font-bold uppercase">{isRTL ? 'نسبة الحضور' : 'Attendance'}</p>
+                </div>
+                <div className="text-center p-6 rounded-2xl bg-gray-50">
+                  <p className="text-4xl font-black text-gray-900">{reportSubjectGrades.filter(s => s.grade !== null).length}</p>
+                  <p className="text-xs text-gray-500 mt-1 font-bold uppercase">{isRTL ? 'مواد مُقيَّمة' : 'Graded Subjects'}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {activeReport.subjectGrades?.map((sub) => (
-                  <div key={sub.subject} className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <img src={sub.teacherAvatar} alt={sub.teacher} referrerPolicy="no-referrer" className="w-12 h-12 rounded-2xl object-cover ring-2 ring-gray-50 shadow-sm" />
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                        </div>
-                        <div>
-                          <p className="text-lg font-black text-gray-900 leading-tight">{sub.subject}</p>
-                          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">{sub.teacher}</p>
-                        </div>
-                      </div>
-                      <div className={`px-4 py-2 rounded-2xl border text-base font-black flex items-center gap-2 shadow-sm ${getGradeColor(sub.score)}`}>
-                        {sub.grade}
-                        {getTrendIcon(sub.trend)}
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-end">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">مستوى الإتقان</span>
-                        <span className="text-lg font-black text-gray-900">{sub.score}%</span>
-                      </div>
-                      <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-1000 ease-out ${sub.score >= 90 ? 'bg-green-500' : sub.score >= 70 ? 'bg-violet-500' : 'bg-red-500'}`}
-                          style={{ width: `${sub.score}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => setExpandedSubject(expandedSubject === sub.subject ? null : sub.subject)}
-                      className="w-full mt-6 pt-6 border-t border-gray-50 flex items-center justify-between text-[10px] font-black text-gray-400 hover:text-violet-600 transition-colors uppercase tracking-widest"
-                    >
-                      تفاصيل الأداء
-                      {expandedSubject === sub.subject ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                    </button>
-
-                    {expandedSubject === sub.subject && (
-                      <div className="mt-6 space-y-3 animate-fadeIn">
-                        {sub.breakdown.map((item) => (
-                          <div key={item.category} className="flex justify-between items-center p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                            <span className="text-xs font-bold text-gray-600">{item.category}</span>
-                            <span className="text-xs font-black text-gray-900">{item.score}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* الملاحظات السلوكية */}
-              <div className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-violet-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                <div className="flex items-center gap-4 mb-8 relative z-10">
-                  <div className="w-14 h-14 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center shadow-inner">
-                    <MessageSquare size={28} />
-                  </div>
-                  <div>
-                    <h4 className="text-2xl font-black text-gray-900 tracking-tight">ملاحظات المعلم</h4>
-                    <p className="text-sm text-gray-400 font-medium">التقييم النوعي للربع {activeReport.term.replace('Q', '')}</p>
-                  </div>
-                </div>
-                <div className="space-y-8 relative z-10">
-                  <div className="relative">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">الملاحظات السلوكية</p>
-                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 italic text-gray-600 leading-relaxed text-lg">
-                      "{activeReport.behavioralComments}"
-                    </div>
-                  </div>
-                  <div className="p-6 bg-violet-50 rounded-3xl border border-violet-100 shadow-sm">
-                    <p className="text-[10px] font-black text-violet-600 uppercase tracking-widest mb-3 flex items-center gap-2">
-                      <TrendingUp size={16} /> خطوات التحسين القادمة
-                    </p>
-                    <p className="text-lg text-violet-900 font-bold leading-snug">{activeReport.nextSteps}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sidebar: Insights & سجل الحضور */}
-            <div className="space-y-8">
-              {/* Skills Radar */}
-              <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm">
-                <h4 className="text-sm font-black text-gray-900 mb-8 uppercase tracking-widest text-center">توازن الكفاءات</h4>
-                <div className="h-[250px] w-full" dir="ltr">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={activeReport.skills}>
-                      <PolarGrid stroke="#f3f4f6" />
-                      <PolarAngleAxis dataKey="category" tick={{fill: '#9ca3af', fontSize: 11, fontWeight: 700}} />
-                      <Radar name="الطالب" dataKey="score" stroke="#9333ea" fill="#9333ea" fillOpacity={0.5} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* سجل الحضور Heatmap Snapshot */}
-              <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm">
-                <div className="flex justify-between items-center mb-8">
-                  <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest">سجل الحضور</h4>
-                  <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-1 rounded-lg">{activeReport.term}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3 mb-8">
-                  <div className="text-center p-4 bg-gray-50 rounded-3xl border border-gray-100 shadow-inner">
-                    <p className="text-[10px] font-black text-gray-400 uppercase mb-1">الإجمالي</p>
-                    <p className="text-2xl font-black text-gray-900">{activeReport.attendance?.totalDays}</p>
-                  </div>
-                  <div className="text-center p-4 bg-violet-50 rounded-3xl border border-violet-100 shadow-inner">
-                    <p className="text-[10px] font-black text-rose-400 uppercase mb-1">غياب</p>
-                    <p className="text-2xl font-black text-rose-600">{activeReport.attendance?.absences}</p>
-                  </div>
-                  <div className="text-center p-4 bg-fuchsia-50 rounded-3xl border border-fuchsia-100 shadow-inner">
-                    <p className="text-[10px] font-black text-fuchsia-400 uppercase mb-1">تأخير</p>
-                    <p className="text-2xl font-black text-fuchsia-600">{activeReport.attendance?.tardies}</p>
-                  </div>
-                </div>
-                
-                {/* Simplified Heatmap */}
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">نمط الحضور</p>
-                <div className="grid grid-cols-7 gap-1.5">
-                  {Array.from({length: 28}).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`aspect-square rounded-md shadow-sm ${
-                        i === 12 || i === 18 ? 'bg-fuchsia-400' : 
-                        i === 5 ? 'bg-violet-500' : 
-                        'bg-violet-200'
-                      }`}
-                    ></div>
+              {/* جدول الدرجات */}
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-100">
+                    <th className="py-3 text-xs font-bold text-gray-400 uppercase">{isRTL ? 'المادة' : 'Subject'}</th>
+                    <th className="py-3 text-xs font-bold text-gray-400 uppercase text-left">{isRTL ? 'الدرجة' : 'Grade'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportSubjectGrades.map((s) => (
+                    <tr key={s.subject} className="border-b border-gray-50">
+                      <td className="py-4 font-bold text-gray-800">{s.subject}</td>
+                      <td className="py-4 text-left font-black" style={{ color: s.grade !== null ? (schoolBranding?.primaryColor || '#7c3aed') : '#d1d5db' }}>
+                        {s.grade !== null ? `${s.grade}%` : (isRTL ? 'لا توجد بيانات' : 'No data')}
+                      </td>
+                    </tr>
                   ))}
-                </div>
-                <div className="mt-6 flex justify-between items-center">
-                  <div className="flex gap-2.5">
-                     <div className="w-3 h-3 rounded-full bg-green-100 shadow-sm"></div>
-                     <div className="w-3 h-3 rounded-full bg-violet-400 shadow-sm"></div>
-                     <div className="w-3 h-3 rounded-full bg-red-400 shadow-sm"></div>
-                  </div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">الأحد - الخميس</span>
-                </div>
-              </div>
-
-              {/* Benchmark */}
-              <div className="bg-indigo-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl shadow-indigo-900/20">
-                <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-                <h4 className="text-sm font-black mb-6 uppercase tracking-widest relative z-10">مؤشر الأداء الصفي</h4>
-                <div className="space-y-6 relative z-10">
-                  <div className="flex justify-between items-end">
-                    <span className="text-sm text-indigo-300 font-medium">الطالب Rank</span>
-                    <span className="text-3xl font-black">أفضل 5%</span>
-                  </div>
-                  <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden shadow-inner">
-                    <div className="h-full bg-indigo-400 w-[95%] rounded-full shadow-lg shadow-indigo-400/50"></div>
-                  </div>
-                  <div className="flex items-start gap-3 bg-white/5 p-4 rounded-2xl border border-white/10">
-                    <AlertCircle size={18} className="text-indigo-300 shrink-0 mt-0.5" />
-                    <p className="text-xs text-indigo-200 leading-relaxed font-medium">
-                      Performing significantly above the class average of 78%. Maintain current study habits for final exams.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action */}
-              <Button variant="primary" className="w-full py-5 rounded-[2rem] bg-violet-600 hover:bg-violet-700 text-white font-black uppercase tracking-widest text-sm transition-all border-none">توقيع التقرير
-              </Button>
-            </div>
-          </div>
+                </tbody>
+              </table>
+              {reportSubjectGrades.length === 0 && (
+                <p className="text-center text-gray-400 py-10">{isRTL ? 'مفيش مواد مسجّلة لصف الطالب.' : 'No subjects registered for this grade.'}</p>
+              )}
+            </>
+          )}
         </div>
       </div>
     );
