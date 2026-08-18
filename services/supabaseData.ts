@@ -36,6 +36,7 @@ async function generateStudentCode(enrollmentYear: string): Promise<string> {
   const nextSeq = (count || 0) + 1;
   return `STU-${enrollmentYear}-${String(nextSeq).padStart(5, '0')}`;
 }
+
 export async function createStudent(input: {
   name: string;
   grade: string;
@@ -92,6 +93,7 @@ export async function getStudents(): Promise<(Student & { userId: string; email:
       mother_info,
       legal_guardian,
       guardian_relationship,
+      student_code,
       users ( name, email )
     `);
 
@@ -108,6 +110,7 @@ export async function getStudents(): Promise<(Student & { userId: string; email:
     name: row.users?.name ?? 'بدون اسم',
     email: row.users?.email ?? '',
     grade: row.grade ?? '',
+    studentCode: row.student_code ?? '',
     attendance: attendanceMap[row.id] ?? 0,
     performance: 0,
     status: row.status ?? 'Active',
@@ -197,6 +200,7 @@ export async function getStudentById(studentId: string): Promise<(Student & { us
       emergency_contact_2,
       home_address,
       additional_info,
+      student_code,
       users ( name, email )
     `)
     .eq('id', studentId)
@@ -232,6 +236,7 @@ export async function getStudentById(studentId: string): Promise<(Student & { us
     emergencyContact2: row.emergency_contact_2 ?? undefined,
     homeAddress: row.home_address ?? undefined,
     additionalInfo: row.additional_info ?? undefined,
+    studentCode: row.student_code ?? '',
   };
 }
 
@@ -1892,37 +1897,4 @@ export async function getStudentAttendanceForTerm(studentId: string, startDate: 
   if (error || !data || data.length === 0) return 0;
   const present = data.filter((row: any) => row.status === 'Present' || row.status === 'Late').length;
   return Math.round((present / data.length) * 100);
-}
-
-export interface TranscriptSubjectRow {
-  subject: string;
-  termGrades: (number | null)[]; // بنفس ترتيب terms
-  average: number | null;
-}
-
-export interface StudentTranscript {
-  terms: { id: string; name: string }[];
-  subjects: TranscriptSubjectRow[];
-  cumulativeAverage: number | null;
-}
-
-// بيجمّع درجات الطالب الحقيقية عبر كل الترمات المسجّلة في مستند واحد (السجل الأكاديمي)
-export async function getStudentTranscript(studentId: string, gradeLevel: string): Promise<StudentTranscript> {
-  const terms = await getTerms();
-  const perTermGrades = await Promise.all(terms.map((t) => getStudentGrades(studentId, gradeLevel, t.id)));
-
-  const subjectSet = new Set<string>();
-  perTermGrades.forEach((grades) => grades.forEach((g) => subjectSet.add(g.subject)));
-
-  const subjects: TranscriptSubjectRow[] = Array.from(subjectSet).map((subject) => {
-    const termGrades = perTermGrades.map((grades) => grades.find((g) => g.subject === subject)?.grade ?? null);
-    const valid = termGrades.filter((g): g is number => g !== null);
-    const average = valid.length > 0 ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
-    return { subject, termGrades, average };
-  });
-
-  const allAverages = subjects.map((s) => s.average).filter((a): a is number => a !== null);
-  const cumulativeAverage = allAverages.length > 0 ? Math.round(allAverages.reduce((a, b) => a + b, 0) / allAverages.length) : null;
-
-  return { terms: terms.map((t) => ({ id: t.id, name: t.name })), subjects, cumulativeAverage };
 }
