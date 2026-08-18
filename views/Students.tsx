@@ -1093,7 +1093,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
   const [gradeFilter, setGradeFilter] = useState('All Grades');
 
   const filteredStudents = studentsList.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase()) || student.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase()) || (student.studentCode || student.id).toLowerCase().includes(searchQuery.toLowerCase());
     const matchesGrade = gradeFilter === 'All Grades' || student.grade === gradeFilter;
     return matchesSearch && matchesGrade;
   });
@@ -1229,7 +1229,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5 text-gray-500 font-mono">{student.id}</td>
+                  <td className="px-6 py-5 text-gray-500 font-mono">{student.studentCode || student.id}</td>
                   <td className="px-6 py-5">
                     <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-semibold">
                       {getTranslatedGrade(student.grade)}
