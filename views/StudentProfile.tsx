@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Student, Language, ReportCard } from '../types';
-import { getStudentGrades, StudentSubjectGrade, getTerms, getStudentAttendanceForTerm, getSchoolSettings, SchoolSettings } from '../services/supabaseData';
+import { getStudentGrades, StudentSubjectGrade, getTerms, getStudentAttendanceForTerm, getSchoolSettings, SchoolSettings, getStudentTranscript, StudentTranscript } from '../services/supabaseData';
 import { Button } from '../components/Button';
 import { showToast } from '../components/Toast';
 import AdmissionForm from '../components/AdmissionForm';
@@ -99,16 +99,20 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, languag
   const reportOverallAverage = reportGraded.length > 0
     ? Math.round(reportGraded.reduce((sum, s) => sum + (s.grade || 0), 0) / reportGraded.length)
     : null;
+
+  const [transcript, setTranscript] = useState<StudentTranscript | null>(null);
+  const [isLoadingTranscript, setIsLoadingTranscript] = useState(true);
+  useEffect(() => {
+    setIsLoadingTranscript(true);
+    getStudentTranscript(student.id, student.grade).then((t) => {
+      setTranscript(t);
+      setIsLoadingTranscript(false);
+    });
+  }, [student.id, student.grade]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [transcriptSettings, setTranscriptSettings] = useState({
-    includeQR: true,
-    displayGPA: true,
-    applySeal: true,
-    isOfficial: false
-  });
   const [newDocData, setNewDocData] = useState({
     title: '',
     type: 'Certificate' as ReportCard['type'],
@@ -208,226 +212,88 @@ Result: ${doc.gradeAverage}`;
   const paidFees = student.fees.filter(f => f.status === 'Paid').reduce((sum, f) => sum + f.amount, 0);
 
   if (viewMode === 'transcript-generator') {
-    const transcript = student.transcript;
-    
-    if (!transcript) {
-      return (
-        <div className="space-y-6 animate-fadeIn pb-10" dir="rtl">
-          <div className="flex justify-between items-center">
-            <button onClick={() => setViewMode('profile')} className="flex items-center gap-2 text-gray-500 hover:text-violet-600 font-bold transition-colors">
-              <ArrowLeft size={20} /> {isRTL ? 'العودة للملف الشخصي' : 'Back to Profile'}
-            </button>
-          </div>
-          <div className="bg-white rounded-[2rem] p-12 text-center border border-gray-100 shadow-sm">
-            <div className="w-20 h-20 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FileText size={40} />
-            </div>
-            <h3 className="text-2xl font-black text-gray-900 mb-2">No Transcript Data Available</h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              This student does not have a multi-year academic history recorded in the system yet.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="space-y-6 animate-fadeIn pb-10" dir="rtl">
-        <div className="flex justify-between items-center">
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            .printable-transcript, .printable-transcript * { visibility: visible; }
+            .printable-transcript { position: absolute; top: 0; left: 0; width: 100%; box-shadow: none !important; border: none !important; }
+            .no-print { display: none !important; }
+          }
+        `}</style>
+        <div className="flex justify-between items-center no-print">
           <button onClick={() => setViewMode('profile')} className="flex items-center gap-2 text-gray-500 hover:text-violet-600 font-bold transition-colors">
             <ArrowLeft size={20} /> {isRTL ? 'العودة للملف الشخصي' : 'Back to Profile'}
           </button>
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex items-center gap-2" onClick={() => window.print()}>
-              <Printer size={18} /> {isRTL ? 'طباعة' : 'Print'}
-            </Button>
-            <Button variant="primary" className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200" onClick={() => setTranscriptSettings({...transcriptSettings, isOfficial: true})}>
-              <Shield size={18} /> {isRTL ? 'إصدار نسخة رسمية' : 'Issue Official PDF'}
-            </Button>
-          </div>
+          <Button variant="secondary" onClick={() => window.print()}>
+            <Printer size={18} /> {isRTL ? 'طباعة' : 'Print'}
+          </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Settings Panel */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Settings size={20} />
-                </div>
-                <h3 className="text-xl font-black text-gray-900 tracking-tight">إعدادات المُصدر</h3>
+        <div className="printable-transcript bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100 p-10 lg:p-14">
+          {/* Header بهوية المدرسة */}
+          <div className="flex items-center justify-between border-b border-gray-100 pb-8 mb-8">
+            <div className="flex items-center gap-4">
+              {schoolBranding?.logoUrl && <img src={schoolBranding.logoUrl} alt="Logo" className="h-14 object-contain" />}
+              <div>
+                <h2 className="text-xl font-black text-gray-900">{schoolBranding?.schoolName || 'اسم المدرسة'}</h2>
+                <p className="text-sm text-gray-400">{isRTL ? 'السجل الأكاديمي الشامل' : 'Academic Transcript'}</p>
               </div>
+            </div>
+            <div className="text-left">
+              <p className="text-lg font-bold text-gray-900">{student.name}</p>
+              <p className="text-sm text-gray-400">{student.grade} • {student.studentCode || student.id}</p>
+            </div>
+          </div>
 
-              <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer hover:bg-white transition-all" onClick={() => setTranscriptSettings({...transcriptSettings, includeQR: !transcriptSettings.includeQR})}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${transcriptSettings.includeQR ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white'}`}>
-                      {transcriptSettings.includeQR && <Check size={14} />}
-                    </div>
-                    <span className="text-sm font-bold text-gray-700">تضمين رمز التحقق (QR)</span>
-                  </div>
-                  <QrCode size={18} className="text-gray-400" />
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer hover:bg-white transition-all" onClick={() => setTranscriptSettings({...transcriptSettings, displayGPA: !transcriptSettings.displayGPA})}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${transcriptSettings.displayGPA ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white'}`}>
-                      {transcriptSettings.displayGPA && <Check size={14} />}
-                    </div>
-                    <span className="text-sm font-bold text-gray-700">عرض المعدل التراكمي</span>
-                  </div>
-                  <TrendingUp size={18} className="text-gray-400" />
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer hover:bg-white transition-all" onClick={() => setTranscriptSettings({...transcriptSettings, applySeal: !transcriptSettings.applySeal})}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${transcriptSettings.applySeal ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white'}`}>
-                      {transcriptSettings.applySeal && <Check size={14} />}
-                    </div>
-                    <span className="text-sm font-bold text-gray-700">إضافة ختم المدرسة</span>
-                  </div>
-                  <Award size={18} className="text-gray-400" />
-                </div>
+          {isLoadingTranscript ? (
+            <p className="text-center text-gray-400 py-16">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
+          ) : !transcript || transcript.subjects.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-20 h-20 bg-gray-50 text-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
+                <FileText size={40} />
               </div>
-
-              <div className="mt-10 pt-8 border-t border-gray-100">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">ملاحظة أمنية</p>
-                <div className="flex items-start gap-3 bg-violet-50 p-4 rounded-2xl border border-violet-100">
-                  <AlertCircle size={18} className="text-violet-600 mt-0.5" />
-                  <p className="text-xs text-violet-800 leading-relaxed font-medium">
-                    تحتوي المعاينة الرقمية على علامة مائية. الشهادات الرسمية مزودة بتوقيع مشفر.
+              <h3 className="text-xl font-black text-gray-900 mb-2">{isRTL ? 'مفيش سجل أكاديمي متاح' : 'No Transcript Data Available'}</h3>
+              <p className="text-gray-500 max-w-md mx-auto text-sm">{isRTL ? 'لسه مفيش درجات مسجّلة لأي ترم لهذا الطالب.' : 'No graded terms recorded for this student yet.'}</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-10 flex justify-center">
+                <div className="text-center p-6 rounded-2xl" style={{ backgroundColor: `${schoolBranding?.primaryColor || '#7c3aed'}12` }}>
+                  <p className="text-4xl font-black" style={{ color: schoolBranding?.primaryColor || '#7c3aed' }}>
+                    {transcript.cumulativeAverage !== null ? `${transcript.cumulativeAverage}%` : '—'}
                   </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Transcript Preview */}
-          <div className="lg:col-span-8">
-            <div className="bg-white shadow-2xl rounded-sm border border-gray-200 min-h-[1100px] p-12 relative overflow-hidden font-serif text-gray-900 print:shadow-none print:border-none">
-              {!transcriptSettings.isOfficial && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50 overflow-hidden">
-                  <div className="text-[120px] font-black text-gray-100/50 -rotate-45 uppercase tracking-[2rem] whitespace-nowrap">
-                    Unofficial Preview
-                  </div>
-                </div>
-              )}
-
-              {/* Header */}
-              <div className="flex justify-between items-start border-b-2 border-gray-900 pb-8 mb-10">
-                <div className="flex items-center gap-6">
-                  {transcriptSettings.applySeal ? (
-                    <div className="w-24 h-24 bg-indigo-900 rounded-full flex items-center justify-center text-white shadow-xl">
-                      <Award size={48} />
-                    </div>
-                  ) : (
-                    <div className="w-24 h-24 bg-gray-100 rounded-full"></div>
-                  )}
-                  <div>
-                    <h1 className="text-3xl font-black uppercase tracking-tighter"><span className="text-black">Talia</span><span className="text-violet-600">Learn</span> Academy</h1>
-                    <p className="text-sm font-bold text-gray-500">السجل الأكاديمي الرسمي</p>
-                    <p className="text-xs text-gray-400">123 Education St, Knowledge City</p>
-                  </div>
-                </div>
-                <div className="text-right space-y-1">
-                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400">الطالب Bio</p>
-                  <p className="text-xl font-black">{student.name}</p>
-                  <p className="text-sm">تاريخ الميلاد: {student.dob || 'N/A'}</p>
-                  <p className="text-sm">الرقم الجامعي: {student.id}</p>
-                  <p className="text-sm">National الرقم الجامعي: {student.nationalId || 'N/A'}</p>
-                  <p className="text-sm">تاريخ الالتحاق: {student.enrollmentDate || 'N/A'}</p>
+                  <p className="text-xs text-gray-500 mt-1 font-bold uppercase">{isRTL ? 'المعدل التراكمي' : 'Cumulative Average'}</p>
                 </div>
               </div>
 
-              {/* Academic تاريخ */}
-              <div className="space-y-10">
-                {transcript?.years.map((year) => (
-                  <div key={year.year}>
-                    <div className="bg-gray-900 text-white px-4 py-2 flex justify-between items-center mb-4">
-                      <span className="font-bold uppercase tracking-widest text-xs">العام الدراسي: {year.year}</span>
-                      <span className="font-bold uppercase tracking-widest text-xs">{year.gradeLevel}</span>
-                    </div>
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="border-b border-gray-200 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                          <th className="pb-2 w-24">الرمز</th>
-                          <th className="pb-2">اسم المقرر</th>
-                          <th className="pb-2 text-center w-20">الساعات</th>
-                          <th className="pb-2 text-center w-20">التقدير</th>
-                          <th className="pb-2 text-right w-20">النقاط</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {year.courses.map((course) => (
-                          <tr key={course.code} className="text-sm">
-                            <td className="py-3 font-mono text-xs">{course.code}</td>
-                            <td className="py-3 font-bold">{course.title}</td>
-                            <td className="py-3 text-center">{course.credits.toFixed(1)}</td>
-                            <td className="py-3 text-center font-bold">{course.grade}</td>
-                            <td className="py-3 text-right font-mono">{course.points.toFixed(1)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
-              </div>
-
-              {/* Summary Footer */}
-              <div className="mt-16 pt-8 border-t-2 border-gray-900">
-                <div className="grid grid-cols-3 gap-8 mb-12">
-                  <div className="text-center">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">إجمالي الساعات</p>
-                    <p className="text-2xl font-black">{transcript?.totalCreditsEarned} / {transcript?.requiredCredits}</p>
-                  </div>
-                  {transcriptSettings.displayGPA && (
-                    <div className="text-center border-x border-gray-200">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">المعدل التراكمي</p>
-                      <p className="text-4xl font-black text-indigo-900">{transcript?.cumulativeGPA}</p>
-                    </div>
-                  )}
-                  <div className="text-center">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">الدرجة الممنوحة</p>
-                    <p className="text-sm font-bold">{transcript?.degreeConferred}</p>
-                    <p className="text-xs text-gray-500">{transcript?.conferredDate}</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-end">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
-                        <Shield size={24} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">توقيع رقمي</p>
-                        <p className="text-sm font-serif italic text-gray-600">Registrar: Dr. Elias Vance</p>
-                        <p className="text-[8px] font-mono text-gray-400">SHA-256: 8f3e...a1b2</p>
-                      </div>
-                    </div>
-                    {transcriptSettings.includeQR && (
-                      <div className="flex items-center gap-4">
-                        <div className="w-20 h-20 bg-white border border-gray-200 p-1 flex items-center justify-center">
-                          <QrCode size={64} className="text-gray-900" />
-                        </div>
-                        <div className="max-w-[150px]">
-                          <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-1">التحقق من صحة المستند</p>
-                          <p className="text-[7px] text-gray-500 leading-tight">
-                            Scan this code to verify document authenticity on our secure portal.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <div className="w-48 border-b border-gray-900 mb-2"></div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest">توقيع مدير المدرسة</p>
-                    <p className="text-[8px] text-gray-400">Issued on: {new Date().toLocaleDateString()}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gray-100">
+                    <th className="py-3 text-xs font-bold text-gray-400 uppercase">{isRTL ? 'المادة' : 'Subject'}</th>
+                    {transcript.terms.map((t) => (
+                      <th key={t.id} className="py-3 text-xs font-bold text-gray-400 uppercase text-center">{t.name}</th>
+                    ))}
+                    <th className="py-3 text-xs font-bold text-gray-400 uppercase text-left">{isRTL ? 'المعدل' : 'Average'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transcript.subjects.map((s) => (
+                    <tr key={s.subject} className="border-b border-gray-50">
+                      <td className="py-4 font-bold text-gray-800">{s.subject}</td>
+                      {s.termGrades.map((g, idx) => (
+                        <td key={idx} className="py-4 text-center text-gray-600">{g !== null ? `${g}%` : '—'}</td>
+                      ))}
+                      <td className="py-4 text-left font-black" style={{ color: s.average !== null ? (schoolBranding?.primaryColor || '#7c3aed') : '#d1d5db' }}>
+                        {s.average !== null ? `${s.average}%` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </div>
       </div>
     );
@@ -476,7 +342,7 @@ Result: ${doc.gradeAverage}`;
             </div>
             <div className="text-left">
               <p className="text-lg font-bold text-gray-900">{student.name}</p>
-              <p className="text-sm text-gray-400">{student.grade} • {student.id}</p>
+              <p className="text-sm text-gray-400">{student.grade} • {student.studentCode || student.id}</p>
             </div>
           </div>
 
@@ -898,7 +764,7 @@ Result: ${doc.gradeAverage}`;
                       <div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">الطالب Information</p>
                         <p className="text-xl font-bold text-gray-900">{student.name}</p>
-                        <p className="text-sm text-gray-500">الطالب الرقم الجامعي: {student.id}</p>
+                        <p className="text-sm text-gray-500">الطالب الرقم الجامعي: {student.studentCode || student.id}</p>
                         <p className="text-sm text-gray-500">Current Grade: {student.grade}</p>
                       </div>
                       <div className="text-right">
@@ -993,7 +859,7 @@ Result: ${doc.gradeAverage}`;
           </div>
           <div className="text-center md:text-start space-y-2">
              <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">{student.name}</h1>
-             <p className="text-lg text-gray-500 font-medium">{student.id} • {student.grade}</p>
+             <p className="text-lg text-gray-500 font-medium">{student.studentCode || student.id} • {student.grade}</p>
           </div>
         </div>
         
