@@ -132,6 +132,7 @@ export interface ParentInfo {
 
 export interface Student {
   id: string;
+  studentCode?: string;
   name: string;
   grade: string;
   attendance: number;
