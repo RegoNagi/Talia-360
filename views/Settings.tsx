@@ -670,7 +670,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     credits: 3,
     department: 'General',
     color: 'bg-violet-500',
-    gradeLevel: 'الصف 9'
+    gradeLevel: gradeLevels[0]?.name || ''
   });
   const [newCourseIcon, setNewCourseIcon] = useState('book-open');
   const NewCoursePreviewIcon = getSubjectIconComponent(newCourseIcon);
@@ -752,7 +752,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
       showToast(editingCourseId ? 'تم تعديل المادة بنجاح.' : 'تم إضافة المادة بنجاح.', 'success');
       setCourseViewMode('BROWSE');
       setEditingCourseId(null);
-      setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: 'الصف 9' }); setNewCourseIcon('book-open');
+      setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open');
     } else {
       showToast(editingCourseId ? 'حصل خطأ أثناء التعديل.' : 'حصل خطأ أثناء إضافة المادة (ممكن تكون موجودة بالفعل لنفس الصف).', 'error');
     }
@@ -1005,7 +1005,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                 <Button 
                   onClick={() => {
                     setEditingCourseId(null);
-                    setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: 'الصف 9' }); setNewCourseIcon('book-open');
+                    setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open');
                     setCourseViewMode('WIZARD');
                     setSubjectCreationStep(1);
                   }} 
@@ -1168,7 +1168,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <button 
                         onClick={() => {
                           setEditingCourseId(null);
-                          setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: 'الصف 9' }); setNewCourseIcon('book-open');
+                          setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open');
                           setCourseViewMode('WIZARD');
                           setSubjectCreationStep(1);
                         }}
