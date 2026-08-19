@@ -670,7 +670,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     credits: 3,
     department: 'General',
     color: 'bg-violet-500',
-    gradeLevel: gradeLevels[0]?.name || ''
+    gradeLevel: ''
   });
   const [newCourseIcon, setNewCourseIcon] = useState('book-open');
   const NewCoursePreviewIcon = getSubjectIconComponent(newCourseIcon);
