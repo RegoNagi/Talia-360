@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { CLASSES } from '../services/mockData';
-import { getStudents, getTeachers, createTeacher, createStudent, updateTeacher, deleteTeacher, updateStudent, deleteStudent, bulkDeleteStudents, bulkDeleteTeachers, getAdmins, createAdmin, updateAdmin, deleteAdmin, bulkDeleteAdmins, getGradeLevels } from '../services/supabaseData';
+import { getStudents, getTeachers, createTeacher, createStudent, updateTeacher, deleteTeacher, updateStudent, deleteStudent, bulkDeleteStudents, bulkDeleteTeachers, getAdmins, createAdmin, updateAdmin, deleteAdmin, bulkDeleteAdmins, getGradeLevels, getAllCurriculumSubjectsWithGrade } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { confirmDialog } from '../components/ConfirmDialog';
 import { Language, Student, Teacher, Admin, Parent, UserRole } from '../types';
@@ -141,7 +141,7 @@ const ADMIN_TEMPLATES: Record<string, string[]> = {
 };
 
 // (الصفوف الدراسية بقت بتتجاب حقيقي من قاعدة البيانات، مش قايمة ثابتة هنا)
-const SUBJECT_OPTIONS = ['رياضيات', 'علوم', 'لغة عربية', 'لغة إنجليزية', 'تاريخ', 'فنون'];
+// (المواد بقت بتتجاب حقيقي من قاعدة البيانات، مش قايمة ثابتة هنا)
 
 // ملاحظة مهمة: المودالات دي معمولة كـ component مستقل بحالته الخاصة (مش state جوه الصفحة الرئيسية)،
 // عشان لما تكتب جوه المودال، بس المودال نفسه يعيد الرسم — مش الصفحة اللي وراه كلها.
@@ -214,7 +214,7 @@ const AddStudentModal: React.FC<{ gradeLevels: string[]; onClose: () => void; on
   );
 };
 
-const AddTeacherModal: React.FC<{ gradeLevels: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean> }> = ({ gradeLevels, onClose, onSubmit }) => {
+const AddTeacherModal: React.FC<{ gradeLevels: string[]; subjectOptions: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean> }> = ({ gradeLevels, subjectOptions, onClose, onSubmit }) => {
   const [form, setForm] = useState({
     name: '', email: '', password: '', hiringDate: new Date().toISOString().split('T')[0], type: 'Full-time',
     subjects: [] as string[], allSubjects: false, grades: [] as string[], teacherType: 'Main' as 'Main' | 'Assistant',
@@ -279,7 +279,7 @@ const AddTeacherModal: React.FC<{ gradeLevels: string[]; onClose: () => void; on
                 <label className="block text-sm font-bold text-gray-700 mb-2">المواد اللي بيدرّسها</label>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => setForm({...form, allSubjects: !form.allSubjects, subjects: []})} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${form.allSubjects ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>كل المواد</button>
-                  {SUBJECT_OPTIONS.map(subject => (
+                  {subjectOptions.map(subject => (
                     <button type="button" key={subject} disabled={form.allSubjects} onClick={() => toggleSubject(subject)} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${form.subjects.includes(subject) ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{subject}</button>
                   ))}
                 </div>
@@ -309,14 +309,14 @@ const AddTeacherModal: React.FC<{ gradeLevels: string[]; onClose: () => void; on
   );
 };
 
-const EditTeacherModal: React.FC<{ teacher: any; gradeLevels: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean> }> = ({ teacher, gradeLevels, onClose, onSubmit }) => {
+const EditTeacherModal: React.FC<{ teacher: any; gradeLevels: string[]; subjectOptions: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean> }> = ({ teacher, gradeLevels, subjectOptions, onClose, onSubmit }) => {
   const [form, setForm] = useState({
     name: teacher.name || '',
     email: teacher.email || '',
     password: '',
     type: teacher.employmentType || 'Full-time',
     subjects: teacher.subjects || [],
-    allSubjects: (teacher.subjects || []).length >= SUBJECT_OPTIONS.length,
+    allSubjects: (teacher.subjects || []).length >= subjectOptions.length,
     grades: teacher.grades || [],
     teacherType: teacher.teacherType || 'Main',
     canUseQuestionBank: teacher.canUseQuestionBank || false,
@@ -373,7 +373,7 @@ const EditTeacherModal: React.FC<{ teacher: any; gradeLevels: string[]; onClose:
                 <label className="block text-sm font-bold text-gray-700 mb-2">المواد اللي بيدرّسها</label>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" onClick={() => setForm({...form, allSubjects: !form.allSubjects, subjects: []})} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${form.allSubjects ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>كل المواد</button>
-                  {SUBJECT_OPTIONS.map(subject => (
+                  {subjectOptions.map(subject => (
                     <button type="button" key={subject} disabled={form.allSubjects} onClick={() => toggleSubject(subject)} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${form.subjects.includes(subject) ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{subject}</button>
                   ))}
                 </div>
@@ -749,16 +749,18 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
   };
 
   const [gradeLevels, setGradeLevels] = useState<string[]>([]);
+  const [subjectOptions, setSubjectOptions] = useState<string[]>([]);
 
   useEffect(() => {
     setStudentsLoading(true);
     setTeachersLoading(true);
     setAdminsLoading(true);
-    Promise.all([getStudents(), getTeachers(), getAdmins(), getGradeLevels()]).then(([studentsData, teachersData, adminsData, gradesData]) => {
+    Promise.all([getStudents(), getTeachers(), getAdmins(), getGradeLevels(), getAllCurriculumSubjectsWithGrade()]).then(([studentsData, teachersData, adminsData, gradesData, subjectsData]) => {
       setStudentsList(studentsData);
       setTeachersList(teachersData);
       setAdminsList(adminsData);
       setGradeLevels(gradesData.map(g => g.name));
+      setSubjectOptions(Array.from(new Set(subjectsData.map(s => s.subject))));
       setStudentsLoading(false);
       setTeachersLoading(false);
       setAdminsLoading(false);
@@ -1638,12 +1640,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
 
        {/* 3. ADD TEACHER MODAL */}
        {isAddTeacherOpen && (
-         <AddTeacherModal gradeLevels={gradeLevels} onClose={() => setIsAddTeacherOpen(false)} onSubmit={handleCreateTeacher} />
+         <AddTeacherModal gradeLevels={gradeLevels} subjectOptions={subjectOptions} onClose={() => setIsAddTeacherOpen(false)} onSubmit={handleCreateTeacher} />
        )}
 
        {/* EDIT TEACHER MODAL */}
        {editingTeacher && (
-         <EditTeacherModal teacher={editingTeacher} gradeLevels={gradeLevels} onClose={() => setEditingTeacher(null)} onSubmit={handleUpdateTeacher} />
+         <EditTeacherModal teacher={editingTeacher} gradeLevels={gradeLevels} subjectOptions={subjectOptions} onClose={() => setEditingTeacher(null)} onSubmit={handleUpdateTeacher} />
        )}
 
        {/* EDIT STUDENT MODAL */}
