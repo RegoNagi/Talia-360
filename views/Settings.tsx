@@ -693,6 +693,11 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   useEffect(() => {
     refreshGradeLevels();
   }, []);
+    useEffect(() => {
+    if (!newCourse.gradeLevel && gradeLevels.length > 0) {
+      setNewCourse((prev) => ({ ...prev, gradeLevel: gradeLevels[0].name }));
+    }
+  }, [gradeLevels]);
   const handleAddGradeLevel = async () => {
     if (!newGradeLevelName.trim()) return;
     const id = await addGradeLevel(newGradeLevelName.trim());
@@ -733,7 +738,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
       });
     } else {
       ok = await addCurriculumSubject({
-        grade: newCourse.gradeLevel || 'الصف 9',
+        grade: newCourse.gradeLevel,
         subject: newCourse.nameAr!,
         code: newCourse.code,
         nameEn: newCourse.nameEn,
