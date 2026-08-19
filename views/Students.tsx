@@ -1126,14 +1126,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
       return status;
     };
 
-    const trName = (name: string) => {
-       if (!isRTL) return name;
-       const words = name.split(' ');
-       const map: Record<string, string> = {
-          'Layla': 'ليلى', 'Omar': 'عمر', 'Yousef': 'يوسف', 'Ahmed': 'أحمد', 'Ali': 'علي'
-       };
-       return words.map(w => map[w] || w).join(' ');
-    };
+      const trName = (name: string) => name;
 
     return (
     <div className="space-y-6 animate-fadeIn" dir={isRTL ? "rtl" : "ltr"}>
@@ -1156,11 +1149,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
                  onChange={(e) => setGradeFilter(e.target.value)}
                  className={`w-full border border-gray-200 bg-gray-50 rounded-full py-2.5 text-sm focus:ring-2 focus:ring-violet-500 outline-none appearance-none font-medium text-gray-700 ${isRTL ? 'pr-10 pl-8' : 'pl-10 pr-8'}`}
                >
+
                  <option value="All Grades">{t_all_grades}</option>
-                 <option value="Grade 9">{getTranslatedGrade('Grade 9')}</option>
-                 <option value="Grade 10">{getTranslatedGrade('Grade 10')}</option>
-                 <option value="Grade 11">{getTranslatedGrade('Grade 11')}</option>
-                 <option value="Grade 12">{getTranslatedGrade('Grade 12')}</option>
+                 {gradeLevels.map(g => <option key={g} value={g}>{g}</option>)}
                </select>
                <ChevronRight className={`absolute top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none rotate-90 ${isRTL ? 'left-3' : 'right-3'}`} size={16} />
             </div>
