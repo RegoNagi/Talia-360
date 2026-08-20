@@ -1931,3 +1931,38 @@ export async function getStudentTranscript(studentId: string, gradeLevel: string
 
   return { terms: terms.map((t) => ({ id: t.id, name: t.name })), subjects, cumulativeAverage };
 }
+
+
+// ============ معايير التحذير المبكر (Early Warning Radar) — إعداد واحد للمدرسة كلها ============
+
+export interface EarlyWarningCriteria {
+  id: string;
+  criticalAttendance: number;
+  criticalMinAverage: number;
+  warningAttendance: number;
+  warningMinAverage: number;
+}
+
+export async function getEarlyWarningCriteria(): Promise<EarlyWarningCriteria> {
+  const { data, error } = await supabase.from('early_warning_criteria').select('*').limit(1).maybeSingle();
+  if (error || !data) {
+    return { id: '', criticalAttendance: 75, criticalMinAverage: 50, warningAttendance: 85, warningMinAverage: 65 };
+  }
+  return {
+    id: data.id,
+    criticalAttendance: data.critical_attendance,
+    criticalMinAverage: data.critical_min_average,
+    warningAttendance: data.warning_attendance,
+    warningMinAverage: data.warning_min_average,
+  };
+}
+
+export async function updateEarlyWarningCriteria(input: { id: string; criticalAttendance?: number; criticalMinAverage?: number; warningAttendance?: number; warningMinAverage?: number }): Promise<boolean> {
+  const patch: any = { updated_at: new Date().toISOString() };
+  if (input.criticalAttendance !== undefined) patch.critical_attendance = input.criticalAttendance;
+  if (input.criticalMinAverage !== undefined) patch.critical_min_average = input.criticalMinAverage;
+  if (input.warningAttendance !== undefined) patch.warning_attendance = input.warningAttendance;
+  if (input.warningMinAverage !== undefined) patch.warning_min_average = input.warningMinAverage;
+  const { error } = await supabase.from('early_warning_criteria').update(patch).eq('id', input.id);
+  return !error;
+}
