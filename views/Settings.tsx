@@ -7,6 +7,7 @@ import { getAllCurriculumSubjectsWithGrade, addCurriculumSubject, updateCurricul
 import { getSubjectIconComponent, SUBJECT_COLOR_OPTIONS, SUBJECT_ICON_OPTIONS } from '../lib/subjectIcons';
 import { getAcademicYears, createAcademicYear, updateAcademicYear, activateAcademicYear, archiveAcademicYear, deleteAcademicYear } from '../services/supabaseData';
 import { getGradeLevels, addGradeLevel, deleteGradeLevel } from '../services/supabaseData';
+import { getDepartments, addDepartment, deleteDepartment, CurriculumDepartment, getTracks, addTrack, deleteTrack, AcademicTrack } from '../services/supabaseData';
 import { 
   generateConflictFreeSchedule,
   simulateHolidayImpact,
@@ -129,6 +130,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         credits: s.credits,
         department: s.department,
         color: s.color,
+        trackId: s.trackId,
       })));
       setCoursesLoading(false);
     });
@@ -679,6 +681,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     gradeLevel: ''
   });
   const [newCourseIcon, setNewCourseIcon] = useState('book-open');
+  const [newCourseTrackId, setNewCourseTrackId] = useState<string | null>(null);
   const NewCoursePreviewIcon = getSubjectIconComponent(newCourseIcon);
   const [subjectThemes, setSubjectThemes] = useState<Record<string, SubjectTheme>>({});
 
@@ -728,6 +731,68 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     }
   };
 
+  // ============ الأقسام المنهجية ============
+  const [departments, setDepartments] = useState<CurriculumDepartment[]>([]);
+  const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
+  const refreshDepartments = () => { getDepartments().then(setDepartments); };
+  useEffect(() => { refreshDepartments(); }, []);
+  const handleAddDepartment = async () => {
+    if (!newDeptName.trim()) return;
+    const id = await addDepartment(newDeptName.trim());
+    if (id) {
+      refreshDepartments();
+      setNewDeptName('');
+      setIsAddDeptModalOpen(false);
+      showToast('تم إضافة القسم.', 'success');
+    } else {
+      showToast('حصل خطأ أثناء الإضافة (ممكن يكون الاسم موجود بالفعل).', 'error');
+    }
+  };
+  const handleDeleteDepartment = async (id: string) => {
+    const confirmed = await confirmDialog('متأكد إنك عايز تمسح القسم ده؟ المواد المرتبطة بيه هتفضل موجودة لكن من غير قسم.', 'حذف');
+    if (!confirmed) return;
+    const ok = await deleteDepartment(id);
+    if (ok) {
+      refreshDepartments();
+      showToast('تم حذف القسم.', 'success');
+    } else {
+      showToast('حصل خطأ أثناء الحذف.', 'error');
+    }
+  };
+
+  // ============ المسارات ============
+  const [tracks, setTracks] = useState<AcademicTrack[]>([]);
+  const [isAddTrackModalOpen, setIsAddTrackModalOpen] = useState(false);
+  const [newTrackName, setNewTrackName] = useState('');
+  const [newTrackGradeIds, setNewTrackGradeIds] = useState<string[]>([]);
+  const refreshTracks = () => { getTracks().then(setTracks); };
+  useEffect(() => { refreshTracks(); }, []);
+  const handleAddTrack = async () => {
+    if (!newTrackName.trim() || newTrackGradeIds.length === 0) return;
+    const id = await addTrack(newTrackName.trim(), newTrackGradeIds);
+    if (id) {
+      refreshTracks();
+      setNewTrackName('');
+      setNewTrackGradeIds([]);
+      setIsAddTrackModalOpen(false);
+      showToast('تم إضافة المسار.', 'success');
+    } else {
+      showToast('حصل خطأ أثناء الإضافة (ممكن يكون الاسم موجود بالفعل).', 'error');
+    }
+  };
+  const handleDeleteTrack = async (id: string) => {
+    const confirmed = await confirmDialog('متأكد إنك عايز تمسح المسار ده؟ المواد المرتبطة بيه هتفضل موجودة لكن من غير مسار.', 'حذف');
+    if (!confirmed) return;
+    const ok = await deleteTrack(id);
+    if (ok) {
+      refreshTracks();
+      showToast('تم حذف المسار.', 'success');
+    } else {
+      showToast('حصل خطأ أثناء الحذف.', 'error');
+    }
+  };
+
   const isRTL = language === Language.AR;
 
   const handleAddCourse = async () => {
@@ -741,6 +806,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         department: newCourse.department || 'General',
         credits: newCourse.credits || 3,
         color: newCourse.color || 'bg-violet-500',
+        trackId: newCourseTrackId,
       });
     } else {
       ok = await addCurriculumSubject({
@@ -751,6 +817,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         department: newCourse.department || 'General',
         credits: newCourse.credits || 3,
         color: newCourse.color || 'bg-violet-500',
+        trackId: newCourseTrackId,
       });
     }
 
@@ -763,7 +830,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
       showToast(editingCourseId ? 'تم تعديل المادة بنجاح.' : 'تم إضافة المادة بنجاح.', 'success');
       setCourseViewMode('BROWSE');
       setEditingCourseId(null);
-      setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open');
+      setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null);
     } else {
       showToast(editingCourseId ? 'حصل خطأ أثناء التعديل.' : 'حصل خطأ أثناء إضافة المادة (ممكن تكون موجودة بالفعل لنفس الصف).', 'error');
     }
@@ -1017,7 +1084,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                 <Button 
                   onClick={() => {
                     setEditingCourseId(null);
-                    setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open');
+                    setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null);
                     setCourseViewMode('WIZARD');
                     setSubjectCreationStep(1);
                   }} 
@@ -1097,7 +1164,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                             <div className="flex gap-1">
                               <button 
                                 onClick={() => {
-                                  setNewCourse(course);
+                                  setNewCourse(course); setNewCourseTrackId(course.trackId || null);
                                   setNewCourseIcon(getSubjectThemeFor(subjectThemes, course.nameAr || '').icon);
                                   setEditingCourseId(course.id);
                                   setCourseViewMode('WIZARD');
@@ -1139,7 +1206,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <button 
                         onClick={() => {
                           setEditingCourseId(null);
-                          setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open');
+                          setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null);
                           setCourseViewMode('WIZARD');
                           setSubjectCreationStep(1);
                         }}
@@ -1259,24 +1326,38 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                                   onChange={(e) => setNewCourse({...newCourse, department: e.target.value})}
                                   className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none"
                                 >
-                                  <option value="Science">Science</option>
-                                  <option value="Mathematics">Mathematics</option>
-                                  <option value="Languages">Languages</option>
-                                  <option value="Social Studies">Social Studies</option>
-                                  <option value="Arts">Arts</option>
-                                  <option value="General">General</option>
+                                  {departments.length === 0 && <option value="General">{isRTL ? 'عام' : 'General'}</option>}
+                                  {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                                 </select>
                               </div>
                               <div className="space-y-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{isRTL ? 'المستوى الدراسي' : 'Grade Level'}</label>
                                 <select 
                                   value={newCourse.gradeLevel}
-                                  onChange={(e) => setNewCourse({...newCourse, gradeLevel: e.target.value})}
+                                  onChange={(e) => { setNewCourse({...newCourse, gradeLevel: e.target.value}); setNewCourseTrackId(null); }}
                                   className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none"
                                 >
                                   {gradeLevels.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
                                 </select>
                               </div>
+                              {(() => {
+                                const selectedGradeObj = gradeLevels.find(g => g.name === newCourse.gradeLevel);
+                                const availableTracks = selectedGradeObj ? tracks.filter(t => t.gradeLevelIds.includes(selectedGradeObj.id)) : [];
+                                if (availableTracks.length === 0) return null;
+                                return (
+                                <div className="space-y-2 md:col-span-2">
+                                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{isRTL ? 'المسار (اختياري)' : 'Track (optional)'}</label>
+                                  <select 
+                                    value={newCourseTrackId || ''}
+                                    onChange={(e) => setNewCourseTrackId(e.target.value || null)}
+                                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none"
+                                  >
+                                    <option value="">{isRTL ? 'بدون مسار' : 'No track'}</option>
+                                    {availableTracks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                  </select>
+                                </div>
+                                );
+                              })()}
                               <div className="space-y-2 md:col-span-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{isRTL ? 'الساعات المعتمدة' : 'Credits'}</label>
                                 <div className="flex items-center gap-4">
@@ -1422,45 +1503,175 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                   {isRTL ? 'الصفوف الدراسية' : 'Grade Levels'}
                 </h3>
                 <p className="text-sm text-gray-500 mt-2">
-                  {isRTL ? 'الصفوف اللي بتستخدمها المدرسة في كل مكان بالنظام (سجل الدرجات، الحضور، المواد، وغيرها)' : 'The grades your school uses throughout the system (gradebook, attendance, subjects, and more)'}
+                  {isRTL ? 'الصفوف والأقسام والمسارات اللي بتستخدمها المدرسة في كل مكان بالنظام' : 'The grades, departments, and tracks your school uses throughout the system'}
                 </p>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold text-gray-900">{isRTL ? 'قائمة الصفوف' : 'Grades List'}</h4>
-                  <button onClick={() => setIsAddingGradeLevel(true)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
-                    <Plus size={16} /> {isRTL ? 'إضافة صف' : 'Add Grade'}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {gradeLevels.map(g => (
-                    <span key={g.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-bold">
-                      {g.name}
-                      <button onClick={() => handleDeleteGradeLevel(g.id)} className="text-gray-300 hover:text-red-500">
-                        <X size={13} />
-                      </button>
-                    </span>
-                  ))}
-                  {isAddingGradeLevel && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        autoFocus
-                        type="text"
-                        value={newGradeLevelName}
-                        onChange={(e) => setNewGradeLevelName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddGradeLevel()}
-                        placeholder={isRTL ? 'مثال: الصف 13' : 'e.g. Grade 13'}
-                        className="bg-gray-50 border border-violet-200 rounded-full px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-500"
-                      />
-                      <button onClick={handleAddGradeLevel} className="text-xs font-bold text-violet-600">{isRTL ? 'إضافة' : 'Add'}</button>
-                      <button onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }} className="text-xs text-gray-400">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+              <div className="space-y-6">
+                {/* الصفوف الدراسية */}
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="font-bold text-gray-900">{isRTL ? 'الصفوف الدراسية' : 'Grade Levels'}</h4>
+                      <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'زي Year 1، Grade 10...' : 'e.g. Year 1, Grade 10...'}</p>
                     </div>
-                  )}
-                  {gradeLevels.length === 0 && !isAddingGradeLevel && (
-                    <p className="text-sm text-gray-400">{isRTL ? 'مفيش صفوف دراسية متعملة لسه.' : 'No grade levels yet.'}</p>
-                  )}
+                    <button onClick={() => setIsAddingGradeLevel(true)} className="text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors">
+                      <Plus size={16} /> {isRTL ? 'إضافة صف' : 'Add Grade'}
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {gradeLevels.map(g => (
+                      <span key={g.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-bold">
+                        {g.name}
+                        <button onClick={() => handleDeleteGradeLevel(g.id)} className="text-gray-300 hover:text-red-500">
+                          <X size={13} />
+                        </button>
+                      </span>
+                    ))}
+                    {gradeLevels.length === 0 && (
+                      <p className="text-sm text-gray-400">{isRTL ? 'مفيش صفوف دراسية متعملة لسه.' : 'No grade levels yet.'}</p>
+                    )}
+                  </div>
                 </div>
+
+                {/* الأقسام المنهجية */}
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="font-bold text-gray-900">{isRTL ? 'الأقسام المنهجية' : 'Curriculum Departments'}</h4>
+                      <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'المادة بتقع تحت أي قسم — علوم، رياضيات، لغات...' : 'Which department a subject falls under — Science, Math, Languages...'}</p>
+                    </div>
+                    <button onClick={() => setIsAddDeptModalOpen(true)} className="text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors">
+                      <Plus size={16} /> {isRTL ? 'إضافة قسم' : 'Add Department'}
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {departments.map(d => (
+                      <span key={d.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-bold">
+                        {d.name}
+                        <button onClick={() => handleDeleteDepartment(d.id)} className="text-gray-300 hover:text-red-500">
+                          <X size={13} />
+                        </button>
+                      </span>
+                    ))}
+                    {departments.length === 0 && (
+                      <p className="text-sm text-gray-400">{isRTL ? 'مفيش أقسام متعملة لسه.' : 'No departments yet.'}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* المسارات */}
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h4 className="font-bold text-gray-900">{isRTL ? 'المسارات' : 'Academic Tracks'}</h4>
+                      <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'اختياري — زي علمي وأدبي، وبيترتبط بصف أو أكتر' : 'Optional — e.g. Science and Literary, linked to one or more grades'}</p>
+                    </div>
+                    <button onClick={() => setIsAddTrackModalOpen(true)} className="text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors">
+                      <Plus size={16} /> {isRTL ? 'إضافة مسار' : 'Add Track'}
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {tracks.map(t => (
+                      <div key={t.id} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                        <div>
+                          <span className="font-bold text-gray-800 text-sm">{t.name}</span>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            {t.gradeLevelIds.map(gid => gradeLevels.find(g => g.id === gid)?.name).filter(Boolean).join('، ') || (isRTL ? 'مش مرتبط بصف' : 'No grades linked')}
+                          </p>
+                        </div>
+                        <button onClick={() => handleDeleteTrack(t.id)} className="text-gray-300 hover:text-red-500">
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ))}
+                    {tracks.length === 0 && (
+                      <p className="text-sm text-gray-400">{isRTL ? 'مفيش مسارات متعملة لسه.' : 'No tracks yet.'}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* نافذة إضافة صف دراسي */}
+          {isAddingGradeLevel && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }}>
+              <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-lg font-bold text-gray-900">{isRTL ? 'إضافة صف دراسي' : 'Add Grade Level'}</h3>
+                  <button onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                </div>
+                <input
+                  autoFocus
+                  type="text"
+                  value={newGradeLevelName}
+                  onChange={(e) => setNewGradeLevelName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddGradeLevel()}
+                  placeholder={isRTL ? 'مثال: الصف 13' : 'e.g. Grade 13'}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 mb-5"
+                />
+                <Button onClick={handleAddGradeLevel} disabled={!newGradeLevelName.trim()} className="w-full h-11 rounded-xl">{isRTL ? 'إضافة' : 'Add'}</Button>
+              </div>
+            </div>
+          )}
+
+          {/* نافذة إضافة قسم */}
+          {isAddDeptModalOpen && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={() => { setIsAddDeptModalOpen(false); setNewDeptName(''); }}>
+              <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-lg font-bold text-gray-900">{isRTL ? 'إضافة قسم منهجي' : 'Add Department'}</h3>
+                  <button onClick={() => { setIsAddDeptModalOpen(false); setNewDeptName(''); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                </div>
+                <input
+                  autoFocus
+                  type="text"
+                  value={newDeptName}
+                  onChange={(e) => setNewDeptName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddDepartment()}
+                  placeholder={isRTL ? 'مثال: علوم' : 'e.g. Science'}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 mb-5"
+                />
+                <Button onClick={handleAddDepartment} disabled={!newDeptName.trim()} className="w-full h-11 rounded-xl">{isRTL ? 'إضافة' : 'Add'}</Button>
+              </div>
+            </div>
+          )}
+
+          {/* نافذة إضافة مسار */}
+          {isAddTrackModalOpen && (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={() => { setIsAddTrackModalOpen(false); setNewTrackName(''); setNewTrackGradeIds([]); }}>
+              <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-lg font-bold text-gray-900">{isRTL ? 'إضافة مسار' : 'Add Track'}</h3>
+                  <button onClick={() => { setIsAddTrackModalOpen(false); setNewTrackName(''); setNewTrackGradeIds([]); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                </div>
+                <input
+                  autoFocus
+                  type="text"
+                  value={newTrackName}
+                  onChange={(e) => setNewTrackName(e.target.value)}
+                  placeholder={isRTL ? 'مثال: علمي' : 'e.g. Science Track'}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 mb-4"
+                />
+                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">{isRTL ? 'يترتبط بأي صفوف؟' : 'Applies to which grades?'}</label>
+                <div className="flex flex-wrap gap-2 mb-5 max-h-40 overflow-y-auto">
+                  {gradeLevels.map(g => {
+                    const isSelected = newTrackGradeIds.includes(g.id);
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => setNewTrackGradeIds(isSelected ? newTrackGradeIds.filter(id => id !== g.id) : [...newTrackGradeIds, g.id])}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isSelected ? 'bg-violet-600 border-violet-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-violet-300'}`}
+                      >
+                        {g.name}
+                      </button>
+                    );
+                  })}
+                  {gradeLevels.length === 0 && <p className="text-xs text-gray-400">{isRTL ? 'ضيفي صفوف دراسية الأول.' : 'Add grade levels first.'}</p>}
+                </div>
+                <Button onClick={handleAddTrack} disabled={!newTrackName.trim() || newTrackGradeIds.length === 0} className="w-full h-11 rounded-xl">{isRTL ? 'إضافة' : 'Add'}</Button>
               </div>
             </div>
           )}
