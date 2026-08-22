@@ -682,6 +682,8 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   });
   const [newCourseIcon, setNewCourseIcon] = useState('book-open');
   const [newCourseTrackId, setNewCourseTrackId] = useState<string | null>(null);
+  const [multiGradeSelection, setMultiGradeSelection] = useState<string[]>([]);
+  const isMultiGradeMode = multiGradeSelection.length > 0;
   const NewCoursePreviewIcon = getSubjectIconComponent(newCourseIcon);
   const [subjectThemes, setSubjectThemes] = useState<Record<string, SubjectTheme>>({});
 
@@ -794,6 +796,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
 
   const handleAddCourse = async () => {
     if (!newCourse.code || !newCourse.nameEn || !newCourse.nameAr) return;
+    if (!editingCourseId && multiGradeSelection.length === 0) return;
 
     let ok: boolean;
     if (editingCourseId) {
@@ -805,6 +808,18 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         color: newCourse.color || 'bg-violet-500',
         trackId: newCourseTrackId,
       });
+    } else if (isMultiGradeMode) {
+      const results = await Promise.all(multiGradeSelection.map(gradeName => addCurriculumSubject({
+        grade: gradeName,
+        subject: newCourse.nameAr!,
+        code: newCourse.code,
+        nameEn: newCourse.nameEn,
+        department: newCourse.department || 'General',
+        credits: newCourse.credits || 3,
+        color: newCourse.color || 'bg-violet-500',
+        trackId: newCourseTrackId,
+      })));
+      ok = results.some(Boolean);
     } else {
       ok = await addCurriculumSubject({
         grade: newCourse.gradeLevel,
@@ -824,10 +839,10 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         refreshSubjectThemes();
       }
       refreshCourses();
-      showToast(editingCourseId ? 'تم تعديل المادة بنجاح.' : 'تم إضافة المادة بنجاح.', 'success');
+      showToast(editingCourseId ? 'تم تعديل المادة بنجاح.' : (isMultiGradeMode ? 'تم إضافة المادة للصفوف المحددة بنجاح.' : 'تم إضافة المادة بنجاح.'), 'success');
       setCourseViewMode('BROWSE');
       setEditingCourseId(null);
-      setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null);
+      setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null); setMultiGradeSelection([]);
     } else {
       showToast(editingCourseId ? 'حصل خطأ أثناء التعديل.' : 'حصل خطأ أثناء إضافة المادة (ممكن تكون موجودة بالفعل لنفس الصف).', 'error');
     }
@@ -1081,7 +1096,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                 <Button 
                   onClick={() => {
                     setEditingCourseId(null);
-                    setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null);
+                    setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null); setMultiGradeSelection([]);
                     setCourseViewMode('WIZARD');
                     setSubjectCreationStep(1);
                   }} 
@@ -1203,7 +1218,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <button 
                         onClick={() => {
                           setEditingCourseId(null);
-                          setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null);
+                          setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null); setMultiGradeSelection([]);
                           setCourseViewMode('WIZARD');
                           setSubjectCreationStep(1);
                         }}
@@ -1327,17 +1342,43 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                                   {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
                                 </select>
                               </div>
-                              <div className="space-y-2">
+                              <div className="space-y-2 md:col-span-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{isRTL ? 'المستوى الدراسي' : 'Grade Level'}</label>
-                                <select 
-                                  value={newCourse.gradeLevel}
-                                  onChange={(e) => { setNewCourse({...newCourse, gradeLevel: e.target.value}); setNewCourseTrackId(null); }}
-                                  className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none"
-                                >
-                                  {gradeLevels.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
-                                </select>
+                                {editingCourseId ? (
+                                  <select 
+                                    value={newCourse.gradeLevel}
+                                    onChange={(e) => { setNewCourse({...newCourse, gradeLevel: e.target.value}); setNewCourseTrackId(null); }}
+                                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none"
+                                  >
+                                    {gradeLevels.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                                  </select>
+                                ) : (
+                                  <>
+                                    <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border border-gray-100 rounded-2xl">
+                                      {gradeLevels.map(g => {
+                                        const isSelected = multiGradeSelection.includes(g.name);
+                                        return (
+                                          <button
+                                            key={g.id}
+                                            type="button"
+                                            onClick={() => {
+                                              const next = isSelected ? multiGradeSelection.filter(n => n !== g.name) : [...multiGradeSelection, g.name];
+                                              setMultiGradeSelection(next);
+                                              setNewCourse({...newCourse, gradeLevel: next[0] || ''});
+                                              setNewCourseTrackId(null);
+                                            }}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isSelected ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-violet-300'}`}
+                                          >
+                                            {g.name}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <p className="text-[11px] text-gray-400">{isRTL ? 'اختاري صف واحد أو أكتر — المادة هتتضاف لكل صف تختاريه.' : 'Select one or more grades — the subject will be added to each one you pick.'}</p>
+                                  </>
+                                )}
                               </div>
-                              {(() => {
+                              {multiGradeSelection.length <= 1 && (() => {
                                 const selectedGradeObj = gradeLevels.find(g => g.name === newCourse.gradeLevel);
                                 const availableTracks = selectedGradeObj ? tracks.filter(t => t.gradeLevelIds.includes(selectedGradeObj.id)) : [];
                                 if (availableTracks.length === 0) return null;
@@ -1438,7 +1479,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                                 </div>
                                 <div>
                                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{isRTL ? 'المستوى' : 'Level'}</p>
-                                  <p className="font-bold text-gray-900">{newCourse.gradeLevel}</p>
+                                  <p className="font-bold text-gray-900">{multiGradeSelection.length > 1 ? multiGradeSelection.join(isRTL ? '، ' : ', ') : newCourse.gradeLevel}</p>
                                 </div>
                                 <div>
                                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{isRTL ? 'الساعات' : 'Credits'}</p>
