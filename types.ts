@@ -222,7 +222,7 @@ export interface Course {
   credits?: number;
   department?: string;
   color?: string;
-  trackId?: string | null;
+  trackIds?: string[];
 }
 
 export interface Holiday {
