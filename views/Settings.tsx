@@ -130,7 +130,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         credits: s.credits,
         department: s.department,
         color: s.color,
-        trackId: s.trackId,
+        trackIds: s.trackIds,
       })));
       setCoursesLoading(false);
     });
@@ -681,7 +681,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     gradeLevel: ''
   });
   const [newCourseIcon, setNewCourseIcon] = useState('book-open');
-  const [newCourseTrackId, setNewCourseTrackId] = useState<string | null>(null);
+  const [multiTrackSelection, setMultiTrackSelection] = useState<string[]>([]);
   const [multiGradeSelection, setMultiGradeSelection] = useState<string[]>([]);
   const isMultiGradeMode = multiGradeSelection.length > 0;
   const NewCoursePreviewIcon = getSubjectIconComponent(newCourseIcon);
@@ -806,7 +806,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         department: newCourse.department || 'General',
         credits: newCourse.credits || 3,
         color: newCourse.color || 'bg-violet-500',
-        trackId: newCourseTrackId,
+        trackIds: multiTrackSelection,
       });
     } else if (isMultiGradeMode) {
       const results = await Promise.all(multiGradeSelection.map(gradeName => addCurriculumSubject({
@@ -817,7 +817,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         department: newCourse.department || 'General',
         credits: newCourse.credits || 3,
         color: newCourse.color || 'bg-violet-500',
-        trackId: newCourseTrackId,
+        trackIds: multiTrackSelection,
       })));
       ok = results.some(Boolean);
     } else {
@@ -829,7 +829,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
         department: newCourse.department || 'General',
         credits: newCourse.credits || 3,
         color: newCourse.color || 'bg-violet-500',
-        trackId: newCourseTrackId,
+        trackIds: multiTrackSelection,
       });
     }
 
@@ -842,7 +842,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
       showToast(editingCourseId ? 'تم تعديل المادة بنجاح.' : (isMultiGradeMode ? 'تم إضافة المادة للصفوف المحددة بنجاح.' : 'تم إضافة المادة بنجاح.'), 'success');
       setCourseViewMode('BROWSE');
       setEditingCourseId(null);
-      setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null); setMultiGradeSelection([]);
+      setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setMultiTrackSelection([]); setMultiGradeSelection([]);
     } else {
       showToast(editingCourseId ? 'حصل خطأ أثناء التعديل.' : 'حصل خطأ أثناء إضافة المادة (ممكن تكون موجودة بالفعل لنفس الصف).', 'error');
     }
@@ -1096,7 +1096,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                 <Button 
                   onClick={() => {
                     setEditingCourseId(null);
-                    setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null); setMultiGradeSelection([]);
+                    setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setMultiTrackSelection([]); setMultiGradeSelection([]);
                     setCourseViewMode('WIZARD');
                     setSubjectCreationStep(1);
                   }} 
@@ -1176,7 +1176,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                             <div className="flex gap-1">
                               <button 
                                 onClick={() => {
-                                  setNewCourse(course); setNewCourseTrackId(course.trackId || null);
+                                  setNewCourse(course); setMultiTrackSelection(course.trackIds || []);
                                   setNewCourseIcon(getSubjectThemeFor(subjectThemes, course.nameAr || '').icon);
                                   setEditingCourseId(course.id);
                                   setCourseViewMode('WIZARD');
@@ -1218,7 +1218,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <button 
                         onClick={() => {
                           setEditingCourseId(null);
-                          setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setNewCourseTrackId(null); setMultiGradeSelection([]);
+                          setNewCourse({ code: '', nameEn: '', nameAr: '', credits: 3, department: 'General', color: 'bg-violet-500', gradeLevel: gradeLevels[0]?.name || '' }); setNewCourseIcon('book-open'); setMultiTrackSelection([]); setMultiGradeSelection([]);
                           setCourseViewMode('WIZARD');
                           setSubjectCreationStep(1);
                         }}
@@ -1347,52 +1347,88 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                                 {editingCourseId ? (
                                   <select 
                                     value={newCourse.gradeLevel}
-                                    onChange={(e) => { setNewCourse({...newCourse, gradeLevel: e.target.value}); setNewCourseTrackId(null); }}
+                                    onChange={(e) => setNewCourse({...newCourse, gradeLevel: e.target.value})}
                                     className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none"
                                   >
                                     {gradeLevels.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
                                   </select>
                                 ) : (
                                   <>
-                                    <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border border-gray-100 rounded-2xl">
-                                      {gradeLevels.map(g => {
-                                        const isSelected = multiGradeSelection.includes(g.name);
-                                        return (
-                                          <button
-                                            key={g.id}
-                                            type="button"
-                                            onClick={() => {
-                                              const next = isSelected ? multiGradeSelection.filter(n => n !== g.name) : [...multiGradeSelection, g.name];
-                                              setMultiGradeSelection(next);
-                                              setNewCourse({...newCourse, gradeLevel: next[0] || ''});
-                                              setNewCourseTrackId(null);
-                                            }}
-                                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isSelected ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-violet-300'}`}
-                                          >
-                                            {g.name}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                    <p className="text-[11px] text-gray-400">{isRTL ? 'اختاري صف واحد أو أكتر — المادة هتتضاف لكل صف تختاريه.' : 'Select one or more grades — the subject will be added to each one you pick.'}</p>
+                                    <select
+                                      value=""
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        let next: string[];
+                                        if (val === '__ALL__') next = gradeLevels.map(g => g.name);
+                                        else if (val && !multiGradeSelection.includes(val)) next = [...multiGradeSelection, val];
+                                        else return;
+                                        setMultiGradeSelection(next);
+                                        setNewCourse({...newCourse, gradeLevel: next[0] || ''});
+                                      }}
+                                      className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none"
+                                    >
+                                      <option value="">{isRTL ? 'اختاري صف تضيفيه...' : 'Select a grade to add...'}</option>
+                                      <option value="__ALL__">{isRTL ? 'الكل' : 'All'}</option>
+                                      {gradeLevels.filter(g => !multiGradeSelection.includes(g.name)).map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                                    </select>
+                                    {multiGradeSelection.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 mt-2">
+                                        {multiGradeSelection.map(name => (
+                                          <span key={name} className="flex items-center gap-1.5 bg-violet-50 border border-violet-100 text-violet-700 px-3 py-1.5 rounded-full text-xs font-bold">
+                                            {name}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const next = multiGradeSelection.filter(n => n !== name);
+                                                setMultiGradeSelection(next);
+                                                setNewCourse({...newCourse, gradeLevel: next[0] || ''});
+                                              }}
+                                              className="text-violet-400 hover:text-red-500"
+                                            >
+                                              <X size={12} />
+                                            </button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
                                   </>
                                 )}
                               </div>
-                              {multiGradeSelection.length <= 1 && (() => {
-                                const selectedGradeObj = gradeLevels.find(g => g.name === newCourse.gradeLevel);
-                                const availableTracks = selectedGradeObj ? tracks.filter(t => t.gradeLevelIds.includes(selectedGradeObj.id)) : [];
+                              {(() => {
+                                const selectedGradeObjs = editingCourseId
+                                  ? [gradeLevels.find(g => g.name === newCourse.gradeLevel)].filter(Boolean)
+                                  : multiGradeSelection.map(name => gradeLevels.find(g => g.name === name)).filter(Boolean);
+                                const availableTracks = tracks.filter(t => (selectedGradeObjs as any[]).some(g => t.gradeLevelIds.includes(g.id)));
                                 if (availableTracks.length === 0) return null;
+                                const selectedTrackObjs = multiTrackSelection.map(id => tracks.find(t => t.id === id)).filter(Boolean) as typeof tracks;
                                 return (
                                 <div className="space-y-2 md:col-span-2">
                                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{isRTL ? 'المسار (اختياري)' : 'Track (optional)'}</label>
-                                  <select 
-                                    value={newCourseTrackId || ''}
-                                    onChange={(e) => setNewCourseTrackId(e.target.value || null)}
+                                  <select
+                                    value=""
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === '__ALL__') setMultiTrackSelection(availableTracks.map(t => t.id));
+                                      else if (val && !multiTrackSelection.includes(val)) setMultiTrackSelection([...multiTrackSelection, val]);
+                                    }}
                                     className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none"
                                   >
-                                    <option value="">{isRTL ? 'بدون مسار' : 'No track'}</option>
-                                    {availableTracks.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    <option value="">{isRTL ? 'اختاري مسار تضيفيه...' : 'Select a track to add...'}</option>
+                                    <option value="__ALL__">{isRTL ? 'الكل' : 'All'}</option>
+                                    {availableTracks.filter(t => !multiTrackSelection.includes(t.id)).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                   </select>
+                                  {selectedTrackObjs.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {selectedTrackObjs.map(t => (
+                                        <span key={t.id} className="flex items-center gap-1.5 bg-violet-50 border border-violet-100 text-violet-700 px-3 py-1.5 rounded-full text-xs font-bold">
+                                          {t.name}
+                                          <button type="button" onClick={() => setMultiTrackSelection(multiTrackSelection.filter(id => id !== t.id))} className="text-violet-400 hover:text-red-500">
+                                            <X size={12} />
+                                          </button>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                                 );
                               })()}
@@ -1485,6 +1521,12 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{isRTL ? 'الساعات' : 'Credits'}</p>
                                   <p className="font-bold text-violet-600">{newCourse.credits}</p>
                                 </div>
+                                {multiTrackSelection.length > 0 && (
+                                  <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{isRTL ? 'المسارات' : 'Tracks'}</p>
+                                    <p className="font-bold text-gray-900">{multiTrackSelection.map(id => tracks.find(t => t.id === id)?.name).filter(Boolean).join(isRTL ? '، ' : ', ')}</p>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -1654,6 +1696,15 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <div>
                         <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">{isRTL ? 'يترتبط بأي صفوف؟' : 'Applies to which grades?'}</label>
                         <div className="flex flex-wrap gap-1.5">
+                          {gradeLevels.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setNewTrackGradeIds(newTrackGradeIds.length === gradeLevels.length ? [] : gradeLevels.map(g => g.id))}
+                              className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${newTrackGradeIds.length === gradeLevels.length ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-violet-200 text-violet-600 hover:border-violet-400'}`}
+                            >
+                              {isRTL ? 'الكل' : 'All'}
+                            </button>
+                          )}
                           {gradeLevels.map(g => {
                             const isSelected = newTrackGradeIds.includes(g.id);
                             return (
