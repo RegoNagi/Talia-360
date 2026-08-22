@@ -2834,6 +2834,19 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                                 </div>
                               </div>
                             </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">{isRTL ? 'نظام التعليم' : 'Education System'}</label>
+                              <select
+                                value={schoolSettings.educationSystem}
+                                onChange={(e) => setSchoolSettings({ ...schoolSettings, educationSystem: e.target.value as 'british' | 'american' | 'national' })}
+                                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                              >
+                                <option value="national">{isRTL ? 'وطني' : 'National'}</option>
+                                <option value="american">{isRTL ? 'أمريكي' : 'American'}</option>
+                                <option value="british">{isRTL ? 'بريطاني' : 'British'}</option>
+                              </select>
+                              <p className="text-[10px] text-gray-400">{isRTL ? 'بيحدد مقياس الدرجات الافتراضي اللي بيتطبّق تلقائي على أي سجل درجات جديد.' : 'Determines the default grading scale automatically applied to any new gradebook.'}</p>
+                            </div>
                             <button
                               onClick={saveBranding}
                               disabled={isSavingBranding}
