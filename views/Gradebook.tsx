@@ -1218,6 +1218,45 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                           )}
                       </div>
                    </div>
+
+                   {/* Section D: Early Warning Radar — معايير الدرجات */}
+                   {warningCriteria && (
+                   <div className="p-6 border border-gray-200 rounded-3xl bg-white shadow-sm">
+                      <div className="flex justify-between items-center mb-6">
+                         <div>
+                           <h4 className="font-bold text-gray-900">معايير التحذير المبكر — الدرجات</h4>
+                           <p className="text-xs text-gray-400 mt-0.5">تحدد متوسط الأداء اللي بيصنّف الطالب "حرج" أو "تحذير" في رادار التحذير المبكر بـ Talia Learn.</p>
+                         </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div>
+                            <label className="text-sm font-bold text-red-600 mb-2 block">حالة حرجة: متوسط الأداء أقل من (%)</label>
+                            <input
+                              type="number"
+                              value={warningCriteria.criticalMinAverage}
+                              onChange={(e) => setWarningCriteria({ ...warningCriteria, criticalMinAverage: Number(e.target.value) })}
+                              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all"
+                            />
+                         </div>
+                         <div>
+                            <label className="text-sm font-bold text-amber-600 mb-2 block">تحذير: متوسط الأداء أقل من (%)</label>
+                            <input
+                              type="number"
+                              value={warningCriteria.warningMinAverage}
+                              onChange={(e) => setWarningCriteria({ ...warningCriteria, warningMinAverage: Number(e.target.value) })}
+                              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all"
+                            />
+                         </div>
+                      </div>
+                      <button
+                        onClick={handleSaveWarningCriteria}
+                        disabled={isSavingWarningCriteria}
+                        className="mt-4 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors"
+                      >
+                        {isSavingWarningCriteria ? 'جاري الحفظ...' : 'حفظ المعايير'}
+                      </button>
+                   </div>
+                   )}
                 </div>
              </div>
              );
