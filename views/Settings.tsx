@@ -713,7 +713,6 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     if (id) {
       refreshGradeLevels();
       setNewGradeLevelName('');
-      setIsAddingGradeLevel(false);
       showToast('تم إضافة الصف الدراسي بنجاح.', 'success');
     } else {
       showToast('حصل خطأ أثناء الإضافة (ممكن يكون الاسم موجود بالفعل).', 'error');
@@ -743,7 +742,6 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     if (id) {
       refreshDepartments();
       setNewDeptName('');
-      setIsAddDeptModalOpen(false);
       showToast('تم إضافة القسم.', 'success');
     } else {
       showToast('حصل خطأ أثناء الإضافة (ممكن يكون الاسم موجود بالفعل).', 'error');
@@ -775,7 +773,6 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
       refreshTracks();
       setNewTrackName('');
       setNewTrackGradeIds([]);
-      setIsAddTrackModalOpen(false);
       showToast('تم إضافة المسار.', 'success');
     } else {
       showToast('حصل خطأ أثناء الإضافة (ممكن يكون الاسم موجود بالفعل).', 'error');
@@ -1515,10 +1512,26 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <h4 className="font-bold text-gray-900">{isRTL ? 'الصفوف الدراسية' : 'Grade Levels'}</h4>
                       <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'زي Year 1، Grade 10...' : 'e.g. Year 1, Grade 10...'}</p>
                     </div>
-                    <button onClick={() => setIsAddingGradeLevel(true)} className="text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors">
-                      <Plus size={16} /> {isRTL ? 'إضافة صف' : 'Add Grade'}
+                    <button onClick={() => setIsAddingGradeLevel(!isAddingGradeLevel)} className={`text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors ${isAddingGradeLevel ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-violet-600 text-white hover:bg-violet-700'}`}>
+                      {isAddingGradeLevel ? <><X size={16} /> {isRTL ? 'تم' : 'Done'}</> : <><Plus size={16} /> {isRTL ? 'إضافة صف' : 'Add Grade'}</>}
                     </button>
                   </div>
+                  {isAddingGradeLevel && (
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-violet-50/50 border border-violet-100 rounded-2xl">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={newGradeLevelName}
+                        onChange={(e) => setNewGradeLevelName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddGradeLevel()}
+                        placeholder={isRTL ? 'مثال: الصف 13، دوسي Enter وضيفي اللي بعده على طول' : 'e.g. Grade 13, press Enter and keep adding'}
+                        className="flex-1 p-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                      <button onClick={handleAddGradeLevel} disabled={!newGradeLevelName.trim()} className="px-4 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors">
+                        {isRTL ? 'إضافة' : 'Add'}
+                      </button>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {gradeLevels.map(g => (
                       <span key={g.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-bold">
@@ -1528,23 +1541,39 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                         </button>
                       </span>
                     ))}
-                    {gradeLevels.length === 0 && (
+                    {gradeLevels.length === 0 && !isAddingGradeLevel && (
                       <p className="text-sm text-gray-400">{isRTL ? 'مفيش صفوف دراسية متعملة لسه.' : 'No grade levels yet.'}</p>
                     )}
                   </div>
                 </div>
 
-                {/* الأقسام المنهجية */}
+                {/* الأقسام العلمية */}
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h4 className="font-bold text-gray-900">{isRTL ? 'الأقسام المنهجية' : 'Curriculum Departments'}</h4>
+                      <h4 className="font-bold text-gray-900">{isRTL ? 'الأقسام العلمية' : 'Departments'}</h4>
                       <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'المادة بتقع تحت أي قسم — علوم، رياضيات، لغات...' : 'Which department a subject falls under — Science, Math, Languages...'}</p>
                     </div>
-                    <button onClick={() => setIsAddDeptModalOpen(true)} className="text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors">
-                      <Plus size={16} /> {isRTL ? 'إضافة قسم' : 'Add Department'}
+                    <button onClick={() => setIsAddDeptModalOpen(!isAddDeptModalOpen)} className={`text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors ${isAddDeptModalOpen ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-violet-600 text-white hover:bg-violet-700'}`}>
+                      {isAddDeptModalOpen ? <><X size={16} /> {isRTL ? 'تم' : 'Done'}</> : <><Plus size={16} /> {isRTL ? 'إضافة قسم' : 'Add Department'}</>}
                     </button>
                   </div>
+                  {isAddDeptModalOpen && (
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-violet-50/50 border border-violet-100 rounded-2xl">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={newDeptName}
+                        onChange={(e) => setNewDeptName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddDepartment()}
+                        placeholder={isRTL ? 'مثال: علوم، دوسي Enter وضيفي اللي بعده على طول' : 'e.g. Science, press Enter and keep adding'}
+                        className="flex-1 p-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                      <button onClick={handleAddDepartment} disabled={!newDeptName.trim()} className="px-4 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors">
+                        {isRTL ? 'إضافة' : 'Add'}
+                      </button>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {departments.map(d => (
                       <span key={d.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-bold">
@@ -1554,7 +1583,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                         </button>
                       </span>
                     ))}
-                    {departments.length === 0 && (
+                    {departments.length === 0 && !isAddDeptModalOpen && (
                       <p className="text-sm text-gray-400">{isRTL ? 'مفيش أقسام متعملة لسه.' : 'No departments yet.'}</p>
                     )}
                   </div>
@@ -1567,10 +1596,44 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <h4 className="font-bold text-gray-900">{isRTL ? 'المسارات' : 'Academic Tracks'}</h4>
                       <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'اختياري — زي علمي وأدبي، وبيترتبط بصف أو أكتر' : 'Optional — e.g. Science and Literary, linked to one or more grades'}</p>
                     </div>
-                    <button onClick={() => setIsAddTrackModalOpen(true)} className="text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors">
-                      <Plus size={16} /> {isRTL ? 'إضافة مسار' : 'Add Track'}
+                    <button onClick={() => setIsAddTrackModalOpen(!isAddTrackModalOpen)} className={`text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors ${isAddTrackModalOpen ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-violet-600 text-white hover:bg-violet-700'}`}>
+                      {isAddTrackModalOpen ? <><X size={16} /> {isRTL ? 'تم' : 'Done'}</> : <><Plus size={16} /> {isRTL ? 'إضافة مسار' : 'Add Track'}</>}
                     </button>
                   </div>
+                  {isAddTrackModalOpen && (
+                    <div className="mb-4 p-3 bg-violet-50/50 border border-violet-100 rounded-2xl space-y-3">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={newTrackName}
+                        onChange={(e) => setNewTrackName(e.target.value)}
+                        placeholder={isRTL ? 'مثال: علمي' : 'e.g. Science Track'}
+                        className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1.5 block">{isRTL ? 'يترتبط بأي صفوف؟' : 'Applies to which grades?'}</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {gradeLevels.map(g => {
+                            const isSelected = newTrackGradeIds.includes(g.id);
+                            return (
+                              <button
+                                key={g.id}
+                                type="button"
+                                onClick={() => setNewTrackGradeIds(isSelected ? newTrackGradeIds.filter(id => id !== g.id) : [...newTrackGradeIds, g.id])}
+                                className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${isSelected ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-violet-300'}`}
+                              >
+                                {g.name}
+                              </button>
+                            );
+                          })}
+                          {gradeLevels.length === 0 && <p className="text-xs text-gray-400">{isRTL ? 'ضيفي صفوف دراسية الأول.' : 'Add grade levels first.'}</p>}
+                        </div>
+                      </div>
+                      <button onClick={handleAddTrack} disabled={!newTrackName.trim() || newTrackGradeIds.length === 0} className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors">
+                        {isRTL ? 'إضافة المسار (وضيفي اللي بعده على طول)' : 'Add Track (and keep adding)'}
+                      </button>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {tracks.map(t => (
                       <div key={t.id} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
@@ -1585,93 +1648,11 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                         </button>
                       </div>
                     ))}
-                    {tracks.length === 0 && (
+                    {tracks.length === 0 && !isAddTrackModalOpen && (
                       <p className="text-sm text-gray-400">{isRTL ? 'مفيش مسارات متعملة لسه.' : 'No tracks yet.'}</p>
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* نافذة إضافة صف دراسي */}
-          {isAddingGradeLevel && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }}>
-              <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-lg font-bold text-gray-900">{isRTL ? 'إضافة صف دراسي' : 'Add Grade Level'}</h3>
-                  <button onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                </div>
-                <input
-                  autoFocus
-                  type="text"
-                  value={newGradeLevelName}
-                  onChange={(e) => setNewGradeLevelName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddGradeLevel()}
-                  placeholder={isRTL ? 'مثال: الصف 13' : 'e.g. Grade 13'}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 mb-5"
-                />
-                <Button onClick={handleAddGradeLevel} disabled={!newGradeLevelName.trim()} className="w-full h-11 rounded-xl">{isRTL ? 'إضافة' : 'Add'}</Button>
-              </div>
-            </div>
-          )}
-
-          {/* نافذة إضافة قسم */}
-          {isAddDeptModalOpen && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={() => { setIsAddDeptModalOpen(false); setNewDeptName(''); }}>
-              <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-lg font-bold text-gray-900">{isRTL ? 'إضافة قسم منهجي' : 'Add Department'}</h3>
-                  <button onClick={() => { setIsAddDeptModalOpen(false); setNewDeptName(''); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                </div>
-                <input
-                  autoFocus
-                  type="text"
-                  value={newDeptName}
-                  onChange={(e) => setNewDeptName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddDepartment()}
-                  placeholder={isRTL ? 'مثال: علوم' : 'e.g. Science'}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 mb-5"
-                />
-                <Button onClick={handleAddDepartment} disabled={!newDeptName.trim()} className="w-full h-11 rounded-xl">{isRTL ? 'إضافة' : 'Add'}</Button>
-              </div>
-            </div>
-          )}
-
-          {/* نافذة إضافة مسار */}
-          {isAddTrackModalOpen && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={() => { setIsAddTrackModalOpen(false); setNewTrackName(''); setNewTrackGradeIds([]); }}>
-              <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-lg font-bold text-gray-900">{isRTL ? 'إضافة مسار' : 'Add Track'}</h3>
-                  <button onClick={() => { setIsAddTrackModalOpen(false); setNewTrackName(''); setNewTrackGradeIds([]); }} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                </div>
-                <input
-                  autoFocus
-                  type="text"
-                  value={newTrackName}
-                  onChange={(e) => setNewTrackName(e.target.value)}
-                  placeholder={isRTL ? 'مثال: علمي' : 'e.g. Science Track'}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 mb-4"
-                />
-                <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">{isRTL ? 'يترتبط بأي صفوف؟' : 'Applies to which grades?'}</label>
-                <div className="flex flex-wrap gap-2 mb-5 max-h-40 overflow-y-auto">
-                  {gradeLevels.map(g => {
-                    const isSelected = newTrackGradeIds.includes(g.id);
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => setNewTrackGradeIds(isSelected ? newTrackGradeIds.filter(id => id !== g.id) : [...newTrackGradeIds, g.id])}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isSelected ? 'bg-violet-600 border-violet-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-violet-300'}`}
-                      >
-                        {g.name}
-                      </button>
-                    );
-                  })}
-                  {gradeLevels.length === 0 && <p className="text-xs text-gray-400">{isRTL ? 'ضيفي صفوف دراسية الأول.' : 'Add grade levels first.'}</p>}
-                </div>
-                <Button onClick={handleAddTrack} disabled={!newTrackName.trim() || newTrackGradeIds.length === 0} className="w-full h-11 rounded-xl">{isRTL ? 'إضافة' : 'Add'}</Button>
               </div>
             </div>
           )}
