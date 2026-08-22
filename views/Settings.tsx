@@ -223,6 +223,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     instructionalDays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
     termDivision: 'Semesters' as any, terms: [], holidays: [], schoolEvents: [], assignedCourses: [],
   };
+  const isDuplicateYearName = academicYear.name.trim() !== '' && academicYears.some(y => y.id !== academicYear.id && y.name.trim().toLowerCase() === academicYear.name.trim().toLowerCase());
 
   const setAcademicYear = (update: any) => {
     setAcademicYears(prev => prev.map(y => {
@@ -258,6 +259,11 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   };
 
   const handleDeleteYear = async (yearId: string) => {
+    const target = academicYears.find(y => y.id === yearId);
+    if (target?.status === 'Active') {
+      showToast('العام ده نشط حاليًا، مينفعش يتمسح. فعّلي عام تاني الأول أو أرشفيه.', 'error');
+      return;
+    }
     const confirmed = await confirmDialog('متأكد إنك عايز تمسح العام الدراسي ده؟ الإجراء ده مينفعش يترجع.', 'حذف');
     if (!confirmed) return;
     const ok = await deleteAcademicYear(yearId);
@@ -934,6 +940,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   const tabs = [
     { id: SettingsTab.GENERAL, labelEn: 'General', labelAr: 'عام', icon: <SettingsIcon size={20} /> },
     { id: SettingsTab.COURSES, labelEn: 'Courses & Subjects', labelAr: 'المواد والمقررات', icon: <BookOpen size={20} /> },
+    { id: SettingsTab.GRADE_LEVELS, labelEn: 'Grade Levels', labelAr: 'الصفوف الدراسية', icon: <Layers size={20} /> },
     { id: SettingsTab.ACADEMIC_YEAR, labelEn: 'Academic Year', labelAr: 'العام الدراسي', icon: <Calendar size={20} /> },
     { id: SettingsTab.NOTIFICATIONS, labelEn: 'Notifications', labelAr: 'التنبيهات', icon: <Bell size={20} /> },
     { id: SettingsTab.SPACE_MANAGEMENT, labelEn: 'Space Management', labelAr: 'إدارة المساحات', icon: <Layout size={20} /> },
@@ -1018,47 +1025,6 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                 >
                   <Plus size={20} /> {isRTL ? 'إضافة مادة' : 'Add Subject'}
                 </Button>
-              </div>
-
-              {/* Grade Levels Manager */}
-              <div className="mb-8 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="font-bold text-gray-900">{isRTL ? 'الصفوف الدراسية' : 'Grade Levels'}</h4>
-                    <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'الصفوف اللي بتستخدمها المدرسة في كل مكان بالنظام' : 'The grades your school uses throughout the system'}</p>
-                  </div>
-                  <button onClick={() => setIsAddingGradeLevel(true)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
-                    <Plus size={16} /> {isRTL ? 'إضافة صف' : 'Add Grade'}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {gradeLevels.map(g => (
-                    <span key={g.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-bold">
-                      {g.name}
-                      <button onClick={() => handleDeleteGradeLevel(g.id)} className="text-gray-300 hover:text-red-500">
-                        <X size={13} />
-                      </button>
-                    </span>
-                  ))}
-                  {isAddingGradeLevel && (
-                    <div className="flex items-center gap-2">
-                      <input
-                        autoFocus
-                        type="text"
-                        value={newGradeLevelName}
-                        onChange={(e) => setNewGradeLevelName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddGradeLevel()}
-                        placeholder={isRTL ? 'مثال: الصف 13' : 'e.g. Grade 13'}
-                        className="bg-gray-50 border border-violet-200 rounded-full px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-500"
-                      />
-                      <button onClick={handleAddGradeLevel} className="text-xs font-bold text-violet-600">{isRTL ? 'إضافة' : 'Add'}</button>
-                      <button onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }} className="text-xs text-gray-400">{isRTL ? 'إلغاء' : 'Cancel'}</button>
-                    </div>
-                  )}
-                  {gradeLevels.length === 0 && !isAddingGradeLevel && (
-                    <p className="text-sm text-gray-400">{isRTL ? 'مفيش صفوف دراسية متعملة لسه.' : 'No grade levels yet.'}</p>
-                  )}
-                </div>
               </div>
 
               {/* Toolbar */}
@@ -1449,6 +1415,56 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
             </div>
           )}
 
+          {activeTab === SettingsTab.GRADE_LEVELS && (
+            <div className="flex-1 flex flex-col">
+              <div className="mb-8">
+                <h3 className="text-3xl font-black text-gray-900 tracking-tight">
+                  {isRTL ? 'الصفوف الدراسية' : 'Grade Levels'}
+                </h3>
+                <p className="text-sm text-gray-500 mt-2">
+                  {isRTL ? 'الصفوف اللي بتستخدمها المدرسة في كل مكان بالنظام (سجل الدرجات، الحضور، المواد، وغيرها)' : 'The grades your school uses throughout the system (gradebook, attendance, subjects, and more)'}
+                </p>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-bold text-gray-900">{isRTL ? 'قائمة الصفوف' : 'Grades List'}</h4>
+                  <button onClick={() => setIsAddingGradeLevel(true)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                    <Plus size={16} /> {isRTL ? 'إضافة صف' : 'Add Grade'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {gradeLevels.map(g => (
+                    <span key={g.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-bold">
+                      {g.name}
+                      <button onClick={() => handleDeleteGradeLevel(g.id)} className="text-gray-300 hover:text-red-500">
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))}
+                  {isAddingGradeLevel && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={newGradeLevelName}
+                        onChange={(e) => setNewGradeLevelName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddGradeLevel()}
+                        placeholder={isRTL ? 'مثال: الصف 13' : 'e.g. Grade 13'}
+                        className="bg-gray-50 border border-violet-200 rounded-full px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                      <button onClick={handleAddGradeLevel} className="text-xs font-bold text-violet-600">{isRTL ? 'إضافة' : 'Add'}</button>
+                      <button onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }} className="text-xs text-gray-400">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                    </div>
+                  )}
+                  {gradeLevels.length === 0 && !isAddingGradeLevel && (
+                    <p className="text-sm text-gray-400">{isRTL ? 'مفيش صفوف دراسية متعملة لسه.' : 'No grade levels yet.'}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === SettingsTab.ACADEMIC_YEAR && (
             <div className="flex-1 flex flex-col">
               {/* Tab Header */}
@@ -1809,9 +1825,12 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                                 setAcademicYear({...academicYear, name: e.target.value});
                                 updateAcademicYear(academicYear.id, { name: e.target.value });
                               }}
-                              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500"
+                              className={`w-full p-3 bg-gray-50 border rounded-xl outline-none focus:ring-2 transition-all ${isDuplicateYearName ? 'border-red-300 focus:ring-red-400' : 'border-gray-200 focus:ring-violet-500'}`}
                               placeholder="e.g. 2026/2027"
                             />
+                            {isDuplicateYearName && (
+                              <p className="text-xs text-red-500 font-bold">{isRTL ? 'فيه عام دراسي تاني بنفس الاسم ده بالظبط.' : 'Another academic year already has this exact name.'}</p>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-500 uppercase">{isRTL ? 'حالة النظام' : 'System Toggle'}</label>
@@ -1858,7 +1877,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                         <div className="mt-8 flex justify-end">
                           <Button 
                             onClick={() => setCreationStep(2)} 
-                            disabled={!academicYear.name}
+                            disabled={!academicYear.name || isDuplicateYearName}
                             className="px-8 h-12 rounded-2xl shadow-lg shadow-violet-100 gap-2"
                           >
                             {isRTL ? 'حفظ ومتابعة للفصول' : 'Save & Continue to Terms'} <ArrowRight size={18} />
@@ -2203,6 +2222,12 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                               </p>
                               <Button 
                                 onClick={async () => {
+                                  const otherActive = academicYears.find(y => y.status === 'Active' && y.id !== academicYear.id);
+                                  const confirmMsg = otherActive
+                                    ? `متأكد إنك عايز تفعّل "${academicYear.name}"؟ العام النشط حاليًا "${otherActive.name}" هيتأرشف تلقائيًا.`
+                                    : `متأكد إنك عايز تفعّل "${academicYear.name}"؟`;
+                                  const confirmed = await confirmDialog(confirmMsg, 'تفعيل');
+                                  if (!confirmed) return;
                                   let overallStart = '';
                                   let overallEnd = '';
                                   if (academicYear.terms.length > 0) {
