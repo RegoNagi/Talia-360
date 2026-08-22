@@ -1268,8 +1268,8 @@ export async function getCurriculumSubjectsDetailed(grade: string): Promise<{ su
 }
 
 // بيجيب كل المواد بتاعة كل الصفوف مع تفاصيلها (لشاشة "المواد والمقررات" في الإعدادات)
-export async function getAllCurriculumSubjectsWithGrade(): Promise<{ id: string; grade: string; subject: string; code: string; nameEn: string; department: string; credits: number; color: string }[]> {
-  const { data, error } = await supabase.from('curriculum_subjects').select('id, grade, subject, code, name_en, department, credits, color').order('grade', { ascending: true });
+export async function getAllCurriculumSubjectsWithGrade(): Promise<{ id: string; grade: string; subject: string; code: string; nameEn: string; department: string; credits: number; color: string; trackId: string | null }[]> {
+  const { data, error } = await supabase.from('curriculum_subjects').select('id, grade, subject, code, name_en, department, credits, color, track_id').order('grade', { ascending: true });
   if (error) {
     console.error('Error fetching all curriculum subjects:', error);
     return [];
@@ -1283,11 +1283,12 @@ export async function getAllCurriculumSubjectsWithGrade(): Promise<{ id: string;
     department: row.department || 'General',
     credits: row.credits ?? 3,
     color: row.color || 'bg-violet-500',
+    trackId: row.track_id || null,
   }));
 }
 
 // بيضيف مادة جديدة لمنهج صف معيّن
-export async function addCurriculumSubject(input: { grade: string; subject: string; code?: string; nameEn?: string; department?: string; credits?: number; color?: string }): Promise<boolean> {
+export async function addCurriculumSubject(input: { grade: string; subject: string; code?: string; nameEn?: string; department?: string; credits?: number; color?: string; trackId?: string | null }): Promise<boolean> {
   const { error } = await supabase.from('curriculum_subjects').insert({
     grade: input.grade,
     subject: input.subject,
@@ -1296,6 +1297,7 @@ export async function addCurriculumSubject(input: { grade: string; subject: stri
     department: input.department || null,
     credits: input.credits ?? 3,
     color: input.color || 'bg-violet-500',
+    track_id: input.trackId || null,
   });
   if (error) {
     console.error('Error adding curriculum subject:', error);
@@ -1305,13 +1307,14 @@ export async function addCurriculumSubject(input: { grade: string; subject: stri
 }
 
 // بيعدّل بيانات مادة موجودة (عن طريق الـ id)
-export async function updateCurriculumSubjectById(id: string, input: { code?: string; nameEn?: string; department?: string; credits?: number; color?: string }): Promise<boolean> {
+export async function updateCurriculumSubjectById(id: string, input: { code?: string; nameEn?: string; department?: string; credits?: number; color?: string; trackId?: string | null }): Promise<boolean> {
   const { error } = await supabase.from('curriculum_subjects').update({
     code: input.code || null,
     name_en: input.nameEn || null,
     department: input.department || null,
     credits: input.credits ?? 3,
     color: input.color || 'bg-violet-500',
+    track_id: input.trackId || null,
   }).eq('id', id);
   if (error) {
     console.error('Error updating curriculum subject:', error);
@@ -1969,4 +1972,85 @@ export async function updateEarlyWarningCriteria(input: { id: string; criticalAt
   if (input.warningMinAverage !== undefined) patch.warning_min_average = input.warningMinAverage;
   const { error } = await supabase.from('early_warning_criteria').update(patch).eq('id', input.id);
   return !error;
+}
+
+
+// ============ الأقسام المنهجية (Curriculum Departments) ============
+
+export interface CurriculumDepartment {
+  id: string;
+  name: string;
+  displayOrder: number;
+}
+
+export async function getDepartments(): Promise<CurriculumDepartment[]> {
+  const { data, error } = await supabase.from('curriculum_departments').select('id, name, display_order').order('display_order', { ascending: true });
+  if (error) {
+    console.error('Error fetching departments:', error);
+    return [];
+  }
+  return (data || []).map((row: any) => ({ id: row.id, name: row.name, displayOrder: row.display_order }));
+}
+
+export async function addDepartment(name: string): Promise<string | null> {
+  const { data: existing } = await supabase.from('curriculum_departments').select('display_order').order('display_order', { ascending: false }).limit(1).maybeSingle();
+  const nextOrder = (existing?.display_order ?? 0) + 1;
+  const { data, error } = await supabase.from('curriculum_departments').insert({ name, display_order: nextOrder }).select('id').single();
+  if (error || !data) {
+    console.error('Error adding department:', error);
+    return null;
+  }
+  return data.id;
+}
+
+export async function deleteDepartment(id: string): Promise<boolean> {
+  const { error } = await supabase.from('curriculum_departments').delete().eq('id', id);
+  if (error) {
+    console.error('Error deleting department:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============ المسارات (Academic Tracks) — كل مسار مرتبط بصف أو أكتر ============
+
+export interface AcademicTrack {
+  id: string;
+  name: string;
+  gradeLevelIds: string[];
+}
+
+export async function getTracks(): Promise<AcademicTrack[]> {
+  const { data: tracks, error } = await supabase.from('academic_tracks').select('id, name');
+  if (error || !tracks) {
+    console.error('Error fetching tracks:', error);
+    return [];
+  }
+  const { data: links } = await supabase.from('track_grade_levels').select('track_id, grade_level_id');
+  return tracks.map((t: any) => ({
+    id: t.id,
+    name: t.name,
+    gradeLevelIds: (links || []).filter((l: any) => l.track_id === t.id).map((l: any) => l.grade_level_id),
+  }));
+}
+
+export async function addTrack(name: string, gradeLevelIds: string[]): Promise<string | null> {
+  const { data, error } = await supabase.from('academic_tracks').insert({ name }).select('id').single();
+  if (error || !data) {
+    console.error('Error adding track:', error);
+    return null;
+  }
+  if (gradeLevelIds.length > 0) {
+    await supabase.from('track_grade_levels').insert(gradeLevelIds.map((gid) => ({ track_id: data.id, grade_level_id: gid })));
+  }
+  return data.id;
+}
+
+export async function deleteTrack(id: string): Promise<boolean> {
+  const { error } = await supabase.from('academic_tracks').delete().eq('id', id);
+  if (error) {
+    console.error('Error deleting track:', error);
+    return false;
+  }
+  return true;
 }
