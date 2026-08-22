@@ -1268,12 +1268,13 @@ export async function getCurriculumSubjectsDetailed(grade: string): Promise<{ su
 }
 
 // بيجيب كل المواد بتاعة كل الصفوف مع تفاصيلها (لشاشة "المواد والمقررات" في الإعدادات)
-export async function getAllCurriculumSubjectsWithGrade(): Promise<{ id: string; grade: string; subject: string; code: string; nameEn: string; department: string; credits: number; color: string; trackId: string | null }[]> {
-  const { data, error } = await supabase.from('curriculum_subjects').select('id, grade, subject, code, name_en, department, credits, color, track_id').order('grade', { ascending: true });
+export async function getAllCurriculumSubjectsWithGrade(): Promise<{ id: string; grade: string; subject: string; code: string; nameEn: string; department: string; credits: number; color: string; trackIds: string[] }[]> {
+  const { data, error } = await supabase.from('curriculum_subjects').select('id, grade, subject, code, name_en, department, credits, color').order('grade', { ascending: true });
   if (error) {
     console.error('Error fetching all curriculum subjects:', error);
     return [];
   }
+  const { data: trackLinks } = await supabase.from('subject_tracks').select('subject_id, track_id');
   return (data || []).map((row: any) => ({
     id: row.id,
     grade: row.grade,
@@ -1283,13 +1284,13 @@ export async function getAllCurriculumSubjectsWithGrade(): Promise<{ id: string;
     department: row.department || 'General',
     credits: row.credits ?? 3,
     color: row.color || 'bg-violet-500',
-    trackId: row.track_id || null,
+    trackIds: (trackLinks || []).filter((l: any) => l.subject_id === row.id).map((l: any) => l.track_id),
   }));
 }
 
-// بيضيف مادة جديدة لمنهج صف معيّن
-export async function addCurriculumSubject(input: { grade: string; subject: string; code?: string; nameEn?: string; department?: string; credits?: number; color?: string; trackId?: string | null }): Promise<boolean> {
-  const { error } = await supabase.from('curriculum_subjects').insert({
+// بيضيف مادة جديدة لمنهج صف معيّن (المادة ممكن تكون مرتبطة بأكتر من مسار في نفس الوقت)
+export async function addCurriculumSubject(input: { grade: string; subject: string; code?: string; nameEn?: string; department?: string; credits?: number; color?: string; trackIds?: string[] }): Promise<boolean> {
+  const { data, error } = await supabase.from('curriculum_subjects').insert({
     grade: input.grade,
     subject: input.subject,
     code: input.code || null,
@@ -1297,28 +1298,35 @@ export async function addCurriculumSubject(input: { grade: string; subject: stri
     department: input.department || null,
     credits: input.credits ?? 3,
     color: input.color || 'bg-violet-500',
-    track_id: input.trackId || null,
-  });
-  if (error) {
+  }).select('id').single();
+  if (error || !data) {
     console.error('Error adding curriculum subject:', error);
     return false;
+  }
+  if (input.trackIds && input.trackIds.length > 0) {
+    await supabase.from('subject_tracks').insert(input.trackIds.map((tid) => ({ subject_id: data.id, track_id: tid })));
   }
   return true;
 }
 
 // بيعدّل بيانات مادة موجودة (عن طريق الـ id)
-export async function updateCurriculumSubjectById(id: string, input: { code?: string; nameEn?: string; department?: string; credits?: number; color?: string; trackId?: string | null }): Promise<boolean> {
+export async function updateCurriculumSubjectById(id: string, input: { code?: string; nameEn?: string; department?: string; credits?: number; color?: string; trackIds?: string[] }): Promise<boolean> {
   const { error } = await supabase.from('curriculum_subjects').update({
     code: input.code || null,
     name_en: input.nameEn || null,
     department: input.department || null,
     credits: input.credits ?? 3,
     color: input.color || 'bg-violet-500',
-    track_id: input.trackId || null,
   }).eq('id', id);
   if (error) {
     console.error('Error updating curriculum subject:', error);
     return false;
+  }
+  if (input.trackIds !== undefined) {
+    await supabase.from('subject_tracks').delete().eq('subject_id', id);
+    if (input.trackIds.length > 0) {
+      await supabase.from('subject_tracks').insert(input.trackIds.map((tid) => ({ subject_id: id, track_id: tid })));
+    }
   }
   return true;
 }
