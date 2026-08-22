@@ -5,7 +5,7 @@ import {
   getGradebookConfigs, createGradebookConfig, updateGradebookConfigStatus, updateGradebookConfig,
   getOrCreateDefaultTerm, getAssessments, createAssessment as createAssessmentSvc, deleteAssessment as deleteAssessmentSvc,
   getGradeEntries, saveGradeEntries, getStudents, getClassSections, getCurriculumSubjects, getGradeLevels,
-  getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria
+  getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getSchoolSettings
 } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { confirmDialog } from '../components/ConfirmDialog';
@@ -266,8 +266,62 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
   const [useDefaultPolicy, setUseDefaultPolicy] = useState(true);
   const [useDefaultWeights, setUseDefaultWeights] = useState(true);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [enableGPA, setEnableGPA] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState('custom');
+  const [schoolEducationSystem, setSchoolEducationSystem] = useState<'british' | 'american' | 'national'>('national');
+  React.useEffect(() => {
+    getSchoolSettings().then((s) => setSchoolEducationSystem(s.educationSystem));
+  }, []);
+  // بيطبّق مقياس الدرجات الافتراضي بناءً على نظام التعليم المحدد في إعدادات المدرسة — بيحصل تلقائي مع كل سجل درجات جديد
+  const applySchoolEducationTemplate = (system: 'british' | 'american' | 'national', baseConfig: GradebookConfig): GradebookConfig => {
+    if (system === 'american') {
+      return {
+        ...baseConfig,
+        gradingScale: [
+          { grade: 'A+', min: 97, max: 100, color: 'text-green-600' },
+          { grade: 'A', min: 93, max: 96, color: 'text-green-600' },
+          { grade: 'A-', min: 90, max: 92, color: 'text-green-600' },
+          { grade: 'B+', min: 87, max: 89, color: 'text-blue-600' },
+          { grade: 'B', min: 83, max: 86, color: 'text-blue-600' },
+          { grade: 'B-', min: 80, max: 82, color: 'text-blue-600' },
+          { grade: 'C+', min: 77, max: 79, color: 'text-yellow-600' },
+          { grade: 'C', min: 73, max: 76, color: 'text-yellow-600' },
+          { grade: 'C-', min: 70, max: 72, color: 'text-yellow-600' },
+          { grade: 'D', min: 65, max: 69, color: 'text-violet-600' },
+          { grade: 'F', min: 0, max: 64, color: 'text-pink-600' },
+        ],
+      };
+    } else if (system === 'british') {
+      return {
+        ...baseConfig,
+        gradingScale: [
+          { grade: 'A*', min: 90, max: 100, color: 'text-green-600' },
+          { grade: 'A', min: 80, max: 89, color: 'text-green-600' },
+          { grade: 'B', min: 70, max: 79, color: 'text-blue-600' },
+          { grade: 'C', min: 60, max: 69, color: 'text-yellow-600' },
+          { grade: 'D', min: 50, max: 59, color: 'text-violet-600' },
+          { grade: 'E', min: 40, max: 49, color: 'text-violet-600' },
+          { grade: 'U', min: 0, max: 39, color: 'text-pink-600' },
+        ],
+      };
+    }
+    return {
+      ...baseConfig,
+      gradingScale: [
+        { grade: 'ممتاز', min: 85, max: 100, color: 'text-green-600' },
+        { grade: 'جيد جداً', min: 75, max: 84, color: 'text-blue-600' },
+        { grade: 'جيد', min: 65, max: 74, color: 'text-yellow-600' },
+        { grade: 'مقبول', min: 50, max: 64, color: 'text-violet-600' },
+        { grade: 'راسب', min: 0, max: 49, color: 'text-pink-600' },
+      ],
+    };
+  };
+  const startNewGradebookConfig = () => {
+    setConfig((prev) => applySchoolEducationTemplate(schoolEducationSystem, prev));
+    setActiveTemplate(schoolEducationSystem);
+    setSelectedClassId(null);
+    setAdminStep(1);
+    setAdminView('wizard');
+  };
   const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const [isPassingMenuOpen, setIsPassingMenuOpen] = useState(false);
   const [openColorMenuIdx, setOpenColorMenuIdx] = useState<number | null>(null);
@@ -612,7 +666,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
             </button>
           )}
           <button
-            onClick={() => { setSelectedClassId(null); setAdminStep(1); setAdminView('wizard'); }}
+            onClick={startNewGradebookConfig}
             className="bg-white border border-violet-200 hover:border-violet-400 rounded-3xl p-8 text-center transition-colors shadow-sm flex flex-col items-center gap-4"
           >
             <div className="w-16 h-16 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600">
@@ -663,62 +717,6 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
       { id: 3, label: 'نشر', icon: <CheckCircle2 size={18} /> },
     ];
 
-    const templates = [
-      { id: 'custom', name: 'مخصص (بدون قالب)' },
-      { id: 'american', name: 'الدبلومة الأمريكية' },
-      { id: 'british', name: 'المنهج البريطاني (IGCSE)' },
-      { id: 'national', name: 'المنهج الوطني' }
-    ];
-
-    const handleTemplateSelect = (templateId: string) => {
-      setActiveTemplate(templateId);
-      setIsTemplateMenuOpen(false);
-      if (templateId === 'american') {
-        setEnableGPA(true);
-        setConfig({
-          ...config,
-          gradingScale: [
-            { grade: 'A+', min: 97, max: 100, color: 'text-green-600', gpaValue: 4.0 },
-            { grade: 'A', min: 93, max: 96, color: 'text-green-600', gpaValue: 4.0 },
-            { grade: 'A-', min: 90, max: 92, color: 'text-green-600', gpaValue: 3.7 },
-            { grade: 'B+', min: 87, max: 89, color: 'text-blue-600', gpaValue: 3.3 },
-            { grade: 'B', min: 83, max: 86, color: 'text-blue-600', gpaValue: 3.0 },
-            { grade: 'B-', min: 80, max: 82, color: 'text-blue-600', gpaValue: 2.7 },
-            { grade: 'C+', min: 77, max: 79, color: 'text-yellow-600', gpaValue: 2.3 },
-            { grade: 'C', min: 73, max: 76, color: 'text-yellow-600', gpaValue: 2.0 },
-            { grade: 'C-', min: 70, max: 72, color: 'text-yellow-600', gpaValue: 1.7 },
-            { grade: 'D', min: 65, max: 69, color: 'text-violet-600', gpaValue: 1.0 },
-            { grade: 'F', min: 0, max: 64, color: 'text-pink-600', gpaValue: 0.0 },
-          ]
-        });
-      } else if (templateId === 'british') {
-        setEnableGPA(false);
-        setConfig({
-          ...config,
-          gradingScale: [
-            { grade: 'A*', min: 90, max: 100, color: 'text-green-600' },
-            { grade: 'A', min: 80, max: 89, color: 'text-green-600' },
-            { grade: 'B', min: 70, max: 79, color: 'text-blue-600' },
-            { grade: 'C', min: 60, max: 69, color: 'text-yellow-600' },
-            { grade: 'D', min: 50, max: 59, color: 'text-violet-600' },
-            { grade: 'E', min: 40, max: 49, color: 'text-violet-600' },
-            { grade: 'U', min: 0, max: 39, color: 'text-pink-600' },
-          ]
-        });
-      } else if (templateId === 'national') {
-        setEnableGPA(false);
-        setConfig({
-          ...config,
-          gradingScale: [
-            { grade: 'ممتاز', min: 85, max: 100, color: 'text-green-600' },
-            { grade: 'جيد جداً', min: 75, max: 84, color: 'text-blue-600' },
-            { grade: 'جيد', min: 65, max: 74, color: 'text-yellow-600' },
-            { grade: 'مقبول', min: 50, max: 64, color: 'text-violet-600' },
-            { grade: 'راسب', min: 0, max: 49, color: 'text-pink-600' },
-          ]
-        });
-      }
-    };
 
     // -- Custom Step Handlers --
     const handleAddTerm = () => {
@@ -958,7 +956,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
            )}
 
            {adminStep === 1 && (() => {
-             const selectedTemplateName = templates.find(t => t.id === activeTemplate)?.name || 'مخصص (بدون قالب)';
+             const templateLabels: Record<string, string> = { custom: 'مخصص (بعد تعديل يدوي)', american: 'أمريكي', british: 'بريطاني', national: 'وطني' };
+             const selectedTemplateName = templateLabels[activeTemplate] || 'مخصص (بعد تعديل يدوي)';
              return (
              <div className="max-w-4xl mx-auto space-y-8">
                 <div className="flex justify-between items-center">
@@ -984,39 +983,15 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                          />
                       </div>
                       <div className="flex flex-col md:flex-row md:items-start justify-between gap-8 w-full">
-                         <div className="relative w-full md:w-1/2">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">البدء من قالب</label>
-                            <div className="relative w-full">
-                               <div 
-                                 onClick={() => setIsTemplateMenuOpen(!isTemplateMenuOpen)}
-                                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer flex justify-between items-center"
-                               >
-                                 <span className="font-medium text-gray-800">
-                                   {selectedTemplateName}
-                                 </span>
-                                 <ChevronDown size={18} className="text-gray-400" />
-                               </div>
-                               
-                               {isTemplateMenuOpen && (
-                                 <>
-                                   <div className="fixed inset-0 z-40" onClick={() => setIsTemplateMenuOpen(false)}></div>
-                                   <div className="absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden">
-                                     {templates.map(t => (
-                                       <div 
-                                         key={t.id}
-                                         onClick={() => handleTemplateSelect(t.id)}
-                                         className={`px-4 py-3 text-sm cursor-pointer transition-colors flex justify-between items-center ${activeTemplate === t.id ? 'bg-violet-50 text-violet-800 font-bold' : 'font-medium text-gray-700 hover:bg-violet-50 hover:text-violet-700'}`}
-                                       >
-                                         {t.name}
-                                         {activeTemplate === t.id && <Check size={16} className="text-violet-600" />}
-                                       </div>
-                                     ))}
-                                   </div>
-                                 </>
-                               )}
+                         <div className="w-full md:w-1/2">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">نظام التعليم (من إعدادات المدرسة)</label>
+                            <div className="w-full p-3 bg-violet-50 border border-violet-100 rounded-xl flex items-center justify-between">
+                               <span className="font-medium text-violet-800">{selectedTemplateName}</span>
+                               <span className="text-[10px] text-violet-500">تلقائي</span>
                             </div>
+                            <p className="text-[10px] text-gray-400 mt-1">اتطبّق تلقائي بناءً على نظام التعليم المحدد في الإعدادات العامة — عدّل مقياس الدرجات تحت مباشرة لو عايز تخصّصه لهذا السجل بس.</p>
                          </div>
-                         
+
                          <div className="relative w-full md:w-1/2">
                             <label className="block text-sm font-bold text-gray-700 mb-2">الصفوف المستهدفة</label>
                             <div 
@@ -1122,18 +1097,6 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                            </div>
                          </div>
 
-                         <div className="flex items-center gap-3 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-4 md:mt-0 justify-between">
-                            <div className="flex flex-col">
-                               <span className="text-sm font-bold text-gray-900">تفعيل حساب المعدل التراكمي (GPA)</span>
-                               <span className="text-xs text-gray-500">تضمين أوزان المعدل التراكمي في المخطط</span>
-                            </div>
-                            <button 
-                              onClick={() => setEnableGPA(!enableGPA)}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none shrink-0 ${enableGPA ? 'bg-violet-600' : 'bg-gray-300'}`}
-                            >
-                               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${enableGPA ? 'translate-x-6' : 'translate-x-1'}`} />
-                            </button>
-                         </div>
                       </div>
                    </div>
 
@@ -1152,7 +1115,6 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                             <div className="flex items-center gap-4 px-4 pb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
                                <div className="flex-1">قيمة العرض</div>
                                <div className="w-40 text-center">المدى (%)</div>
-                               {enableGPA && <div className="w-24 text-center">وزن المعدل التراكمي</div>}
                                <div className="w-10"></div>
                             </div>
                           )}
@@ -1238,20 +1200,6 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                    />
                                 </div>
 
-                                {/* GPA Value */}
-                                {enableGPA && (
-                                  <div className="w-full md:w-24">
-                                    <input 
-                                      type="number" 
-                                      step="0.1"
-                                      value={rule.gpaValue || ''} 
-                                      placeholder="4.0"
-                                      onChange={(e) => handleUpdateGradingRule(idx, 'gpaValue', Number(e.target.value))}
-                                      className="w-full p-2.5 text-center bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 font-bold text-gray-700 transition-all" 
-                                    />
-                                  </div>
-                                )}
-
                                 {/* Actions */}
                                 <button 
                                   onClick={() => handleRemoveGradingRule(idx)}
@@ -1270,45 +1218,6 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                           )}
                       </div>
                    </div>
-
-                   {/* Section D: Early Warning Radar — معايير الدرجات */}
-                   {warningCriteria && (
-                   <div className="p-6 border border-gray-200 rounded-3xl bg-white shadow-sm">
-                      <div className="flex justify-between items-center mb-6">
-                         <div>
-                           <h4 className="font-bold text-gray-900">معايير التحذير المبكر — الدرجات</h4>
-                           <p className="text-xs text-gray-400 mt-0.5">تحدد متوسط الأداء اللي بيصنّف الطالب "حرج" أو "تحذير" في رادار التحذير المبكر بـ Talia Learn.</p>
-                         </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div>
-                            <label className="text-sm font-bold text-red-600 mb-2 block">حالة حرجة: متوسط الأداء أقل من (%)</label>
-                            <input
-                              type="number"
-                              value={warningCriteria.criticalMinAverage}
-                              onChange={(e) => setWarningCriteria({ ...warningCriteria, criticalMinAverage: Number(e.target.value) })}
-                              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all"
-                            />
-                         </div>
-                         <div>
-                            <label className="text-sm font-bold text-amber-600 mb-2 block">تحذير: متوسط الأداء أقل من (%)</label>
-                            <input
-                              type="number"
-                              value={warningCriteria.warningMinAverage}
-                              onChange={(e) => setWarningCriteria({ ...warningCriteria, warningMinAverage: Number(e.target.value) })}
-                              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all"
-                            />
-                         </div>
-                      </div>
-                      <button
-                        onClick={handleSaveWarningCriteria}
-                        disabled={isSavingWarningCriteria}
-                        className="mt-4 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors"
-                      >
-                        {isSavingWarningCriteria ? 'جاري الحفظ...' : 'حفظ المعايير'}
-                      </button>
-                   </div>
-                   )}
                 </div>
              </div>
              );
@@ -2098,7 +2007,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                   </button>
                </div>
                {activeTab === 'admin' && (
-                 <Button onClick={() => { setSelectedClassId(null); setAdminStep(1); setAdminView('wizard'); }} className="bg-violet-600 hover:bg-violet-700 text-white whitespace-nowrap">
+                 <Button onClick={startNewGradebookConfig} className="bg-violet-600 hover:bg-violet-700 text-white whitespace-nowrap">
                     <Plus size={18} className="mr-2" /> إنشاء نظام درجات جديد
                  </Button>
                )}
