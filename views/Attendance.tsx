@@ -500,6 +500,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                 <thead>
                   <tr className="border-b border-gray-100 text-sm text-gray-500">
                     <th className="pb-3 font-medium">{t('الطالب', 'Student')}</th>
+                    <th className="pb-3 font-medium">{t('الصف', 'Grade')}</th>
                     <th className="pb-3 font-medium">{t('الفصل', 'Class')}</th>
                     <th className="pb-3 font-medium">{t('المعلم', 'Teacher')}</th>
                     <th className="pb-3 font-medium">{t('الوقت', 'Time')}</th>
@@ -508,10 +509,11 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                 </thead>
                 <tbody>
                   {isLoadingDashboard ? (
-                    <tr><td colSpan={5} className="py-8 text-center text-gray-400 text-sm">{t('جاري التحميل...', 'Loading...')}</td></tr>
+                    <tr><td colSpan={6} className="py-8 text-center text-gray-400 text-sm">{t('جاري التحميل...', 'Loading...')}</td></tr>
                   ) : filteredLogs.length > 0 ? filteredLogs.slice(0, 50).map(log => (
                     <tr key={log.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
                       <td className="py-3 text-sm font-bold text-gray-900">{log.studentName}</td>
+                      <td className="py-3 text-sm text-gray-600">{log.gradeLevel}</td>
                       <td className="py-3 text-sm text-gray-600">{log.className}</td>
                       <td className="py-3 text-sm text-gray-600">{log.teacherName}</td>
                       <td className="py-3 text-sm text-gray-500">{log.time}</td>
@@ -526,7 +528,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                       </td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={5} className="py-8 text-center text-gray-500 text-sm">{t('مفيش سجلات مطابقة للفلتر.', 'No logs matching your filters.')}</td></tr>
+                    <tr><td colSpan={6} className="py-8 text-center text-gray-500 text-sm">{t('مفيش سجلات مطابقة للفلتر.', 'No logs matching your filters.')}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -558,7 +560,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                         <th className="px-5 py-3 font-bold">{t('الصف', 'Grade')}</th>
                         <th className="px-5 py-3 font-bold">{t('المعلم', 'Teacher')}</th>
                         <th className="px-5 py-3 font-bold">{t('الحالة', 'Status')}</th>
-                        <th className="px-5 py-3 font-bold"></th>
+                        <th className="px-5 py-3 font-bold">{t('إجراءات', 'Actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -575,12 +577,12 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                               {cls.status === 'complete' ? t('اتاخد الحضور', 'Taken') : cls.status === 'partial' ? `${t('جزئي', 'Partial')} (${cls.takenCount}/${cls.expectedCount})` : t('لسه ماخدش', 'Not Taken')}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-right">
+                          <td className="px-5 py-3">
                             <button
                               onClick={() => enterTakeAttendance(cls.sectionId)}
-                              className="text-xs font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-lg transition-colors"
+                              className={`text-xs font-bold px-4 py-2 rounded-lg transition-colors ${cls.status === 'complete' ? 'text-gray-700 bg-gray-100 hover:bg-gray-200' : 'text-white bg-violet-600 hover:bg-violet-700'}`}
                             >
-                              {cls.status === 'complete' ? t('عرض/تعديل', 'View/Edit') : t('خد الحضور', 'Take Attendance')}
+                              {cls.status === 'complete' ? t('عرض / تعديل', 'View / Edit') : t('خد الحضور', 'Take Attendance')}
                             </button>
                           </td>
                         </tr>
@@ -779,47 +781,51 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
               </div>
               <div className="divide-y divide-gray-50">
                 {(lateByClass[selectedLateClass] || []).map(l => (
-                  <div key={l.recordId} className="p-5">
-                    <div className="flex items-center justify-between gap-3">
+                  <div key={l.recordId} className="p-4">
+                    {editingLateReasonId === l.recordId ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center shrink-0">
+                          <Clock size={16} />
+                        </div>
+                        <p className="font-bold text-gray-900 text-sm shrink-0 w-32 truncate">{l.studentName}</p>
+                        <input
+                          autoFocus
+                          type="text"
+                          value={lateReasonDraft}
+                          onChange={(e) => setLateReasonDraft(e.target.value)}
+                          placeholder={t('سبب التأخير...', 'Reason for being late...')}
+                          className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                        />
+                        <button onClick={() => handleSaveLateReason(l.recordId)} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-bold shrink-0">{t('حفظ', 'Save')}</button>
+                        <button onClick={() => setEditingLateReasonId(null)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold shrink-0">{t('إلغاء', 'Cancel')}</button>
+                      </div>
+                    ) : (
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center shrink-0">
                           <Clock size={16} />
                         </div>
-                        <div>
-                          <p className="font-bold text-gray-900 text-sm">{l.studentName}</p>
+                        <div className="w-36 shrink-0">
+                          <p className="font-bold text-gray-900 text-sm truncate">{l.studentName}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{l.time}</p>
                         </div>
-                      </div>
-                      {l.totalLateCount > maxLateCount && (
-                        <span className="flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold shrink-0">
-                          <AlertCircle size={11} /> {t('تعدّى الحد', 'Over Limit')} ({l.totalLateCount})
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-3">
-                      {editingLateReasonId === l.recordId ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            autoFocus
-                            type="text"
-                            value={lateReasonDraft}
-                            onChange={(e) => setLateReasonDraft(e.target.value)}
-                            placeholder={t('سبب التأخير...', 'Reason for being late...')}
-                            className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
-                          />
-                          <button onClick={() => handleSaveLateReason(l.recordId)} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-bold">{t('حفظ', 'Save')}</button>
-                          <button onClick={() => setEditingLateReasonId(null)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold">{t('إلغاء', 'Cancel')}</button>
+                        <div className="flex-1 min-w-0">
+                          {l.reason ? (
+                            <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(l.reason || ''); }} className={`text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full truncate ${isRTL ? 'text-right' : 'text-left'} hover:border-violet-300`}>
+                              {l.reason}
+                            </button>
+                          ) : (
+                            <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline whitespace-nowrap">
+                              + {t('إضافة سبب التأخير', 'Add late reason')}
+                            </button>
+                          )}
                         </div>
-                      ) : l.reason ? (
-                        <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(l.reason || ''); }} className={`text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full ${isRTL ? 'text-right' : 'text-left'} hover:border-violet-300`}>
-                          {l.reason}
-                        </button>
-                      ) : (
-                        <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
-                          + {t('إضافة سبب التأخير', 'Add late reason')}
-                        </button>
-                      )}
-                    </div>
+                        {l.totalLateCount > maxLateCount && (
+                          <span className="flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold shrink-0">
+                            <AlertCircle size={11} /> {t('تعدّى الحد', 'Over Limit')} ({l.totalLateCount})
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -876,54 +882,62 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
               </div>
               <div className="divide-y divide-gray-50">
                 {(excuseByClass[selectedExcuseClass] || []).map(ex => (
-                  <div key={ex.recordId} className="p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center shrink-0">
-                        <MessageSquare size={16} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-bold text-gray-900 text-sm">{ex.studentName}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{ex.time}</p>
-                      </div>
-                      {ex.fileUrl && (
-                        <a href={ex.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-violet-600 hover:underline shrink-0">
-                          {t('عرض المستند', 'View Document')}
-                        </a>
-                      )}
-                    </div>
-                    <div className="mt-3">
-                      {editingExcuseId === ex.recordId ? (
-                        <div className="space-y-2">
+                  <div key={ex.recordId} className="p-4">
+                    {editingExcuseId === ex.recordId ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center shrink-0">
+                            <MessageSquare size={16} />
+                          </div>
+                          <p className="font-bold text-gray-900 text-sm shrink-0 w-32 truncate">{ex.studentName}</p>
                           <input
                             autoFocus
                             type="text"
                             value={excuseReasonDraft}
                             onChange={(e) => setExcuseReasonDraft(e.target.value)}
                             placeholder={t('سبب العذر...', 'Reason for excuse...')}
-                            className="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                            className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
                           />
+                        </div>
+                        <div className="flex items-center gap-2 pl-12">
                           <input
                             type="file"
                             onChange={(e) => setExcuseFileDraft(e.target.files?.[0] || null)}
-                            className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-violet-50 file:text-violet-600 file:text-xs file:font-bold"
+                            className="flex-1 text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-violet-50 file:text-violet-600 file:text-xs file:font-bold"
                           />
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => handleSaveExcuse(ex.recordId)} disabled={isSavingExcuse} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold">
-                              {isSavingExcuse ? t('جاري الحفظ...', 'Saving...') : t('حفظ', 'Save')}
-                            </button>
-                            <button onClick={() => { setEditingExcuseId(null); setExcuseFileDraft(null); }} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold">{t('إلغاء', 'Cancel')}</button>
-                          </div>
+                          <button onClick={() => handleSaveExcuse(ex.recordId)} disabled={isSavingExcuse} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shrink-0">
+                            {isSavingExcuse ? t('جاري الحفظ...', 'Saving...') : t('حفظ', 'Save')}
+                          </button>
+                          <button onClick={() => { setEditingExcuseId(null); setExcuseFileDraft(null); }} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold shrink-0">{t('إلغاء', 'Cancel')}</button>
                         </div>
-                      ) : ex.reason ? (
-                        <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(ex.reason || ''); }} className={`text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full ${isRTL ? 'text-right' : 'text-left'} hover:border-violet-300`}>
-                          {ex.reason}
-                        </button>
-                      ) : (
-                        <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
-                          + {t('مراجعة العذر وإضافة السبب', 'Review excuse and add reason')}
-                        </button>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center shrink-0">
+                          <MessageSquare size={16} />
+                        </div>
+                        <div className="w-36 shrink-0">
+                          <p className="font-bold text-gray-900 text-sm truncate">{ex.studentName}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{ex.time}</p>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {ex.reason ? (
+                            <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(ex.reason || ''); }} className={`text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full truncate ${isRTL ? 'text-right' : 'text-left'} hover:border-violet-300`}>
+                              {ex.reason}
+                            </button>
+                          ) : (
+                            <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline whitespace-nowrap">
+                              + {t('مراجعة العذر وإضافة السبب', 'Review excuse and add reason')}
+                            </button>
+                          )}
+                        </div>
+                        {ex.fileUrl && (
+                          <a href={ex.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-violet-600 hover:underline shrink-0">
+                            {t('عرض المستند', 'View Document')}
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
