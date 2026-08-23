@@ -31,7 +31,9 @@ import {
   ToggleLeft,
   ToggleRight,
   Users,
-  LayoutTemplate
+  LayoutTemplate,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 import { useEffect } from 'react';
@@ -905,6 +907,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
 
   // تعديل وحذف المعلمين
   const [openTeacherMenu, setOpenTeacherMenu] = useState<string | null>(null);
+  const [selectedTeacherProfile, setSelectedTeacherProfile] = useState<any | null>(null);
   const [editingTeacher, setEditingTeacher] = useState<any | null>(null);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const toggleSelectTeacher = (id: string) => {
@@ -1331,27 +1334,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
         addTeacher: isRTL ? 'إضافة معلم' : 'Add Teacher',
         hiredDate: isRTL ? 'تاريخ التعيين' : 'Hired Date',
         employment: isRTL ? 'نوع العقد' : 'Employment',
-        subjectDistribution: isRTL ? 'توزيع المواد' : 'Subject Distribution',
-        class: isRTL ? 'الفصل' : 'Class',
-        subject: isRTL ? 'المادة' : 'Subject',
-        hrsWeek: isRTL ? 'ساعات المادة / أسبوع' : 'Hrs/Week',
-        noClasses: isRTL ? 'لا توجد فصول دراسية' : 'No classes assigned',
-        totalLoad: isRTL ? 'إجمالي العبء الأكاديمي' : 'Total Academic Load',
-        hoursWeek: isRTL ? 'ساعة / أسبوع' : 'Hours / Week',
+        teacherType: isRTL ? 'نوع المعلم' : 'Teacher Type',
+        main: isRTL ? 'رئيسي' : 'Main',
+        assistant: isRTL ? 'مساعد' : 'Assistant',
+        subjectsLabel: isRTL ? 'المواد' : 'Subjects',
+        gradesLabel: isRTL ? 'الصفوف' : 'Grades',
+        noneSet: isRTL ? 'غير محدد' : 'Not set',
         fullTime: isRTL ? 'دوام كامل' : 'Full-time',
-        contract: isRTL ? 'عقد مؤقت' : 'Contract'
-     };
-
-     const trName = (name: string) => {
-        if (!isRTL) return name;
-        const map: Record<string, string> = { 'Ahmed Khalil': 'أحمد خليل', 'Sarah Al-Majed': 'سارة الماجد', 'Omar Hassan': 'عمر حسن', 'Emily Davis': 'نورة إبراهيم' };
-        return map[name] || name;
-     };
-
-     const trSubj = (subj: string) => {
-        if (!isRTL) return subj;
-        const map: Record<string, string> = { 'Physics': 'فيزياء', 'Mathematics': 'رياضيات', 'Arabic': 'لغة عربية', 'English Literature': 'أدب إنجليزي' };
-        return map[subj] || subj;
+        contract: isRTL ? 'عقد مؤقت' : 'Contract',
+        partTime: isRTL ? 'دوام جزئي' : 'Part-time',
+        code: isRTL ? 'الكود' : 'Code',
      };
 
      return (
@@ -1377,81 +1369,74 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
 
         {selectedTeacherIds.length > 0 && (
           <div className="bg-violet-50 border border-violet-200 rounded-2xl px-5 py-3 flex items-center justify-between">
-            <span className="text-sm font-bold text-violet-800">{selectedTeacherIds.length} معلم محدد</span>
+            <span className="text-sm font-bold text-violet-800">{selectedTeacherIds.length} {isRTL ? 'معلم محدد' : 'teacher(s) selected'}</span>
             <div className="flex gap-2">
-              <button onClick={() => setSelectedTeacherIds([])} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-white rounded-lg">إلغاء التحديد</button>
-              <button onClick={handleBulkDeleteTeachers} className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">حذف المحدد</button>
+              <button onClick={() => setSelectedTeacherIds([])} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-white rounded-lg">{isRTL ? 'إلغاء التحديد' : 'Deselect'}</button>
+              <button onClick={handleBulkDeleteTeachers} className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">{isRTL ? 'حذف المحدد' : 'Delete selected'}</button>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
            {teachersList.map(teacher => {
-              const assignedClassDetails = CLASSES.filter(c => teacher.assignedClasses.includes(c.id));
-              
+              const initials = teacher.name.split(' ').filter(Boolean).slice(0, 2).map((n: string) => n[0]).join('');
               return (
                  <div key={teacher.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-all">
                     <div className="flex justify-between items-start mb-6">
-                       <div className="flex gap-4">
-                          <input type="checkbox" className="mt-1" checked={selectedTeacherIds.includes(teacher.id)} onChange={() => toggleSelectTeacher(teacher.id)} />
-                          <img src={teacher.avatar} alt={teacher.name} referrerPolicy="no-referrer" className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-sm" />
+                       <button onClick={() => setSelectedTeacherProfile(teacher)} className="flex gap-4 text-left flex-1">
+                          <input type="checkbox" className="mt-1" checked={selectedTeacherIds.includes(teacher.id)} onChange={(e) => { e.stopPropagation(); toggleSelectTeacher(teacher.id); }} onClick={(e) => e.stopPropagation()} />
+                          <div className="w-16 h-16 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-xl shrink-0">
+                            {initials}
+                          </div>
                           <div>
-                             <h3 className="font-bold text-lg text-gray-900">{trName(teacher.name)}</h3>
-                             <p className="text-violet-600 font-medium text-sm">{trSubj(teacher.specialization)}</p>
-                             <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 flex-wrap">
+                             <h3 className="font-bold text-lg text-gray-900">{teacher.name}</h3>
+                             <p className="text-violet-600 font-medium text-sm">{teacher.specialization}</p>
+                             <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
                                 <span className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}><Mail size={12}/> <span dir="ltr">{teacher.email}</span></span>
-                                <span className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}><Phone size={12}/> <span dir="ltr">{teacher.phone || 'N/A'}</span></span>
+                                {(teacher as any).teacherCode && (
+                                  <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-mono font-bold">{(teacher as any).teacherCode}</span>
+                                )}
                              </div>
                           </div>
-                       </div>
+                       </button>
                        <div className="relative">
                          <button onClick={() => setOpenTeacherMenu(openTeacherMenu === teacher.id ? null : teacher.id)} className="text-gray-300 hover:text-gray-600"><MoreVertical size={20} /></button>
                          {openTeacherMenu === teacher.id && (
                            <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 w-36" onMouseLeave={() => setOpenTeacherMenu(null)}>
-                             <button onClick={() => { setEditingTeacher(teacher); setOpenTeacherMenu(null); }} className="w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">تعديل</button>
-                             {canDeleteUsers && <button onClick={() => { handleDeleteTeacher(teacher); setOpenTeacherMenu(null); }} className="w-full text-right px-4 py-2 text-sm text-red-600 hover:bg-red-50">حذف</button>}
+                             <button onClick={() => { setEditingTeacher(teacher); setOpenTeacherMenu(null); }} className="w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">{isRTL ? 'تعديل' : 'Edit'}</button>
+                             {canDeleteUsers && <button onClick={() => { handleDeleteTeacher(teacher); setOpenTeacherMenu(null); }} className="w-full text-right px-4 py-2 text-sm text-red-600 hover:bg-red-50">{isRTL ? 'حذف' : 'Delete'}</button>}
                            </div>
                          )}
                        </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
                        <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                           <p className="text-xs text-gray-500 mb-1">{t.hiredDate}</p>
-                          <p className="font-bold text-gray-900 flex items-center gap-2"><Calendar size={14}/> <span dir="ltr">{teacher.hiringDate}</span></p>
+                          <p className="font-bold text-gray-900 flex items-center gap-2"><Calendar size={14}/> <span dir="ltr">{teacher.hiringDate || '—'}</span></p>
                        </div>
                        <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                           <p className="text-xs text-gray-500 mb-1">{t.employment}</p>
-                          <p className="font-bold text-gray-900 flex items-center gap-2"><Briefcase size={14}/> {teacher.employmentType === 'Full-time' ? t.fullTime : teacher.employmentType === 'Contract' ? t.contract : teacher.employmentType}</p>
+                          <p className="font-bold text-gray-900 flex items-center gap-2"><Briefcase size={14}/> {teacher.employmentType === 'Full-time' ? t.fullTime : teacher.employmentType === 'Contract' ? t.contract : teacher.employmentType === 'Part-time' ? t.partTime : teacher.employmentType}</p>
                        </div>
                     </div>
 
-                    <div className="border-t border-gray-100 pt-4">
-                       <h4 className={`text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 ${isRTL ? 'text-right' : ''}`}>{t.subjectDistribution}</h4>
-                       <table className={`w-full text-sm ${isRTL ? 'text-right' : 'text-left'}`}>
-                          <thead>
-                             <tr className={`text-gray-400 text-xs ${isRTL ? 'text-right' : 'text-left'}`}>
-                                <th className="pb-2 font-medium">{t.class}</th>
-                                <th className="pb-2 font-medium">{t.subject}</th>
-                                <th className={`pb-2 font-medium ${isRTL ? 'text-left' : 'text-right'}`}>{t.hrsWeek}</th>
-                             </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50">
-                             {assignedClassDetails.map((cls, idx) => (
-                                <tr key={idx}>
-                                   <td className="py-2 font-bold text-gray-800">{isRTL ? cls.name.replace('Grade', 'الصف') : cls.name} <span className="text-gray-400 font-normal text-xs mx-1">({cls.gradeLevel})</span></td>
-                                   <td className="py-2 text-gray-600">{trSubj(teacher.specialization)}</td>
-                                   <td className={`py-2 font-mono font-medium ${isRTL ? 'text-left' : 'text-right'}`}>4</td>
-                                </tr>
-                             ))}
-                             {assignedClassDetails.length === 0 && (
-                                <tr><td colSpan={3} className="py-2 text-center text-gray-400 italic">{t.noClasses}</td></tr>
-                             )}
-                          </tbody>
-                       </table>
-                       <div className="mt-4 flex justify-between items-center text-xs">
-                          <span className="text-gray-500">{t.totalLoad}</span>
-                          <span className="bg-violet-50 text-violet-700 px-2 py-1 rounded font-bold">{teacher.academicLoad} {t.hoursWeek}</span>
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                       <div>
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-2">{t.subjectsLabel}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                             {(teacher as any).subjects?.length > 0 ? (teacher as any).subjects.map((s: string) => (
+                                <span key={s} className="bg-violet-50 text-violet-700 text-xs font-bold px-2.5 py-1 rounded-full">{s}</span>
+                             )) : <span className="text-gray-400 text-xs">{t.noneSet}</span>}
+                          </div>
+                       </div>
+                       <div>
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-2">{t.gradesLabel}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                             {(teacher as any).grades?.length > 0 ? (teacher as any).grades.map((g: string) => (
+                                <span key={g} className="bg-gray-100 text-gray-700 text-xs font-bold px-2.5 py-1 rounded-full">{g}</span>
+                             )) : <span className="text-gray-400 text-xs">{t.noneSet}</span>}
+                          </div>
                        </div>
                     </div>
                  </div>
@@ -1689,6 +1674,79 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
        {editingTeacher && (
          <EditTeacherModal teacher={editingTeacher} gradeLevels={gradeLevels} subjectOptions={subjectOptions} onClose={() => setEditingTeacher(null)} onSubmit={handleUpdateTeacher} />
        )}
+
+       {/* TEACHER PROFILE */}
+       {selectedTeacherProfile && (() => {
+         const teacher = selectedTeacherProfile;
+         const initials = teacher.name.split(' ').filter(Boolean).slice(0, 2).map((n: string) => n[0]).join('');
+         const empLabel = teacher.employmentType === 'Full-time' ? (isRTL ? 'دوام كامل' : 'Full-time')
+           : teacher.employmentType === 'Contract' ? (isRTL ? 'عقد مؤقت' : 'Contract')
+           : teacher.employmentType === 'Part-time' ? (isRTL ? 'دوام جزئي' : 'Part-time')
+           : teacher.employmentType;
+         return (
+           <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSelectedTeacherProfile(null)}>
+             <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()} dir={isRTL ? 'rtl' : 'ltr'}>
+               <div className="p-8">
+                 <div className="flex justify-between items-start mb-6">
+                   <div className="flex items-center gap-5">
+                     <div className="w-20 h-20 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-3xl">
+                       {initials}
+                     </div>
+                     <div>
+                       <h2 className="text-2xl font-bold text-gray-900">{teacher.name}</h2>
+                       <p className="text-violet-600 font-medium">{teacher.specialization}</p>
+                       {teacher.teacherCode && <span className="inline-block mt-1 bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold">{teacher.teacherCode}</span>}
+                     </div>
+                   </div>
+                   <button onClick={() => setSelectedTeacherProfile(null)} className="text-gray-400 hover:text-gray-700"><X size={24} /></button>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4 mb-6">
+                   <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                     <p className="text-xs text-gray-500 mb-1">{isRTL ? 'البريد الإلكتروني' : 'Email'}</p>
+                     <p className="font-bold text-gray-900" dir="ltr">{teacher.email || '—'}</p>
+                   </div>
+                   <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                     <p className="text-xs text-gray-500 mb-1">{isRTL ? 'تاريخ التعيين' : 'Hiring Date'}</p>
+                     <p className="font-bold text-gray-900" dir="ltr">{teacher.hiringDate || '—'}</p>
+                   </div>
+                   <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                     <p className="text-xs text-gray-500 mb-1">{isRTL ? 'نوع العقد' : 'Employment Type'}</p>
+                     <p className="font-bold text-gray-900">{empLabel}</p>
+                   </div>
+                   <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                     <p className="text-xs text-gray-500 mb-1">{isRTL ? 'نوع المعلم' : 'Teacher Type'}</p>
+                     <p className="font-bold text-gray-900">{teacher.teacherType === 'Main' ? (isRTL ? 'رئيسي' : 'Main') : (isRTL ? 'مساعد' : 'Assistant')}</p>
+                   </div>
+                 </div>
+
+                 <div className="space-y-4">
+                   <div>
+                     <p className="text-xs font-bold text-gray-400 uppercase mb-2">{isRTL ? 'المواد' : 'Subjects'}</p>
+                     <div className="flex flex-wrap gap-1.5">
+                       {teacher.subjects?.length > 0 ? teacher.subjects.map((s: string) => (
+                         <span key={s} className="bg-violet-50 text-violet-700 text-xs font-bold px-2.5 py-1 rounded-full">{s}</span>
+                       )) : <span className="text-gray-400 text-sm">{isRTL ? 'غير محدد' : 'Not set'}</span>}
+                     </div>
+                   </div>
+                   <div>
+                     <p className="text-xs font-bold text-gray-400 uppercase mb-2">{isRTL ? 'الصفوف' : 'Grades'}</p>
+                     <div className="flex flex-wrap gap-1.5">
+                       {teacher.grades?.length > 0 ? teacher.grades.map((g: string) => (
+                         <span key={g} className="bg-gray-100 text-gray-700 text-xs font-bold px-2.5 py-1 rounded-full">{g}</span>
+                       )) : <span className="text-gray-400 text-sm">{isRTL ? 'غير محدد' : 'Not set'}</span>}
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-2 pt-2">
+                     {teacher.canUseQuestionBank ? <CheckCircle2 size={16} className="text-green-500" /> : <XCircle size={16} className="text-gray-300" />}
+                     <p className="text-sm text-gray-700">{isRTL ? 'يقدر يستخدم بنك الأسئلة' : 'Can use question bank'}</p>
+                   </div>
+                 </div>
+               </div>
+             </div>
+           </div>
+         );
+       })()}
 
        {/* EDIT STUDENT MODAL */}
        {editingStudent && (
