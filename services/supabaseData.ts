@@ -2389,3 +2389,201 @@ export async function addMessageLog(studentId: string, input: { senderName: stri
   if (error) console.error('Error adding message log:', error);
   return !error;
 }
+
+
+// ============ الملف الطبي الكامل ============
+
+export interface StudentMedicalInfo {
+  bloodType: string;
+  allergies: string;
+  chronicConditions: string;
+  doctorName: string;
+  doctorPhone: string;
+  insuranceProvider: string;
+  insuranceNumber: string;
+}
+
+export async function getMedicalInfo(studentId: string): Promise<StudentMedicalInfo | null> {
+  const { data, error } = await supabase.from('student_medical_info').select('*').eq('student_id', studentId).maybeSingle();
+  if (error || !data) return null;
+  return {
+    bloodType: data.blood_type || '',
+    allergies: data.allergies || '',
+    chronicConditions: data.chronic_conditions || '',
+    doctorName: data.doctor_name || '',
+    doctorPhone: data.doctor_phone || '',
+    insuranceProvider: data.insurance_provider || '',
+    insuranceNumber: data.insurance_number || '',
+  };
+}
+
+export async function updateMedicalInfo(studentId: string, input: StudentMedicalInfo): Promise<boolean> {
+  const { error } = await supabase.from('student_medical_info').upsert({
+    student_id: studentId,
+    blood_type: input.bloodType || null,
+    allergies: input.allergies || null,
+    chronic_conditions: input.chronicConditions || null,
+    doctor_name: input.doctorName || null,
+    doctor_phone: input.doctorPhone || null,
+    insurance_provider: input.insuranceProvider || null,
+    insurance_number: input.insuranceNumber || null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'student_id' });
+  return !error;
+}
+
+export interface ClinicVisit {
+  id: string;
+  visitDate: string;
+  reason: string;
+  notes: string;
+  recordedBy: string;
+}
+
+export async function getClinicVisits(studentId: string): Promise<ClinicVisit[]> {
+  const { data, error } = await supabase.from('student_clinic_visits').select('id, visit_date, reason, notes, recorded_by').eq('student_id', studentId).order('visit_date', { ascending: false });
+  if (error) return [];
+  return (data || []).map((row: any) => ({ id: row.id, visitDate: row.visit_date, reason: row.reason || '', notes: row.notes || '', recordedBy: row.recorded_by || '' }));
+}
+
+export async function addClinicVisit(studentId: string, input: { visitDate: string; reason: string; notes: string; recordedBy: string }): Promise<boolean> {
+  const { error } = await supabase.from('student_clinic_visits').insert({
+    student_id: studentId, visit_date: input.visitDate, reason: input.reason || null, notes: input.notes || null, recorded_by: input.recordedBy,
+  });
+  return !error;
+}
+
+export async function deleteClinicVisit(id: string): Promise<boolean> {
+  const { error } = await supabase.from('student_clinic_visits').delete().eq('id', id);
+  return !error;
+}
+
+// ============ السجل السلوكي الهيكلي ============
+
+export interface BehaviorIncident {
+  id: string;
+  incidentDate: string;
+  incidentTime: string;
+  problemTitle: string;
+  description: string;
+  actionTaken: string;
+  recordedBy: string;
+}
+
+export async function getBehaviorIncidents(studentId: string): Promise<BehaviorIncident[]> {
+  const { data, error } = await supabase
+    .from('student_behavior_incidents')
+    .select('id, incident_date, incident_time, problem_title, description, action_taken, recorded_by')
+    .eq('student_id', studentId)
+    .order('incident_date', { ascending: false });
+  if (error) return [];
+  return (data || []).map((row: any) => ({
+    id: row.id, incidentDate: row.incident_date, incidentTime: row.incident_time || '', problemTitle: row.problem_title,
+    description: row.description || '', actionTaken: row.action_taken || '', recordedBy: row.recorded_by || '',
+  }));
+}
+
+export async function addBehaviorIncident(studentId: string, input: { incidentDate: string; incidentTime: string; problemTitle: string; description: string; actionTaken: string; recordedBy: string }): Promise<boolean> {
+  const { error } = await supabase.from('student_behavior_incidents').insert({
+    student_id: studentId, incident_date: input.incidentDate, incident_time: input.incidentTime || null,
+    problem_title: input.problemTitle, description: input.description || null, action_taken: input.actionTaken || null, recorded_by: input.recordedBy,
+  });
+  return !error;
+}
+
+export async function deleteBehaviorIncident(id: string): Promise<boolean> {
+  const { error } = await supabase.from('student_behavior_incidents').delete().eq('id', id);
+  return !error;
+}
+
+// ============ الإجراءات الإدارية / العقوبات ============
+
+export interface AdminAction {
+  id: string;
+  actionDate: string;
+  actionType: string;
+  reason: string;
+  issuedBy: string;
+}
+
+export async function getAdminActions(studentId: string): Promise<AdminAction[]> {
+  const { data, error } = await supabase.from('student_admin_actions').select('id, action_date, action_type, reason, issued_by').eq('student_id', studentId).order('action_date', { ascending: false });
+  if (error) return [];
+  return (data || []).map((row: any) => ({ id: row.id, actionDate: row.action_date, actionType: row.action_type, reason: row.reason || '', issuedBy: row.issued_by || '' }));
+}
+
+export async function addAdminAction(studentId: string, input: { actionDate: string; actionType: string; reason: string; issuedBy: string }): Promise<boolean> {
+  const { error } = await supabase.from('student_admin_actions').insert({
+    student_id: studentId, action_date: input.actionDate, action_type: input.actionType, reason: input.reason || null, issued_by: input.issuedBy,
+  });
+  return !error;
+}
+
+export async function deleteAdminAction(id: string): Promise<boolean> {
+  const { error } = await supabase.from('student_admin_actions').delete().eq('id', id);
+  return !error;
+}
+
+// ============ الإنذارات ============
+
+export interface StudentWarning {
+  id: string;
+  warningDate: string;
+  reason: string;
+  issuedBy: string;
+}
+
+export async function getWarnings(studentId: string): Promise<StudentWarning[]> {
+  const { data, error } = await supabase.from('student_warnings').select('id, warning_date, reason, issued_by').eq('student_id', studentId).order('warning_date', { ascending: false });
+  if (error) return [];
+  return (data || []).map((row: any) => ({ id: row.id, warningDate: row.warning_date, reason: row.reason, issuedBy: row.issued_by || '' }));
+}
+
+export async function addWarning(studentId: string, input: { warningDate: string; reason: string; issuedBy: string }): Promise<boolean> {
+  const { error } = await supabase.from('student_warnings').insert({
+    student_id: studentId, warning_date: input.warningDate, reason: input.reason, issued_by: input.issuedBy,
+  });
+  return !error;
+}
+
+// ============ استدعاء ولي الأمر ============
+
+export interface GuardianSummon {
+  id: string;
+  summonDate: string;
+  reason: string;
+  outcome: string;
+  attendedBy: string;
+}
+
+export async function getGuardianSummons(studentId: string): Promise<GuardianSummon[]> {
+  const { data, error } = await supabase.from('student_guardian_summons').select('id, summon_date, reason, outcome, attended_by').eq('student_id', studentId).order('summon_date', { ascending: false });
+  if (error) return [];
+  return (data || []).map((row: any) => ({ id: row.id, summonDate: row.summon_date, reason: row.reason || '', outcome: row.outcome || '', attendedBy: row.attended_by || '' }));
+}
+
+export async function addGuardianSummon(studentId: string, input: { summonDate: string; reason: string; outcome: string; attendedBy: string }): Promise<boolean> {
+  const { error } = await supabase.from('student_guardian_summons').insert({
+    student_id: studentId, summon_date: input.summonDate, reason: input.reason || null, outcome: input.outcome || null, attended_by: input.attendedBy,
+  });
+  return !error;
+}
+
+// ============ ملخص الحضور الحقيقي لطالب واحد ============
+
+export interface StudentAttendanceSummary {
+  attendanceRate: number;
+  absentCount: number;
+  lateCount: number;
+  totalSessions: number;
+}
+
+export async function getStudentAttendanceSummary(studentId: string): Promise<StudentAttendanceSummary> {
+  const { data, error } = await supabase.from('attendance_records').select('status').eq('student_id', studentId);
+  if (error || !data || data.length === 0) return { attendanceRate: 0, absentCount: 0, lateCount: 0, totalSessions: 0 };
+  const total = data.length;
+  const present = data.filter((r: any) => r.status === 'Present' || r.status === 'Late').length;
+  const absent = data.filter((r: any) => r.status === 'Absent').length;
+  const late = data.filter((r: any) => r.status === 'Late').length;
+  return { attendanceRate: Math.round((present / total) * 100), absentCount: absent, lateCount: late, totalSessions: total };
+}
