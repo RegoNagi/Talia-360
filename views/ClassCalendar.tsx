@@ -82,20 +82,20 @@ const AddPeriodModal: React.FC<{
   return (
     <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 animate-in fade-in duration-200 p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md animate-in zoom-in-95 duration-200">
-        <h3 className="text-xl font-bold text-slate-900 mb-6">إضافة حصة جديدة</h3>
+        <h3 className="text-xl font-bold text-slate-900 mb-6">{t('إضافة حصة جديدة', 'Add New Period')}</h3>
 
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">المادة</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('المادة', 'Subject')}</label>
             <ThemedSelect value={formSubject} onChange={setFormSubject} options={SUBJECTS.map(s => ({ value: s, label: s }))} />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">المعلم</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('المعلم', 'Teacher')}</label>
             <ThemedSelect
               value={formTeacherId}
               onChange={setFormTeacherId}
-              options={[{ value: '', label: 'بدون معلم محدد' }, ...realTeachers.map(t => ({ value: t.id, label: t.name }))]}
+              options={[{ value: '', label: t('بدون معلم محدد', 'No teacher assigned') }, ...realTeachers.map(t => ({ value: t.id, label: t.name }))]}
             />
             {realTeachers.length === 0 ? (
               <p className="text-xs text-amber-600 mt-1">مفيش معلمين مسجّلين على مادة "{formSubject}" لسه في قاعدة البيانات.</p>
@@ -105,12 +105,12 @@ const AddPeriodModal: React.FC<{
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">اليوم</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('اليوم', 'Day')}</label>
             <ThemedSelect value={formDay} onChange={setFormDay} options={ARABIC_DAYS.map(d => ({ value: d, label: d }))} />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">الوقت</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('الوقت', 'Time')}</label>
             <div className="flex items-center gap-3">
               <input
                 type="time"
@@ -134,14 +134,14 @@ const AddPeriodModal: React.FC<{
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            إلغاء
+            {t('إلغاء', 'Cancel')}
           </button>
           <button
             disabled={isSaving || !formSubject}
             onClick={handleSave}
             className="px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
           >
-            {isSaving ? 'جاري الحفظ...' : 'حفظ الحصة'}
+            {isSaving ? t('جاري الحفظ...', 'Saving...') : t('حفظ الحصة', 'Save Period')}
           </button>
         </div>
       </div>
@@ -149,7 +149,8 @@ const AddPeriodModal: React.FC<{
   );
 };
 
-export const ClassCalendar = ({ sectionId, defaultTeacherId }: { sectionId: string; defaultTeacherId?: string }) => {
+export const ClassCalendar = ({ sectionId, defaultTeacherId, isRTL = false }: { sectionId: string; defaultTeacherId?: string; isRTL?: boolean }) => {
+  const t = (ar: string, en: string) => (isRTL ? ar : en);
   const [view, setView] = useState<'Day' | 'Week' | 'Month'>('Week');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDefaults, setModalDefaults] = useState({ day: ARABIC_DAYS[0], startTime: '09:00', endTime: '09:45' });
@@ -201,7 +202,7 @@ export const ClassCalendar = ({ sectionId, defaultTeacherId }: { sectionId: stri
       <div className="flex-1 overflow-auto border border-slate-200 rounded-xl bg-white">
         <div className="min-w-[600px]">
           <div className={`grid ${view === 'Day' ? 'grid-cols-2' : 'grid-cols-6'} border-b border-slate-200 bg-slate-50 sticky top-0 z-10`}>
-            <div className="p-4 border-r border-slate-200 text-center text-sm font-medium text-slate-500">الوقت</div>
+            <div className="p-4 border-r border-slate-200 text-center text-sm font-medium text-slate-500">{t('الوقت', 'Time')}</div>
             {activeDays.map(day => (
               <div key={day} className="p-4 border-r border-slate-200 text-center text-sm font-bold text-slate-700 last:border-r-0">
                 {day}
@@ -287,7 +288,7 @@ export const ClassCalendar = ({ sectionId, defaultTeacherId }: { sectionId: stri
                       {s.subject} · {s.startTime}
                     </div>
                   ))}
-                  {daySessions.length > 2 && <div className="text-[10px] text-slate-400">+{daySessions.length - 2} كمان</div>}
+                  {daySessions.length > 2 && <div className="text-[10px] text-slate-400">+{daySessions.length - 2} {t('كمان', 'more')}</div>}
                 </div>
               </div>
             );
@@ -300,7 +301,7 @@ export const ClassCalendar = ({ sectionId, defaultTeacherId }: { sectionId: stri
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex-1 flex flex-col animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <h2 className="text-xl font-bold text-slate-900">الجدول الزمني</h2>
+        <h2 className="text-xl font-bold text-slate-900">{t('الجدول الزمني', 'Schedule')}</h2>
         <div className="flex items-center gap-4 w-full md:w-auto">
           <div className="flex bg-slate-100 p-1 rounded-lg w-full md:w-auto">
             {(['Day', 'Week', 'Month'] as const).map(v => (
@@ -309,7 +310,7 @@ export const ClassCalendar = ({ sectionId, defaultTeacherId }: { sectionId: stri
                 onClick={() => setView(v)}
                 className={`flex-1 md:flex-none px-4 py-1.5 text-sm rounded-md transition-all ${view === v ? 'bg-white text-slate-800 font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
               >
-                {v === 'Day' ? 'اليوم' : v === 'Week' ? 'الأسبوع' : 'الشهر'}
+                {v === 'Day' ? t('اليوم', 'Day') : v === 'Week' ? t('الأسبوع', 'Week') : t('الشهر', 'Month')}
               </button>
             ))}
           </div>
@@ -317,7 +318,7 @@ export const ClassCalendar = ({ sectionId, defaultTeacherId }: { sectionId: stri
             onClick={() => openAddModal(view === 'Month' ? todayArabicDay() : days[0])}
             className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors shadow-sm whitespace-nowrap"
           >
-            <Plus size={18} /> إضافة حصة +
+            <Plus size={18} /> {t('إضافة حصة', 'Add Period')} +
           </button>
         </div>
       </div>
