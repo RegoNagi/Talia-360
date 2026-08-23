@@ -2306,3 +2306,86 @@ export async function uploadExcuseFile(recordId: string, file: File): Promise<st
   const { data } = supabase.storage.from('excuse-documents').getPublicUrl(path);
   return data.publicUrl;
 }
+
+
+// ============ الملاحظات السلوكية ============
+
+export interface BehaviorNote {
+  id: string;
+  authorName: string;
+  noteType: 'positive' | 'negative' | 'neutral';
+  content: string;
+  createdAt: string;
+}
+
+export async function getBehaviorNotes(studentId: string): Promise<BehaviorNote[]> {
+  const { data, error } = await supabase
+    .from('student_behavior_notes')
+    .select('id, author_name, note_type, content, created_at')
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching behavior notes:', error);
+    return [];
+  }
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    authorName: row.author_name,
+    noteType: row.note_type,
+    content: row.content,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function addBehaviorNote(studentId: string, input: { authorName: string; noteType: 'positive' | 'negative' | 'neutral'; content: string }): Promise<boolean> {
+  const { error } = await supabase.from('student_behavior_notes').insert({
+    student_id: studentId,
+    author_name: input.authorName,
+    note_type: input.noteType,
+    content: input.content,
+  });
+  if (error) console.error('Error adding behavior note:', error);
+  return !error;
+}
+
+export async function deleteBehaviorNote(id: string): Promise<boolean> {
+  const { error } = await supabase.from('student_behavior_notes').delete().eq('id', id);
+  return !error;
+}
+
+// ============ سجل الرسائل (أرشيف بس، مفيش توصيل فعلي) ============
+
+export interface StudentMessageLog {
+  id: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+}
+
+export async function getMessagesLog(studentId: string): Promise<StudentMessageLog[]> {
+  const { data, error } = await supabase
+    .from('student_messages_log')
+    .select('id, sender_name, content, created_at')
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching messages log:', error);
+    return [];
+  }
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    senderName: row.sender_name,
+    content: row.content,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function addMessageLog(studentId: string, input: { senderName: string; content: string }): Promise<boolean> {
+  const { error } = await supabase.from('student_messages_log').insert({
+    student_id: studentId,
+    sender_name: input.senderName,
+    content: input.content,
+  });
+  if (error) console.error('Error adding message log:', error);
+  return !error;
+}
