@@ -13,7 +13,8 @@ import {
   Search,
   ChevronRight
 } from 'lucide-react';
-import { getStudents } from '../services/supabaseData';
+import { getStudents, getStudentById, updateStudent, getGuardianSummons, addGuardianSummon, GuardianSummon } from '../services/supabaseData';
+import { showToast } from '../components/Toast';
 
 // كل "ولي أمر" هنا مشتق من بيانات طالب حقيقي (father_info أو mother_info)
 // مفيش جدول أولياء أمور منفصل — البيانات دايمًا مربوطة بملف الطالب
@@ -81,12 +82,101 @@ export const ParentsManagement = ({ isRTL = false }: { isRTL?: boolean }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
+  const refreshParents = () => {
+    setIsLoading(true);
     getStudents().then((students) => {
       setParents(buildParentEntries(students));
       setIsLoading(false);
     });
-  }, []);
+  };
+  useEffect(() => { refreshParents(); }, []);
+
+  // ============ تعديل بيانات ولي الأمر ============
+  const [isEditingParent, setIsEditingParent] = useState(false);
+  const [parentDraft, setParentDraft] = useState<Partial<ParentEntry>>({});
+  const [isSavingParent, setIsSavingParent] = useState(false);
+
+  const startEditingParent = (parent: ParentEntry) => {
+    setParentDraft({ ...parent });
+    setIsEditingParent(true);
+  };
+
+  const handleSaveParent = async () => {
+    if (!selectedParent) return;
+    setIsSavingParent(true);
+    const fullStudent = await getStudentById(selectedParent.studentId);
+    if (!fullStudent) {
+      showToast(isRTL ? 'حصل خطأ أثناء جلب بيانات الطالب.' : 'Error fetching student data.', 'error');
+      setIsSavingParent(false);
+      return;
+    }
+    const infoKey = selectedParent.relationshipLabel === 'الأب' ? 'fatherInfo' : 'motherInfo';
+    const updatedParentInfo = {
+      ...(fullStudent as any)[infoKey],
+      firstName: parentDraft.firstName,
+      secondName: parentDraft.secondName,
+      thirdName: parentDraft.thirdName,
+      lastName: parentDraft.lastName,
+      nationality: parentDraft.nationality,
+      academicDegree: parentDraft.academicDegree,
+      jobTitle: parentDraft.jobTitle,
+      companyName: parentDraft.companyName,
+      idNumber: parentDraft.idNumber,
+      email: parentDraft.email,
+      mobile: parentDraft.mobile,
+      whatsapp: parentDraft.whatsapp,
+    };
+    const ok = await updateStudent({
+      studentId: fullStudent.id,
+      userId: (fullStudent as any).userId,
+      name: fullStudent.name,
+      grade: fullStudent.grade,
+      dob: fullStudent.dob || '',
+      status: fullStudent.status,
+      fatherInfo: infoKey === 'fatherInfo' ? updatedParentInfo : fullStudent.fatherInfo,
+      motherInfo: infoKey === 'motherInfo' ? updatedParentInfo : fullStudent.motherInfo,
+      legalGuardian: fullStudent.legalGuardian,
+      guardianRelationship: fullStudent.guardianRelationship,
+      identityInfo: fullStudent.identityInfo,
+      emergencyContact1: fullStudent.emergencyContact1,
+      emergencyContact2: fullStudent.emergencyContact2,
+      homeAddress: fullStudent.homeAddress,
+      additionalInfo: fullStudent.additionalInfo,
+    });
+    setIsSavingParent(false);
+    if (ok) {
+      const fullName = [parentDraft.firstName, parentDraft.secondName, parentDraft.thirdName, parentDraft.lastName].filter(Boolean).join(' ');
+      const updated = { ...selectedParent, ...parentDraft, fullName: fullName || selectedParent.fullName } as ParentEntry;
+      setSelectedParent(updated);
+      setIsEditingParent(false);
+      refreshParents();
+      showToast(isRTL ? 'تم حفظ البيانات بنجاح.' : 'Information saved successfully.', 'success');
+    } else {
+      showToast(isRTL ? 'حصل خطأ أثناء الحفظ.' : 'Error saving.', 'error');
+    }
+  };
+
+  // ============ سجل استدعاءات ولي الأمر (من ملف الطالب المرتبط) ============
+  const [summons, setSummons] = useState<GuardianSummon[]>([]);
+  const [isLoadingSummons, setIsLoadingSummons] = useState(true);
+  const [isAddingSummon, setIsAddingSummon] = useState(false);
+  const [newSummon, setNewSummon] = useState({ summonDate: '', reason: '', outcome: '' });
+
+  const refreshSummons = (studentId: string) => {
+    setIsLoadingSummons(true);
+    getGuardianSummons(studentId).then((rows) => { setSummons(rows); setIsLoadingSummons(false); });
+  };
+
+  const handleAddSummon = async () => {
+    if (!selectedParent || !newSummon.summonDate) return;
+    const ok = await addGuardianSummon(selectedParent.studentId, { ...newSummon, attendedBy: isRTL ? 'المشرف' : 'Admin' });
+    if (ok) {
+      setNewSummon({ summonDate: '', reason: '', outcome: '' });
+      setIsAddingSummon(false);
+      refreshSummons(selectedParent.studentId);
+      showToast(isRTL ? 'تم تسجيل الاستدعاء.' : 'Summon recorded.', 'success');
+    }
+  };
 
   const t = {
     searchParents: isRTL ? 'البحث عن أولياء الأمور...' : 'Search parents...',
@@ -122,6 +212,8 @@ export const ParentsManagement = ({ isRTL = false }: { isRTL?: boolean }) => {
   const handleViewProfile = (parent: ParentEntry) => {
     setSelectedParent(parent);
     setView('details');
+    setIsEditingParent(false);
+    refreshSummons(parent.studentId);
   };
 
   const handleBack = () => {
@@ -256,31 +348,55 @@ export const ParentsManagement = ({ isRTL = false }: { isRTL?: boolean }) => {
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
 
+            {/* زرار التعديل */}
+            <div className="flex justify-end">
+              {isEditingParent ? (
+                <div className="flex gap-2">
+                  <button onClick={() => setIsEditingParent(false)} className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm font-bold">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                  <button onClick={handleSaveParent} disabled={isSavingParent} className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-bold">{isSavingParent ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'حفظ التعديلات' : 'Save Changes')}</button>
+                </div>
+              ) : (
+                <button onClick={() => startEditingParent(selectedParent)} className="px-5 py-2.5 rounded-xl bg-violet-50 text-violet-700 hover:bg-violet-100 text-sm font-bold">{isRTL ? 'تعديل البيانات' : 'Edit Information'}</button>
+              )}
+            </div>
+
             {/* Card 1: Professional & Personal */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <Briefcase className="text-violet-500" /> {t.profAndPersonal}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
+                {isEditingParent && (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium text-slate-500 mb-1">{isRTL ? 'الاسم الأول' : 'First Name'}</p>
+                      <input value={parentDraft.firstName || ''} onChange={(e) => setParentDraft({ ...parentDraft, firstName: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-500 mb-1">{isRTL ? 'الاسم الأخير' : 'Last Name'}</p>
+                      <input value={parentDraft.lastName || ''} onChange={(e) => setParentDraft({ ...parentDraft, lastName: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" />
+                    </div>
+                  </>
+                )}
                 <div>
                   <p className="text-sm font-medium text-slate-500 mb-1">{t.jobTitle}</p>
-                  <p className="text-slate-900 font-medium">{selectedParent.jobTitle || '—'}</p>
+                  {isEditingParent ? <input value={parentDraft.jobTitle || ''} onChange={(e) => setParentDraft({ ...parentDraft, jobTitle: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" /> : <p className="text-slate-900 font-medium">{selectedParent.jobTitle || '—'}</p>}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-500 mb-1">{t.companyName}</p>
-                  <p className="text-slate-900 font-medium">{selectedParent.companyName || '—'}</p>
+                  {isEditingParent ? <input value={parentDraft.companyName || ''} onChange={(e) => setParentDraft({ ...parentDraft, companyName: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" /> : <p className="text-slate-900 font-medium">{selectedParent.companyName || '—'}</p>}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><GraduationCap size={16} /> {t.academicDegree}</p>
-                  <p className="text-slate-900 font-medium">{selectedParent.academicDegree || '—'}</p>
+                  {isEditingParent ? <input value={parentDraft.academicDegree || ''} onChange={(e) => setParentDraft({ ...parentDraft, academicDegree: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" /> : <p className="text-slate-900 font-medium">{selectedParent.academicDegree || '—'}</p>}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><Globe size={16} /> {t.nationality}</p>
-                  <p className="text-slate-900 font-medium">{selectedParent.nationality || '—'}</p>
+                  {isEditingParent ? <input value={parentDraft.nationality || ''} onChange={(e) => setParentDraft({ ...parentDraft, nationality: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" /> : <p className="text-slate-900 font-medium">{selectedParent.nationality || '—'}</p>}
                 </div>
                 <div className="md:col-span-2">
                   <p className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1.5"><CreditCard size={16} /> {t.nationalId}</p>
-                  <p className="text-slate-900 font-medium font-mono">{selectedParent.idNumber || '—'}</p>
+                  {isEditingParent ? <input value={parentDraft.idNumber || ''} onChange={(e) => setParentDraft({ ...parentDraft, idNumber: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 font-mono" /> : <p className="text-slate-900 font-medium font-mono">{selectedParent.idNumber || '—'}</p>}
                 </div>
               </div>
             </div>
@@ -293,17 +409,70 @@ export const ParentsManagement = ({ isRTL = false }: { isRTL?: boolean }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
                 <div>
                   <p className="text-sm font-medium text-slate-500 mb-1">{t.mobile}</p>
-                  <p className="text-slate-900 font-medium" dir="ltr">{selectedParent.mobile || '—'}</p>
+                  {isEditingParent ? <input value={parentDraft.mobile || ''} onChange={(e) => setParentDraft({ ...parentDraft, mobile: e.target.value })} dir="ltr" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" /> : <p className="text-slate-900 font-medium" dir="ltr">{selectedParent.mobile || '—'}</p>}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-500 mb-1">{t.whatsapp}</p>
-                  <p className="text-slate-900 font-medium" dir="ltr">{selectedParent.whatsapp || '—'}</p>
+                  {isEditingParent ? <input value={parentDraft.whatsapp || ''} onChange={(e) => setParentDraft({ ...parentDraft, whatsapp: e.target.value })} dir="ltr" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" /> : <p className="text-slate-900 font-medium" dir="ltr">{selectedParent.whatsapp || '—'}</p>}
                 </div>
                 <div className="md:col-span-2">
                   <p className="text-sm font-medium text-slate-500 mb-1">{isRTL ? 'البريد الإلكتروني' : 'Email'}</p>
-                  <p className="text-slate-900 font-medium">{selectedParent.email || '—'}</p>
+                  {isEditingParent ? <input value={parentDraft.email || ''} onChange={(e) => setParentDraft({ ...parentDraft, email: e.target.value })} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" /> : <p className="text-slate-900 font-medium">{selectedParent.email || '—'}</p>}
                 </div>
               </div>
+            </div>
+
+            {/* Card 5: سجل استدعاءات ولي الأمر */}
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <User className="text-violet-500" /> {isRTL ? 'سجل الاستدعاءات' : 'Summons Log'}
+                </h2>
+                <button onClick={() => setIsAddingSummon(!isAddingSummon)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg">
+                  {isRTL ? '+ تسجيل استدعاء' : '+ Record Summon'}
+                </button>
+              </div>
+              {isAddingSummon && (
+                <div className="p-4 bg-slate-50 rounded-2xl mb-4 space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block">{isRTL ? 'تاريخ الاستدعاء' : 'Summon Date'}</label>
+                    <input type="date" value={newSummon.summonDate} onChange={(e) => setNewSummon({ ...newSummon, summonDate: e.target.value })} className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block">{isRTL ? 'سبب الاستدعاء' : 'Reason'}</label>
+                    <textarea value={newSummon.reason} onChange={(e) => setNewSummon({ ...newSummon, reason: e.target.value })} className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[60px]" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-1.5 block">{isRTL ? 'اللي تم في الاجتماع' : 'What Was Discussed'}</label>
+                    <textarea value={newSummon.outcome} onChange={(e) => setNewSummon({ ...newSummon, outcome: e.target.value })} className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[70px]" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleAddSummon} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold">{isRTL ? 'حفظ' : 'Save'}</button>
+                    <button onClick={() => setIsAddingSummon(false)} className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-bold">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                  </div>
+                </div>
+              )}
+              {isLoadingSummons ? (
+                <p className="text-center text-slate-400 text-sm py-6">{t.loading}</p>
+              ) : summons.length === 0 ? (
+                <p className="text-center text-slate-400 text-sm py-6">{isRTL ? 'مفيش استدعاءات مسجّلة لهذا الطالب.' : 'No summons recorded for this student.'}</p>
+              ) : (
+                <div className="space-y-2">
+                  {summons.map(s => (
+                    <div key={s.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <p className="text-xs font-bold text-slate-500">{s.summonDate}</p>
+                      {s.reason && <p className="text-sm font-bold text-slate-900 mt-1">{s.reason}</p>}
+                      {s.outcome && (
+                        <div className="mt-2 p-2 bg-white rounded-lg border border-slate-100">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">{isRTL ? 'اللي تم' : 'Outcome'}</p>
+                          <p className="text-sm text-slate-700">{s.outcome}</p>
+                        </div>
+                      )}
+                      <p className="text-[11px] text-slate-400 mt-2">{s.attendedBy}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>
