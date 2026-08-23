@@ -1143,7 +1143,7 @@ Result: ${doc.gradeAverage}`;
 
       {/* ============ البيانات الأساسية ============ */}
       {activeSection === 'basic' && (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6">
           <div className="flex justify-end">
             {isEditingBasic ? (
               <div className="flex gap-2">
