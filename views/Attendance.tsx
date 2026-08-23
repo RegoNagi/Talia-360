@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { UserRole, Language, User } from '../types';
 import { Button } from '../components/Button';
 import { 
-  Settings, 
-  BarChart3, 
+  Settings as SettingsIcon, 
   List, 
   Search, 
   CheckCircle2, 
@@ -11,17 +10,20 @@ import {
   Clock, 
   MessageSquare,
   ChevronDown,
+  ChevronRight,
   Plus,
   Trash2,
   Calendar,
   AlertCircle,
-  Users
+  LayoutDashboard,
+  ClipboardList,
+  FileWarning,
+  Sliders
 } from 'lucide-react';
 import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDate, AttendanceLogRow, getLateStudentsForDate, saveLateReason, LateStudentRow, getExcusedStudentsForDate, saveExcuseDetails, uploadExcuseFile, ExcusedStudentRow } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { Teacher } from '../types';
 import { Student, ClassSection } from '../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface AttendanceProps {
   role: UserRole;
@@ -30,13 +32,18 @@ interface AttendanceProps {
   permissions?: string[];
 }
 
+type AttendanceSection = 'dashboard' | 'status' | 'late' | 'excuse' | 'settings';
+
 export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, permissions = [] }) => {
+  const isRTL = language === Language.AR;
+  const t = (ar: string, en: string) => (isRTL ? ar : en);
+
   // لو مفيش صلاحيات محددة (حسابات الديمو) نسيب كل حاجة متاحة زي ما كانت
   const canTakeAttendance = permissions.length === 0 || permissions.includes('attendance_take');
   const canEditSettings = permissions.length === 0 || permissions.includes('attendance_settings');
-  const [activeTab, setActiveTab] = useState<'teacher' | 'admin'>('admin');
-  const [adminView, setAdminView] = useState<'dashboard' | 'setup'>('setup');
-  
+
+  const [activeSection, setActiveSection] = useState<AttendanceSection>('dashboard');
+
   // Setup State
   const [attendanceMode, setAttendanceMode] = useState<'Daily' | 'Period'>('Daily');
   const [lateThreshold, setLateThreshold] = useState(15);
@@ -45,10 +52,10 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [smsOnLate, setSmsOnLate] = useState(false);
   
   const [statuses, setStatuses] = useState([
-    { id: 'present', label: 'حاضر', color: 'bg-green-500' },
-    { id: 'absent', label: 'غائب', color: 'bg-red-500' },
-    { id: 'late', label: 'متأخر', color: 'bg-yellow-500' },
-    { id: 'excused', label: 'معذور', color: 'bg-blue-500' }
+    { id: 'present', label: t('حاضر', 'Present'), color: 'bg-green-500' },
+    { id: 'absent', label: t('غائب', 'Absent'), color: 'bg-red-500' },
+    { id: 'late', label: t('متأخر', 'Late'), color: 'bg-yellow-500' },
+    { id: 'excused', label: t('معذور', 'Excused'), color: 'bg-blue-500' }
   ]);
   const [isAddingStatus, setIsAddingStatus] = useState(false);
   const [newStatusLabel, setNewStatusLabel] = useState('');
@@ -72,15 +79,13 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     setStatuses(statuses.filter(s => s.id !== id));
   };
 
-  // Teacher State
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
-  const [realTeachers, setRealTeachers] = useState<Teacher[]>([]);
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  // Take-attendance state (شاشة "حالة الحضور" وقت ما تدخلي فصل بعينه)
+  const [takingAttendanceForClass, setTakingAttendanceForClass] = useState<string | null>(null);
   const [studentSearch, setStudentSearch] = useState('');
-  // attendanceData بقى منظم حسب الحصة، عشان تسجيل حصة معينة ميأثرش على حصة تانية
   const [attendanceData, setAttendanceData] = useState<Record<string, Record<string, string>>>({});
   const [realClasses, setRealClasses] = useState<ClassSection[]>([]);
   const [realStudents, setRealStudents] = useState<Student[]>([]);
+  const [realTeachers, setRealTeachers] = useState<Teacher[]>([]);
   const [realPeriods, setRealPeriods] = useState<{ id: string; subject: string; day: string; startTime: string; endTime: string }[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
@@ -101,7 +106,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     setSelectedDate(d.toISOString().slice(0, 10));
   };
   const goNextDay = () => {
-    if (isToday) return; // مينفعش نتحرك لقدام أكتر من النهاردة، لحد ما اليوم الجديد يبدأ فعليًا
+    if (isToday) return;
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + 1);
     setSelectedDate(d.toISOString().slice(0, 10));
@@ -120,36 +125,23 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   }, []);
 
   React.useEffect(() => {
-    if (activeTab === 'teacher') {
-      Promise.all([getClassSections(), getStudents(), getTeachers()]).then(([classesData, studentsData, teachersData]) => {
-        setRealClasses(classesData);
-        setRealStudents(studentsData);
-        setRealTeachers(teachersData);
-      });
-    }
-  }, [activeTab]);
-
-  React.useEffect(() => {
-    if (selectedClass && attendanceMode === 'Period') {
-      getPeriods(selectedClass).then(p => {
+    if (takingAttendanceForClass && attendanceMode === 'Period') {
+      getPeriods(takingAttendanceForClass).then(p => {
         setRealPeriods(p);
         setSelectedPeriodId(p.length > 0 ? p[0].id : null);
       });
     }
-  }, [selectedClass, attendanceMode]);
+  }, [takingAttendanceForClass, attendanceMode]);
 
-  // تحميل بيانات الحضور المسجّلة فعليًا (أو الفاضية) لليوم المختار — بيحل محل أي بيانات قديمة
   React.useEffect(() => {
-    if (selectedClass) {
-      getAttendanceForDate(selectedClass, selectedDate).then(setAttendanceData);
+    if (takingAttendanceForClass) {
+      getAttendanceForDate(takingAttendanceForClass, selectedDate).then(setAttendanceData);
     }
-  }, [selectedClass, selectedDate]);
+  }, [takingAttendanceForClass, selectedDate]);
 
   const [warningCriteria, setWarningCriteria] = useState<EarlyWarningCriteria | null>(null);
   const [isSavingWarningCriteria, setIsSavingWarningCriteria] = useState(false);
-  React.useEffect(() => {
-    getEarlyWarningCriteria().then(setWarningCriteria);
-  }, []);
+  React.useEffect(() => { getEarlyWarningCriteria().then(setWarningCriteria); }, []);
   const handleSaveWarningCriteria = async () => {
     if (!warningCriteria) return;
     setIsSavingWarningCriteria(true);
@@ -159,203 +151,60 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
       warningAttendance: warningCriteria.warningAttendance,
     });
     setIsSavingWarningCriteria(false);
-    showToast(ok ? 'تم حفظ معايير التحذير المبكر.' : 'حصل خطأ أثناء الحفظ.', ok ? 'success' : 'error');
+    showToast(ok ? t('تم حفظ معايير التحذير المبكر.', 'Early warning criteria saved.') : t('حصل خطأ أثناء الحفظ.', 'Error saving.'), ok ? 'success' : 'error');
   };
 
   const handleSaveSettings = async () => {
     if (!canEditSettings) {
-      showToast('معندكش صلاحية تعديل إعدادات الحضور.', 'error');
+      showToast(t('معندكش صلاحية تعديل إعدادات الحضور.', "You don't have permission to edit attendance settings."), 'error');
       return;
     }
     const ok = await saveAttendanceSettings(attendanceMode, lateThreshold, maxLateCount);
     if (ok) {
-      showToast('تم حفظ إعدادات الحضور بنجاح.', 'success');
+      showToast(t('تم حفظ إعدادات الحضور بنجاح.', 'Attendance settings saved successfully.'), 'success');
     } else {
-      showToast('حصل خطأ أثناء حفظ الإعدادات. تأكد إنك شغّلت كود إنشاء جدول attendance_settings في Supabase.', 'error');
+      showToast(t('حصل خطأ أثناء الحفظ.', 'Error saving.'), 'error');
     }
   };
 
   const saveAttendance = async () => {
     if (!canTakeAttendance) {
-      showToast('معندكش صلاحية تسجيل الحضور.', 'error');
+      showToast(t('معندكش صلاحية تسجيل الحضور.', "You don't have permission to take attendance."), 'error');
       return;
     }
     if (!isToday) {
-      showToast('مينفعش تسجّل أو تعدّل حضور يوم فات أو يوم لسه ماجاش.', 'error');
+      showToast(t('مينفعش تسجّل أو تعدّل حضور يوم فات أو يوم لسه ماجاش.', "You can only record or edit today's attendance."), 'error');
       return;
     }
-    if (!selectedClass) return;
+    if (!takingAttendanceForClass) return;
     if (attendanceMode === 'Period' && !selectedPeriodId) {
-      showToast('اختار حصة الأول قبل ما تحفظ الحضور.', 'error');
+      showToast(t('اختار حصة الأول قبل ما تحفظ الحضور.', 'Pick a period first before saving attendance.'), 'error');
       return;
     }
     setIsSavingAttendance(true);
-    const classStudents = realStudents.filter(s => realClasses.find(c => c.id === selectedClass)?.students.includes(s.id));
+    const classStudents = realStudents.filter(s => realClasses.find(c => c.id === takingAttendanceForClass)?.students.includes(s.id));
     const statusMap: Record<string, string> = { present: 'Present', absent: 'Absent', late: 'Late', excused: 'Excused' };
     const records = classStudents.map(s => ({
       studentId: s.id,
       status: statusMap[currentAttendance[s.id]] || 'Absent',
     }));
-    const periodSubject = attendanceMode === 'Period' ? realPeriods.find(p => p.id === selectedPeriodId)?.subject : 'يوم كامل';
+    const period = realPeriods.find(p => p.id === selectedPeriodId);
     const sessionId = await saveAttendanceSession({
-      sectionId: selectedClass,
+      sectionId: takingAttendanceForClass,
       date: selectedDate,
-      subject: periodSubject,
+      subject: period?.subject,
       periodId: attendanceMode === 'Period' ? selectedPeriodId : null,
       records,
     });
     setIsSavingAttendance(false);
     if (sessionId) {
       setAttendanceSaved(true);
-      setTimeout(() => setAttendanceSaved(false), 3000);
-    } else {
-      showToast('حصل خطأ أثناء حفظ الحضور. تأكد إنك شغّلت كود إنشاء جداول الحضور في Supabase.', 'error');
-    }
-  };
-
-  // Admin State
-  const [logSearch, setLogSearch] = useState('');
-  const [filterDate, setFilterDate] = useState('اليوم');
-  const [filterGrade, setFilterGrade] = useState('جميع الصفوف');
-  const [filterClass, setFilterClass] = useState('جميع الفصول');
-  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const logsPerPage = 10;
-
-  // بيانات حقيقية للوحة المشرف
-  const [realGradeLevels, setRealGradeLevels] = useState<{ id: string; name: string }[]>([]);
-  const [classesOverview, setClassesOverview] = useState<ClassAttendanceOverview[]>([]);
-  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLogRow[]>([]);
-  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
-  const adminSelectedDate = filterDate === 'الأمس'
-    ? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); })()
-    : todayStr;
-
-  const [lateStudents, setLateStudents] = useState<LateStudentRow[]>([]);
-  const [editingLateReasonId, setEditingLateReasonId] = useState<string | null>(null);
-  const [lateReasonDraft, setLateReasonDraft] = useState('');
-
-  const [excusedStudents, setExcusedStudents] = useState<ExcusedStudentRow[]>([]);
-  const [editingExcuseId, setEditingExcuseId] = useState<string | null>(null);
-  const [excuseReasonDraft, setExcuseReasonDraft] = useState('');
-  const [excuseFileDraft, setExcuseFileDraft] = useState<File | null>(null);
-  const [isSavingExcuse, setIsSavingExcuse] = useState(false);
-
-  const refreshAdminDashboard = () => {
-    setIsLoadingDashboard(true);
-    Promise.all([
-      getClassesAttendanceOverview(adminSelectedDate, attendanceMode),
-      getAttendanceLogsForDate(adminSelectedDate),
-      getLateStudentsForDate(adminSelectedDate),
-      getExcusedStudentsForDate(adminSelectedDate),
-    ]).then(([overview, logs, late, excused]) => {
-      setClassesOverview(overview);
-      setAttendanceLogs(logs);
-      setLateStudents(late);
-      setExcusedStudents(excused);
-      setIsLoadingDashboard(false);
-    });
-  };
-
-  const handleSaveExcuse = async (recordId: string) => {
-    setIsSavingExcuse(true);
-    let fileUrl: string | null = null;
-    if (excuseFileDraft) {
-      fileUrl = await uploadExcuseFile(recordId, excuseFileDraft);
-      if (!fileUrl) {
-        showToast('حصل خطأ أثناء رفع الملف.', 'error');
-        setIsSavingExcuse(false);
-        return;
-      }
-    }
-    const ok = await saveExcuseDetails(recordId, excuseReasonDraft.trim(), fileUrl);
-    setIsSavingExcuse(false);
-    if (ok) {
-      setExcusedStudents(prev => prev.map(e => e.recordId === recordId ? { ...e, reason: excuseReasonDraft.trim(), fileUrl: fileUrl || e.fileUrl } : e));
-      setEditingExcuseId(null);
-      setExcuseFileDraft(null);
-      showToast('تم حفظ تفاصيل العذر.', 'success');
-    } else {
-      showToast('حصل خطأ أثناء الحفظ.', 'error');
-    }
-  };
-
-  const handleSaveLateReason = async (recordId: string) => {
-    const ok = await saveLateReason(recordId, lateReasonDraft.trim());
-    if (ok) {
-      setLateStudents(prev => prev.map(l => l.recordId === recordId ? { ...l, reason: lateReasonDraft.trim() } : l));
-      setEditingLateReasonId(null);
-      showToast('تم حفظ سبب التأخير.', 'success');
-    } else {
-      showToast('حصل خطأ أثناء الحفظ.', 'error');
-    }
-  };
-
-  React.useEffect(() => {
-    getGradeLevels().then(setRealGradeLevels);
-  }, []);
-
-  React.useEffect(() => {
-    if (activeTab === 'admin' && adminView === 'dashboard') {
+      showToast(t('تم حفظ الحضور بنجاح.', 'Attendance saved successfully.'), 'success');
       refreshAdminDashboard();
+      setTimeout(() => setAttendanceSaved(false), 2500);
+    } else {
+      showToast(t('حصل خطأ أثناء الحفظ.', 'Error saving.'), 'error');
     }
-  }, [activeTab, adminView, adminSelectedDate, attendanceMode]);
-
-  const hasActiveFilters = filterDate !== 'اليوم' || filterGrade !== 'جميع الصفوف' || filterClass !== 'جميع الفصول' || filterStatuses.length > 0;
-
-  const clearFilters = () => {
-    setFilterDate('اليوم');
-    setFilterGrade('جميع الصفوف');
-    setFilterClass('جميع الفصول');
-    setFilterStatuses([]);
-    setCurrentPage(1);
-  };
-
-  const toggleStatusFilter = (status: string) => {
-    setFilterStatuses(prev => 
-      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
-    );
-    setCurrentPage(1);
-  };
-
-  const filteredLogs = attendanceLogs.filter(log => {
-    const matchesSearch = log.studentName.toLowerCase().includes(logSearch.toLowerCase()) ||
-                          log.className.toLowerCase().includes(logSearch.toLowerCase()) ||
-                          log.teacherName.toLowerCase().includes(logSearch.toLowerCase()) ||
-                          log.status.toLowerCase().includes(logSearch.toLowerCase());
-    
-    const matchesGrade = filterGrade === 'جميع الصفوف' || log.gradeLevel === filterGrade;
-    const matchesClass = filterClass === 'جميع الفصول' || log.className === filterClass;
-    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(log.status);
-
-    return matchesSearch && matchesGrade && matchesClass && matchesStatus;
-  });
-
-  const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
-  const paginatedLogs = filteredLogs.slice((currentPage - 1) * logsPerPage, currentPage * logsPerPage);
-
-  // الفصول الحقيقية المتاحة حسب الصف المختار
-  const availableClasses = filterGrade === 'جميع الصفوف' 
-    ? Array.from(new Set(attendanceLogs.map(l => l.className)))
-    : Array.from(new Set(attendanceLogs.filter(l => l.gradeLevel === filterGrade).map(l => l.className)));
-
-  // حساب معدل الحضور الحقيقي لكل صف من السجلات الفعلية
-  const filteredGradeData = (() => {
-    const grades = filterGrade === 'جميع الصفوف' ? realGradeLevels.map(g => g.name) : [filterGrade];
-    return grades.map(gradeName => {
-      const gradeLogs = attendanceLogs.filter(l => l.gradeLevel === gradeName);
-      const presentCount = gradeLogs.filter(l => l.status === 'حاضر' || l.status === 'متأخر').length;
-      const attendance = gradeLogs.length > 0 ? Math.round((presentCount / gradeLogs.length) * 100) : 0;
-      return { name: gradeName, attendance };
-    }).filter(g => attendanceLogs.some(l => l.gradeLevel === g.name));
-  })();
-
-  // إحصائيات اليوم الحقيقية
-  const todayStats = {
-    attendanceRate: attendanceLogs.length > 0 ? Math.round((attendanceLogs.filter(l => l.status === 'حاضر' || l.status === 'متأخر').length / attendanceLogs.length) * 100) : 0,
-    absentCount: attendanceLogs.filter(l => l.status === 'غائب').length,
-    pendingClasses: classesOverview.filter(c => c.status !== 'complete').length,
-    totalClasses: classesOverview.length,
   };
 
   const handleStatusChange = (studentId: string, status: string) => {
@@ -368,7 +217,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
 
   const markAllPresent = () => {
     if (!isToday || !canTakeAttendance) return;
-    const classStudentIds = realClasses.find(c => c.id === selectedClass)?.students || [];
+    const classStudentIds = realClasses.find(c => c.id === takingAttendanceForClass)?.students || [];
     const updated: Record<string, string> = { ...(attendanceData[activeKey] || {}) };
     realStudents.filter(s => classStudentIds.includes(s.id)).forEach(student => {
       updated[student.id] = 'present';
@@ -376,712 +225,279 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     setAttendanceData(prev => ({ ...prev, [activeKey]: updated }));
   };
 
+  // بيانات حقيقية للوحة المشرف
+  const [realGradeLevels, setRealGradeLevels] = useState<{ id: string; name: string }[]>([]);
+  const [classesOverview, setClassesOverview] = useState<ClassAttendanceOverview[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLogRow[]>([]);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
+  const [filterGrade, setFilterGrade] = useState(t('جميع الصفوف', 'All Grades'));
+  const [statusSearch, setStatusSearch] = useState('');
+
+  const refreshAdminDashboard = () => {
+    setIsLoadingDashboard(true);
+    Promise.all([
+      getClassesAttendanceOverview(todayStr, attendanceMode),
+      getAttendanceLogsForDate(todayStr),
+      getLateStudentsForDate(todayStr),
+      getExcusedStudentsForDate(todayStr),
+    ]).then(([overview, logs, late, excused]) => {
+      setClassesOverview(overview);
+      setAttendanceLogs(logs);
+      setLateStudents(late);
+      setExcusedStudents(excused);
+      setIsLoadingDashboard(false);
+    });
+  };
+
+  React.useEffect(() => {
+    getGradeLevels().then(setRealGradeLevels);
+  }, []);
+
+  React.useEffect(() => {
+    refreshAdminDashboard();
+  }, [attendanceMode]);
+
+  const todayStats = {
+    attendanceRate: attendanceLogs.length > 0 ? Math.round((attendanceLogs.filter(l => l.status === t('حاضر', 'Present') || l.status === 'حاضر' || l.status === t('متأخر', 'Late') || l.status === 'متأخر').length / attendanceLogs.length) * 100) : 0,
+    absentCount: attendanceLogs.filter(l => l.status === 'غائب').length,
+    pendingClasses: classesOverview.filter(c => c.status !== 'complete').length,
+    totalClasses: classesOverview.length,
+    lateCount: 0,
+    excuseCount: 0,
+  };
+
+  const filteredClasses = classesOverview.filter(c => filterGrade === t('جميع الصفوف', 'All Grades') || c.gradeLevel === filterGrade)
+    .filter(c => c.sectionName.toLowerCase().includes(statusSearch.toLowerCase()));
+
+  const enterTakeAttendance = (sectionId: string) => {
+    setTakingAttendanceForClass(sectionId);
+    setActiveSection('status');
+  };
+
+  // ============ حالات التأخير — بدرِل داون على مستوى الفصل ============
+  const [lateStudents, setLateStudents] = useState<LateStudentRow[]>([]);
+  const [editingLateReasonId, setEditingLateReasonId] = useState<string | null>(null);
+  const [lateReasonDraft, setLateReasonDraft] = useState('');
+  const [selectedLateClass, setSelectedLateClass] = useState<string | null>(null);
+
+  const lateByClass = lateStudents.reduce((acc: Record<string, LateStudentRow[]>, row) => {
+    if (!acc[row.className]) acc[row.className] = [];
+    acc[row.className].push(row);
+    return acc;
+  }, {});
+
+  const handleSaveLateReason = async (recordId: string) => {
+    const ok = await saveLateReason(recordId, lateReasonDraft.trim());
+    if (ok) {
+      setLateStudents(prev => prev.map(l => l.recordId === recordId ? { ...l, reason: lateReasonDraft.trim() } : l));
+      setEditingLateReasonId(null);
+      showToast(t('تم حفظ سبب التأخير.', 'Late reason saved.'), 'success');
+    } else {
+      showToast(t('حصل خطأ أثناء الحفظ.', 'Error saving.'), 'error');
+    }
+  };
+
+  // ============ حالات العذر — بدرِل داون على مستوى الفصل ============
+  const [excusedStudents, setExcusedStudents] = useState<ExcusedStudentRow[]>([]);
+  const [editingExcuseId, setEditingExcuseId] = useState<string | null>(null);
+  const [excuseReasonDraft, setExcuseReasonDraft] = useState('');
+  const [excuseFileDraft, setExcuseFileDraft] = useState<File | null>(null);
+  const [isSavingExcuse, setIsSavingExcuse] = useState(false);
+  const [selectedExcuseClass, setSelectedExcuseClass] = useState<string | null>(null);
+
+  const excuseByClass = excusedStudents.reduce((acc: Record<string, ExcusedStudentRow[]>, row) => {
+    if (!acc[row.className]) acc[row.className] = [];
+    acc[row.className].push(row);
+    return acc;
+  }, {});
+
+  const handleSaveExcuse = async (recordId: string) => {
+    setIsSavingExcuse(true);
+    let fileUrl: string | null = null;
+    if (excuseFileDraft) {
+      fileUrl = await uploadExcuseFile(recordId, excuseFileDraft);
+      if (!fileUrl) {
+        showToast(t('حصل خطأ أثناء رفع الملف.', 'Error uploading file.'), 'error');
+        setIsSavingExcuse(false);
+        return;
+      }
+    }
+    const ok = await saveExcuseDetails(recordId, excuseReasonDraft.trim(), fileUrl);
+    setIsSavingExcuse(false);
+    if (ok) {
+      setExcusedStudents(prev => prev.map(e => e.recordId === recordId ? { ...e, reason: excuseReasonDraft.trim(), fileUrl: fileUrl || e.fileUrl } : e));
+      setEditingExcuseId(null);
+      setExcuseFileDraft(null);
+      showToast(t('تم حفظ تفاصيل العذر.', 'Excuse details saved.'), 'success');
+    } else {
+      showToast(t('حصل خطأ أثناء الحفظ.', 'Error saving.'), 'error');
+    }
+  };
+
+  const navTabs: { id: AttendanceSection; labelAr: string; labelEn: string; icon: React.ReactNode }[] = [
+    { id: 'dashboard', labelAr: 'لوحة القيادة', labelEn: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+    { id: 'status', labelAr: 'حالة الحضور', labelEn: 'Attendance Status', icon: <ClipboardList size={18} /> },
+    { id: 'late', labelAr: 'حالات التأخير', labelEn: 'Late Cases', icon: <Clock size={18} /> },
+    { id: 'excuse', labelAr: 'حالات الأعذار', labelEn: 'Excuse Cases', icon: <FileWarning size={18} /> },
+    { id: 'settings', labelAr: 'الإعدادات', labelEn: 'Settings', icon: <Sliders size={18} /> },
+  ];
+
   return (
-    <div className="space-y-6 animate-fadeIn pb-20" dir="rtl">
-      {/* Header & Role Switcher */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">إدارة الحضور</h1>
-          <p className="text-gray-500">تتبع وإدارة حضور الطلاب.</p>
-        </div>
-        
-        <div className="flex bg-gray-100 p-1 rounded-xl">
-          <button
-            onClick={() => setActiveTab('teacher')}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'teacher' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            عرض المعلم
-          </button>
-          <button
-            onClick={() => setActiveTab('admin')}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'admin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            عرض الإدارة
-          </button>
-        </div>
+    <div className="space-y-6 animate-fadeIn pb-20" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">{t('إدارة الحضور', 'Attendance Management')}</h1>
+        <p className="text-gray-500">{t('تتبع وإدارة حضور الطلاب.', "Track and manage students' attendance.")}</p>
       </div>
 
-      {activeTab === 'admin' && (
+      {/* Tab Navigation */}
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-0">
+        {navTabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSection(tab.id)}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 -mb-px transition-colors ${
+              activeSection === tab.id ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab.icon}
+            {isRTL ? tab.labelAr : tab.labelEn}
+          </button>
+        ))}
+      </div>
+
+      {/* ============ DASHBOARD ============ */}
+      {activeSection === 'dashboard' && (
         <div className="space-y-6">
-          {/* Admin Sub-navigation */}
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setAdminView('dashboard')}
-              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${
-                adminView === 'dashboard' ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              لوحة القيادة والسجلات
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button onClick={() => setActiveSection('status')} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left hover:border-violet-300 hover:shadow-md transition-all">
+              <p className="text-sm text-gray-500 font-medium mb-1">{t('نسبة حضور اليوم', "Today's Attendance Rate")}</p>
+              <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : `${todayStats.attendanceRate}%`}</h3>
             </button>
-            <button
-              onClick={() => setAdminView('setup')}
-              className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${
-                adminView === 'setup' ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              إعدادات التكوين
+            <button onClick={() => setActiveSection('status')} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left hover:border-violet-300 hover:shadow-md transition-all">
+              <p className="text-sm text-gray-500 font-medium mb-1">{t('فصول قيد الانتظار', 'Classes Pending')}</p>
+              <div className="flex items-end gap-2">
+                <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : todayStats.pendingClasses}</h3>
+                <span className="text-sm text-gray-500 mb-1">/ {todayStats.totalClasses}</span>
+              </div>
+            </button>
+            <button onClick={() => setActiveSection('late')} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left hover:border-violet-300 hover:shadow-md transition-all">
+              <p className="text-sm text-gray-500 font-medium mb-1">{t('حالات التأخير اليوم', "Today's Late Cases")}</p>
+              <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : lateStudents.length}</h3>
+            </button>
+            <button onClick={() => setActiveSection('excuse')} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left hover:border-violet-300 hover:shadow-md transition-all">
+              <p className="text-sm text-gray-500 font-medium mb-1">{t('حالات العذر — للمراجعة', 'Excuse Cases — To Review')}</p>
+              <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : excusedStudents.length}</h3>
             </button>
           </div>
 
-          {adminView === 'setup' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="flex items-center justify-between bg-violet-50 border border-violet-100 rounded-2xl p-4">
-                  <p className="text-sm text-violet-800 font-bold">{settingsLoaded ? 'الإعدادات محمّلة من قاعدة البيانات' : 'جاري تحميل الإعدادات...'}</p>
-                  <Button onClick={handleSaveSettings} disabled={!canEditSettings} className="bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-40">حفظ الإعدادات</Button>
-                </div>
-                {/* Frequency & Mode */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Settings size={20} className="text-violet-600" />
-                    Attendance Frequency
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div 
-                      onClick={() => setAttendanceMode('Daily')}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${attendanceMode === 'Daily' ? 'border-violet-500 bg-violet-50' : 'border-gray-100 hover:border-gray-200'}`}
-                    >
-                      <Calendar size={24} className={`mb-2 ${attendanceMode === 'Daily' ? 'text-violet-600' : 'text-gray-400'}`} />
-                      <h4 className="font-bold text-gray-900">مرة يومياً</h4>
-                      <p className="text-xs text-gray-500 mt-1">الأفضل للمرحلة الابتدائية. يُسجل مرة واحدة صباحاً.</p>
-                    </div>
-                    <div 
-                      onClick={() => setAttendanceMode('Period')}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${attendanceMode === 'Period' ? 'border-violet-500 bg-violet-50' : 'border-gray-100 hover:border-gray-200'}`}
-                    >
-                      <Clock size={24} className={`mb-2 ${attendanceMode === 'Period' ? 'text-violet-600' : 'text-gray-400'}`} />
-                      <h4 className="font-bold text-gray-900">حسب المادة/الحصة</h4>
-                      <p className="text-xs text-gray-500 mt-1">الأفضل للمرحلة الثانوية. يُسجل في بداية كل حصة.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Grace Period & Automation */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <AlertCircle size={20} className="text-violet-600" />
-                    Rules & Automation
-                  </h3>
-                  
-                  <div className="space-y-6">
-                    <div>
-                      <label className="flex justify-between text-sm font-bold text-gray-700 mb-2">
-                        <span>فترة السماح (دقائق التأخير)</span>
-                        <span className="text-violet-600">{lateThreshold} دقيقة</span>
-                      </label>
-                      <input 
-                        type="range" 
-                        min="0" 
-                        max="60" 
-                        step="5"
-                        value={lateThreshold}
-                        onChange={(e) => setLateThreshold(Number(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
-                      />
-                      <p className="text-xs text-gray-500 mt-2">الطلاب الذين يسجلون حضورهم بعد {lateThreshold} دقيقة سيتم اعتبارهم 'متأخرين' تلقائياً.</p>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-100">
-                      <label className="flex justify-between text-sm font-bold text-gray-700 mb-2">
-                        <span>الحد الأقصى لمرات التأخير المسموحة للطالب</span>
-                        <span className="text-violet-600">{maxLateCount} مرة</span>
-                      </label>
-                      <input 
-                        type="range" 
-                        min="1" 
-                        max="20" 
-                        step="1"
-                        value={maxLateCount}
-                        onChange={(e) => setMaxLateCount(Number(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
-                      />
-                      <p className="text-xs text-gray-500 mt-2">لو الطالب تعدّى {maxLateCount} مرة تأخير، هيظهر تنبيه للمشرف في لوحة الحضور.</p>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-100 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-gray-900">رسالة نصية فورية عند الغياب</p>
-                          <p className="text-xs text-gray-500">إشعار أولياء الأمور فوراً عند تسجيل غياب الطالب.</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" checked={smsOnAbsent} onChange={() => setSmsOnAbsent(!smsOnAbsent)} />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-500"></div>
-                        </label>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-gray-900">رسالة نصية فورية عند التأخير</p>
-                          <p className="text-xs text-gray-500">إشعار أولياء الأمور فوراً عند تسجيل تأخير الطالب.</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" checked={smsOnLate} onChange={() => setSmsOnLate(!smsOnLate)} />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-500"></div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Early Warning Radar — معايير الحضور */}
-                {warningCriteria && (
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
-                    <AlertCircle size={20} className="text-violet-600" />
-                    معايير التحذير المبكر — الحضور
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-4">تحدد نسبة الحضور اللي بتصنّف الطالب "حرج" أو "تحذير" في رادار التحذير المبكر بـ Talia Learn.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-bold text-red-600 mb-2 block">حالة حرجة: نسبة الحضور أقل من (%)</label>
-                      <input
-                        type="number"
-                        value={warningCriteria.criticalAttendance}
-                        onChange={(e) => setWarningCriteria({ ...warningCriteria, criticalAttendance: Number(e.target.value) })}
-                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-bold text-amber-600 mb-2 block">تحذير: نسبة الحضور أقل من (%)</label>
-                      <input
-                        type="number"
-                        value={warningCriteria.warningAttendance}
-                        onChange={(e) => setWarningCriteria({ ...warningCriteria, warningAttendance: Number(e.target.value) })}
-                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleSaveWarningCriteria}
-                    disabled={isSavingWarningCriteria}
-                    className="mt-4 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors"
-                  >
-                    {isSavingWarningCriteria ? 'جاري الحفظ...' : 'حفظ المعايير'}
-                  </button>
-                </div>
-                )}
-              </div>
-
-              {/* Custom Statuses */}
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-fit">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <List size={20} className="text-violet-600" />
-                    Custom Statuses
-                  </span>
-                  <Button variant="ghost" className="p-1 h-auto" onClick={() => setIsAddingStatus(true)}><Plus size={18} /></Button>
-                </h3>
-                
-                <div className="space-y-3">
-                  {statuses.map((status) => (
-                    <div key={status.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-xl bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full ${status.color}`}></div>
-                        <span className="font-bold text-gray-900">{status.label}</span>
-                      </div>
-                      <button onClick={() => handleDeleteStatus(status.id)} className="text-gray-400 hover:text-red-500 transition-colors">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-
-                  {isAddingStatus && (
-                    <div className="p-4 border border-violet-200 rounded-xl bg-violet-50 space-y-4 animate-fadeIn">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">اسم الحالة</label>
-                        <input 
-                          type="text" 
-                          value={newStatusLabel}
-                          onChange={(e) => setNewStatusLabel(e.target.value)}
-                          placeholder="مثال: رحلة ميدانية"
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-2">اللون</label>
-                        <div className="flex flex-wrap gap-2">
-                          {availableColors.map(color => (
-                            <button
-                              key={color}
-                              onClick={() => setNewStatusColor(color)}
-                              className={`w-6 h-6 rounded-full ${color} ${newStatusColor === color ? 'ring-2 ring-offset-2 ring-gray-400' : ''}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-2">
-                        <Button variant="secondary" className="flex-1 py-1.5 text-xs" onClick={() => setIsAddingStatus(false)}>إلغاء</Button>
-                        <Button className="flex-1 py-1.5 text-xs" onClick={handleAddStatus}>حفظ</Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">{t('إجمالي الغائبين اليوم', "Today's Total Absences")}</h3>
+              <button onClick={() => setActiveSection('status')} className="text-sm font-bold text-violet-600 hover:underline flex items-center gap-1">
+                {t('عرض التفاصيل', 'View Details')} <ChevronRight size={16} className={isRTL ? 'rotate-180' : ''} />
+              </button>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Dashboard Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <p className="text-sm text-gray-500 font-medium mb-1">نسبة حضور اليوم</p>
-                  <div className="flex items-end gap-2">
-                    <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : `${todayStats.attendanceRate}%`}</h3>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <p className="text-sm text-gray-500 font-medium mb-1">إجمالي الغائبين</p>
-                  <div className="flex items-end gap-2">
-                    <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : todayStats.absentCount}</h3>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <p className="text-sm text-gray-500 font-medium mb-1">فصول قيد الانتظار</p>
-                  <div className="flex items-end gap-2">
-                    <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : todayStats.pendingClasses}</h3>
-                    <span className="text-sm text-gray-500 mb-1">/ {todayStats.totalClasses}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* نظرة عامة على الفصول — مين خد الحضور ومين لسه */}
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">حالة الحضور لكل فصل اليوم</h3>
-                {isLoadingDashboard ? (
-                  <p className="text-sm text-gray-400 text-center py-8">جاري التحميل...</p>
-                ) : classesOverview.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-8">مفيش فصول متعملة لسه.</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {classesOverview.map(cls => (
-                      <div key={cls.sectionId} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <div>
-                          <p className="font-bold text-gray-900 text-sm">{cls.sectionName}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{cls.gradeLevel} • {cls.teacherName || 'بدون معلم'}</p>
-                          <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            cls.status === 'complete' ? 'bg-green-100 text-green-700' :
-                            cls.status === 'partial' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                          }`}>
-                            {cls.status === 'complete' ? 'اتاخد الحضور' : cls.status === 'partial' ? `جزئي (${cls.takenCount}/${cls.expectedCount})` : 'لسه ماخدش'}
-                          </span>
-                        </div>
-                        {cls.status !== 'complete' && (
-                          <button
-                            onClick={() => {
-                              const fullClass = realClasses.find(c => c.id === cls.sectionId);
-                              setSelectedTeacherId(fullClass?.teacherId || null);
-                              setSelectedClass(cls.sectionId);
-                              setActiveTab('teacher');
-                            }}
-                            className="text-xs font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-lg transition-colors shrink-0"
-                          >
-                            خد الحضور
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* حالات التأخير اليوم */}
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">حالات التأخير اليوم</h3>
-                {isLoadingDashboard ? (
-                  <p className="text-sm text-gray-400 text-center py-8">جاري التحميل...</p>
-                ) : lateStudents.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-8">مفيش حالات تأخير النهاردة.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {lateStudents.map(l => (
-                      <div key={l.recordId} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center shrink-0">
-                              <Clock size={16} />
-                            </div>
-                            <div>
-                              <p className="font-bold text-gray-900 text-sm">{l.studentName}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">{l.className} • {l.time}</p>
-                            </div>
-                          </div>
-                          {l.totalLateCount > maxLateCount && (
-                            <span className="flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold shrink-0">
-                              <AlertCircle size={11} /> تعدّى الحد ({l.totalLateCount} مرة)
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-3">
-                          {editingLateReasonId === l.recordId ? (
-                            <div className="flex items-center gap-2">
-                              <input
-                                autoFocus
-                                type="text"
-                                value={lateReasonDraft}
-                                onChange={(e) => setLateReasonDraft(e.target.value)}
-                                placeholder="سبب التأخير..."
-                                className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                              <button onClick={() => handleSaveLateReason(l.recordId)} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-bold">حفظ</button>
-                              <button onClick={() => setEditingLateReasonId(null)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold">إلغاء</button>
-                            </div>
-                          ) : l.reason ? (
-                            <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(l.reason || ''); }} className="text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full text-right hover:border-violet-300">
-                              {l.reason}
-                            </button>
-                          ) : (
-                            <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
-                              + إضافة سبب التأخير
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* حالات العذر — للمراجعة */}
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">حالات العذر اليوم — للمراجعة</h3>
-                {isLoadingDashboard ? (
-                  <p className="text-sm text-gray-400 text-center py-8">جاري التحميل...</p>
-                ) : excusedStudents.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-8">مفيش حالات عذر النهاردة.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {excusedStudents.map(ex => (
-                      <div key={ex.recordId} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center shrink-0">
-                            <MessageSquare size={16} />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-bold text-gray-900 text-sm">{ex.studentName}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{ex.className} • {ex.time}</p>
-                          </div>
-                          {ex.fileUrl && (
-                            <a href={ex.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-violet-600 hover:underline shrink-0">
-                              عرض المستند
-                            </a>
-                          )}
-                        </div>
-                        <div className="mt-3">
-                          {editingExcuseId === ex.recordId ? (
-                            <div className="space-y-2">
-                              <input
-                                autoFocus
-                                type="text"
-                                value={excuseReasonDraft}
-                                onChange={(e) => setExcuseReasonDraft(e.target.value)}
-                                placeholder="سبب العذر..."
-                                className="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="file"
-                                  onChange={(e) => setExcuseFileDraft(e.target.files?.[0] || null)}
-                                  className="flex-1 text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-violet-50 file:text-violet-600 file:text-xs file:font-bold"
-                                />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => handleSaveExcuse(ex.recordId)} disabled={isSavingExcuse} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold">
-                                  {isSavingExcuse ? 'جاري الحفظ...' : 'حفظ'}
-                                </button>
-                                <button onClick={() => { setEditingExcuseId(null); setExcuseFileDraft(null); }} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold">إلغاء</button>
-                              </div>
-                            </div>
-                          ) : ex.reason ? (
-                            <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(ex.reason || ''); }} className="text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full text-right hover:border-violet-300">
-                              {ex.reason}
-                            </button>
-                          ) : (
-                            <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
-                              + مراجعة العذر وإضافة السبب
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-6">
-                {/* Global Filter Bar */}
-                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center gap-4">
-                  <div className="flex flex-wrap items-center gap-3 flex-1">
-                    <select 
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500"
-                    >
-                      <option>اليوم</option>
-                      <option>الأمس</option>
-                      <option>هذا الأسبوع</option>
-                      <option>تاريخ مخصص</option>
-                    </select>
-
-                    <select 
-                      value={filterGrade}
-                      onChange={(e) => {
-                        setFilterGrade(e.target.value);
-                        setFilterClass('جميع الفصول'); // Reset class when grade changes
-                        setCurrentPage(1);
-                      }}
-                      className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500"
-                    >
-                      <option>جميع الصفوف</option>
-                      {realGradeLevels.map(g => <option key={g.id}>{g.name}</option>)}
-                    </select>
-
-                    <select 
-                      value={filterClass}
-                      onChange={(e) => {
-                        setFilterClass(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500"
-                    >
-                      <option>جميع الفصول</option>
-                      {availableClasses.map(cls => (
-                        <option key={cls} value={cls}>{cls}</option>
-                      ))}
-                    </select>
-
-                    <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-200">
-                      {['حاضر', 'غائب', 'متأخر'].map(status => (
-                        <button
-                          key={status}
-                          onClick={() => toggleStatusFilter(status)}
-                          className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                            filterStatuses.includes(status) 
-                              ? status === 'حاضر' ? 'bg-green-100 text-green-800' :
-                                status === 'غائب' ? 'bg-red-100 text-red-800' :
-                                'bg-yellow-100 text-yellow-800'
-                              : 'text-gray-500 hover:bg-gray-200'
-                          }`}
-                        >
-                          {status}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {hasActiveFilters && (
-                    <Button variant="secondary" onClick={clearFilters} className="text-xs py-2">
-                      Clear Filters
-                    </Button>
-                  )}
-                </div>
-
-                {/* Chart */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <h3 className="text-lg font-bold text-gray-900 mb-6">معدل الحضور حسب الصف</h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={filteredGradeData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dx={-10} domain={[0, 100]} />
-                        <Tooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                        <Bar dataKey="attendance" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* Audit Logs Table */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">سجلات التدقيق</h3>
-                    <div className="relative">
-                      <input 
-                        type="text" 
-                        placeholder="البحث في السجلات..." 
-                        value={logSearch}
-                        onChange={(e) => {
-                          setLogSearch(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                        className="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 text-sm w-full md:w-64"
-                      />
-                      <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-right border-collapse">
-                      <thead>
-                        <tr className="border-b border-gray-100 text-sm text-gray-500">
-                          <th className="pb-3 font-medium">الطالب</th>
-                          <th className="pb-3 font-medium">الفصل</th>
-                          <th className="pb-3 font-medium">المعلم</th>
-                          <th className="pb-3 font-medium">الوقت</th>
-                          <th className="pb-3 font-medium">الحالة</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paginatedLogs.length > 0 ? paginatedLogs.map(log => (
-                          <tr key={log.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
-                            <td className="py-3 text-sm font-bold text-gray-900">{log.student}</td>
-                            <td className="py-3 text-sm text-gray-600">{log.class}</td>
-                            <td className="py-3 text-sm text-gray-600">{log.teacher}</td>
-                            <td className="py-3 text-sm text-gray-500">{log.time}</td>
-                            <td className="py-3">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                log.status === 'حاضر' ? 'bg-green-100 text-green-800' : 
-                                log.status === 'متأخر' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {log.status}
-                              </span>
-                            </td>
-                          </tr>
-                        )) : (
-                          <tr>
-                            <td colSpan={5} className="py-8 text-center text-gray-500 text-sm">
-                              No logs found matching your filters.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
-                      <p className="text-sm text-gray-500">
-                        عرض <span className="font-bold text-gray-900">{(currentPage - 1) * logsPerPage + 1}</span> إلى <span className="font-bold text-gray-900">{Math.min(currentPage * logsPerPage, filteredLogs.length)}</span> من إجمالي <span className="font-bold text-gray-900">{filteredLogs.length}</span> نتيجة
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          variant="secondary" 
-                          className="px-3 py-1.5 text-sm"
-                          disabled={currentPage === 1}
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        >
-                          Previous
-                        </Button>
-                        <div className="flex items-center gap-1">
-                          {Array.from({ length: totalPages }).map((_, i) => (
-                            <button
-                              key={i}
-                              onClick={() => setCurrentPage(i + 1)}
-                              className={`w-8 h-8 rounded-lg text-sm font-bold transition-colors ${
-                                currentPage === i + 1 ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-                              }`}
-                            >
-                              {i + 1}
-                            </button>
-                          ))}
-                        </div>
-                        <Button 
-                          variant="secondary" 
-                          className="px-3 py-1.5 text-sm"
-                          disabled={currentPage === totalPages}
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+            <h2 className="text-4xl font-black text-gray-900">{isLoadingDashboard ? '...' : todayStats.absentCount}</h2>
+          </div>
         </div>
       )}
 
-      {activeTab === 'teacher' && (
+      {/* ============ ATTENDANCE STATUS ============ */}
+      {activeSection === 'status' && (
         <div className="space-y-6">
-          {!selectedTeacherId ? (
-            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm text-center max-w-lg mx-auto mt-10">
-              <div className="w-16 h-16 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Users size={32} />
+          {!takingAttendanceForClass ? (
+            <>
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={statusSearch}
+                    onChange={(e) => setStatusSearch(e.target.value)}
+                    placeholder={t('البحث عن فصل...', 'Search for a class...')}
+                    className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 text-sm`}
+                  />
+                  <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-2.5 text-gray-400`} size={16} />
+                </div>
+                <select
+                  value={filterGrade}
+                  onChange={(e) => setFilterGrade(e.target.value)}
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option>{t('جميع الصفوف', 'All Grades')}</option>
+                  {realGradeLevels.map(g => <option key={g.id}>{g.name}</option>)}
+                </select>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">أنت مين؟</h2>
-              <p className="text-gray-500 mb-6">اختار اسمك عشان نعرضلك بس الفصول المعيّن عليها.</p>
 
-              <div className="space-y-3">
-                {realTeachers.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelectedTeacherId(t.id)}
-                    className="w-full flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-violet-500 hover:bg-violet-50 transition-all text-right"
-                  >
-                    <div>
-                      <p className="font-bold text-gray-900">{t.name}</p>
-                      <p className="text-xs text-gray-500">{t.specialization}</p>
-                    </div>
-                    <ChevronDown size={20} className="text-gray-400 -rotate-90" />
-                  </button>
-                ))}
-                {realTeachers.length === 0 && (
-                  <p className="text-sm text-gray-400">مفيش معلمين مسجّلين لسه في قاعدة البيانات.</p>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {isLoadingDashboard ? (
+                  <p className="text-sm text-gray-400 text-center py-12">{t('جاري التحميل...', 'Loading...')}</p>
+                ) : filteredClasses.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-12">{t('مفيش فصول مطابقة.', 'No matching classes.')}</p>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase">
+                        <th className="px-5 py-3 font-bold">{t('الفصل', 'Class')}</th>
+                        <th className="px-5 py-3 font-bold">{t('الصف', 'Grade')}</th>
+                        <th className="px-5 py-3 font-bold">{t('المعلم', 'Teacher')}</th>
+                        <th className="px-5 py-3 font-bold">{t('الحالة', 'Status')}</th>
+                        <th className="px-5 py-3 font-bold"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {filteredClasses.map(cls => (
+                        <tr key={cls.sectionId} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-5 py-3 font-bold text-gray-900 text-sm">{cls.sectionName}</td>
+                          <td className="px-5 py-3 text-sm text-gray-500">{cls.gradeLevel}</td>
+                          <td className="px-5 py-3 text-sm text-gray-500">{cls.teacherName || t('بدون معلم', 'No teacher')}</td>
+                          <td className="px-5 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                              cls.status === 'complete' ? 'bg-green-100 text-green-700' :
+                              cls.status === 'partial' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {cls.status === 'complete' ? t('اتاخد الحضور', 'Taken') : cls.status === 'partial' ? `${t('جزئي', 'Partial')} (${cls.takenCount}/${cls.expectedCount})` : t('لسه ماخدش', 'Not Taken')}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <button
+                              onClick={() => enterTakeAttendance(cls.sectionId)}
+                              className="text-xs font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-lg transition-colors"
+                            >
+                              {cls.status === 'complete' ? t('عرض/تعديل', 'View/Edit') : t('خد الحضور', 'Take Attendance')}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
-            </div>
-          ) : !selectedClass ? (
-            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm text-center max-w-lg mx-auto mt-10">
-              <div className="flex items-center justify-between mb-4">
-                <button onClick={() => setSelectedTeacherId(null)} className="text-sm text-violet-600 font-bold hover:underline">
-                  تغيير المعلم
-                </button>
-                <span className="text-sm text-gray-500">{realTeachers.find(t => t.id === selectedTeacherId)?.name}</span>
-              </div>
-              <div className="w-16 h-16 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Calendar size={32} />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">اختر فصلاً</h2>
-              <p className="text-gray-500 mb-6">اختر فصلاً لبدء تسجيل حضور اليوم.</p>
-              
-              <div className="space-y-3">
-                {realClasses.filter(cls => cls.teacherId === selectedTeacherId).map(cls => (
-                  <button
-                    key={cls.id}
-                    onClick={() => setSelectedClass(cls.id)}
-                    className="w-full flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-violet-500 hover:bg-violet-50 transition-all text-right"
-                  >
-                    <div>
-                      <p className="font-bold text-gray-900">{cls.name}</p>
-                      <p className="text-xs text-gray-500">{cls.gradeLevel} • {cls.students.length} طلاب</p>
-                    </div>
-                    <ChevronDown size={20} className="text-gray-400 -rotate-90" />
-                  </button>
-                ))}
-                {realClasses.filter(cls => cls.teacherId === selectedTeacherId).length === 0 && (
-                  <p className="text-sm text-gray-400">المعلم ده مش معيّن كمعلم رئيسي على أي فصل لسه.</p>
-                )}
-              </div>
-            </div>
+            </>
           ) : (
             <div className="space-y-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <button 
-                    onClick={() => setSelectedClass(null)}
+                    onClick={() => setTakingAttendanceForClass(null)}
                     className="p-2 hover:bg-slate-100 rounded-full transition-colors"
                   >
-                    <ChevronDown size={24} className="rotate-90 text-slate-600" />
+                    <ChevronDown size={24} className={`${isRTL ? 'rotate-90' : '-rotate-90'} text-slate-600`} />
                   </button>
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900">{realClasses.find(c => c.id === selectedClass)?.name}</h2>
-                    <p className="text-slate-500">تسجيل الحضور {attendanceMode === 'Period' ? `لـ${realPeriods.find(p => p.id === selectedPeriodId)?.subject || 'حصة'}` : '(يومي)'}</p>
+                    <h2 className="text-2xl font-bold text-slate-900">{realClasses.find(c => c.id === takingAttendanceForClass)?.name}</h2>
+                    <p className="text-slate-500">{t('تسجيل الحضور', 'Recording attendance')} {attendanceMode === 'Period' ? `${t('لـ', 'for')} ${realPeriods.find(p => p.id === selectedPeriodId)?.subject || t('حصة', 'period')}` : t('(يومي)', '(daily)')}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-2 py-1.5">
-                  <button onClick={goPrevDay} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title="اليوم السابق">
+                  <button onClick={goPrevDay} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors" title={t('اليوم السابق', 'Previous day')}>
                     <ChevronDown size={18} className="rotate-90 text-slate-600" />
                   </button>
                   <span className="text-sm font-bold text-slate-800 min-w-[110px] text-center">
-                    {isToday ? 'النهاردة' : new Date(selectedDate).toLocaleDateString('ar-EG', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {isToday ? t('النهاردة', 'Today') : new Date(selectedDate).toLocaleDateString(isRTL ? 'ar-EG' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                   </span>
-                  <button onClick={goNextDay} disabled={isToday} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="اليوم التالي">
+                  <button onClick={goNextDay} disabled={isToday} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={t('اليوم التالي', 'Next day')}>
                     <ChevronDown size={18} className="-rotate-90 text-slate-600" />
                   </button>
                 </div>
@@ -1090,29 +506,31 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                   <div className="relative">
                     <input 
                       type="text" 
-                      placeholder="البحث عن طلاب..." 
-                      className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 text-sm w-64"
+                      placeholder={t('البحث عن طلاب...', 'Search students...')} 
+                      className={`${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 text-sm w-64`}
                       value={studentSearch}
                       onChange={(e) => setStudentSearch(e.target.value)}
                     />
-                    <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                    <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-2.5 text-slate-400`} size={16} />
                   </div>
                   <Button onClick={markAllPresent} disabled={!isToday || !canTakeAttendance} className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-40">
-                    <CheckCircle2 size={16} className="mr-2" /> تحديد الكل كحاضر
+                    <CheckCircle2 size={16} className={isRTL ? 'ml-2' : 'mr-2'} /> {t('تحديد الكل كحاضر', 'Mark All Present')}
                   </Button>
                   <Button onClick={saveAttendance} disabled={isSavingAttendance || !isToday || !canTakeAttendance} className="bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-40">
-                    {isSavingAttendance ? 'جاري الحفظ...' : attendanceSaved ? 'تم الحفظ ✓' : !isToday ? 'للعرض فقط' : 'حفظ الحضور'}
+                    {isSavingAttendance ? t('جاري الحفظ...', 'Saving...') : attendanceSaved ? t('تم الحفظ ✓', 'Saved ✓') : !isToday ? t('للعرض فقط', 'View Only') : t('حفظ الحضور', 'Save Attendance')}
                   </Button>
                 </div>
               </div>
 
               {!isToday && (
                 <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
-                  إنت بتعرض سجل حضور {new Date(selectedDate) < new Date(todayStr) ? 'يوم فات' : 'يوم لسه ما جاش'} — التسجيل والتعديل متاح بس للنهاردة.
+                  {t(
+                    `إنت بتعرض سجل حضور ${new Date(selectedDate) < new Date(todayStr) ? 'يوم فات' : 'يوم لسه ما جاش'} — التسجيل والتعديل متاح بس للنهاردة.`,
+                    `You're viewing attendance for a ${new Date(selectedDate) < new Date(todayStr) ? 'past' : 'future'} day — recording and editing is only available for today.`
+                  )}
                 </div>
               )}
 
-              {/* Period Selector Bar (وضع "حسب الحصة" فقط) — الحصص دي بتتنشئ من تاب "الجدول الزمني" جوه الفصل */}
               {attendanceMode === 'Period' && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -1129,13 +547,13 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                      ))}
                   </div>
                   {realPeriods.length === 0 && (
-                    <p className="text-sm text-gray-400">مفيش حصص للفصل ده لسه — روح لتاب "الجدول الزمني" جوه صفحة الفصل عشان تضيف الحصص أولًا.</p>
+                    <p className="text-sm text-gray-400">{t('مفيش حصص للفصل ده لسه — روح لتاب "الجدول الزمني" جوه صفحة الفصل عشان تضيف الحصص أولًا.', 'This class has no periods yet — go to the "Schedule" tab inside the class page to add periods first.')}</p>
                   )}
                 </div>
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {realStudents.filter(s => (realClasses.find(c => c.id === selectedClass)?.students || []).includes(s.id) && s.name.toLowerCase().includes(studentSearch.toLowerCase())).map(student => {
+                {realStudents.filter(s => (realClasses.find(c => c.id === takingAttendanceForClass)?.students || []).includes(s.id) && s.name.toLowerCase().includes(studentSearch.toLowerCase())).map(student => {
                   const status = currentAttendance[student.id];
                   
                   return (
@@ -1148,9 +566,6 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                             <p className="text-xs text-gray-500">{student.id}</p>
                           </div>
                         </div>
-                        <button className="text-gray-400 hover:text-violet-600 transition-colors p-2 hover:bg-gray-50 rounded-full">
-                          <MessageSquare size={18} />
-                        </button>
                       </div>
                       
                       <div className="flex bg-gray-50 p-1 rounded-xl">
@@ -1161,7 +576,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                             status === 'present' ? 'bg-green-500 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200 disabled:hover:bg-transparent'
                           }`}
                         >
-                          {status === 'present' && <CheckCircle2 size={14} />} Present
+                          {status === 'present' && <CheckCircle2 size={14} />} {t('حاضر', 'Present')}
                         </button>
                         <button
                           onClick={() => handleStatusChange(student.id, 'absent')}
@@ -1170,7 +585,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                             status === 'absent' ? 'bg-red-500 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200 disabled:hover:bg-transparent'
                           }`}
                         >
-                          {status === 'absent' && <XCircle size={14} />} Absent
+                          {status === 'absent' && <XCircle size={14} />} {t('غائب', 'Absent')}
                         </button>
                         <button
                           onClick={() => handleStatusChange(student.id, 'late')}
@@ -1179,7 +594,16 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                             status === 'late' ? 'bg-yellow-500 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200 disabled:hover:bg-transparent'
                           }`}
                         >
-                          {status === 'late' && <Clock size={14} />} Late
+                          {status === 'late' && <Clock size={14} />} {t('متأخر', 'Late')}
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(student.id, 'excused')}
+                          disabled={!isToday || !canTakeAttendance}
+                          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-1 disabled:cursor-not-allowed ${
+                            status === 'excused' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-200 disabled:hover:bg-transparent'
+                          }`}
+                        >
+                          {status === 'excused' && <MessageSquare size={14} />} {t('معذور', 'Excused')}
                         </button>
                       </div>
                     </div>
@@ -1188,6 +612,396 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ============ LATE CASES ============ */}
+      {activeSection === 'late' && (
+        <div className="space-y-6">
+          {!selectedLateClass ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-50">
+                <h3 className="text-lg font-bold text-gray-900">{t('الفصول اللي فيها حالات تأخير اليوم', "Today's Classes With Late Cases")}</h3>
+              </div>
+              {isLoadingDashboard ? (
+                <p className="text-sm text-gray-400 text-center py-12">{t('جاري التحميل...', 'Loading...')}</p>
+              ) : Object.keys(lateByClass).length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-12">{t('مفيش حالات تأخير النهاردة.', 'No late cases today.')}</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {Object.entries(lateByClass).map(([className, rows]) => (
+                    <button
+                      key={className}
+                      onClick={() => setSelectedLateClass(className)}
+                      className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50/50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center shrink-0">
+                          <Clock size={16} />
+                        </div>
+                        <span className="font-bold text-gray-900">{className}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">{rows.length} {t('حالة', 'case(s)')}</span>
+                        <ChevronRight size={18} className={`text-gray-400 ${isRTL ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-50 flex items-center gap-3">
+                <button onClick={() => setSelectedLateClass(null)} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                  <ChevronDown size={20} className={`${isRTL ? 'rotate-90' : '-rotate-90'} text-gray-600`} />
+                </button>
+                <h3 className="text-lg font-bold text-gray-900">{selectedLateClass}</h3>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {(lateByClass[selectedLateClass] || []).map(l => (
+                  <div key={l.recordId} className="p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center shrink-0">
+                          <Clock size={16} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">{l.studentName}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{l.time}</p>
+                        </div>
+                      </div>
+                      {l.totalLateCount > maxLateCount && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold shrink-0">
+                          <AlertCircle size={11} /> {t('تعدّى الحد', 'Over Limit')} ({l.totalLateCount})
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-3">
+                      {editingLateReasonId === l.recordId ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={lateReasonDraft}
+                            onChange={(e) => setLateReasonDraft(e.target.value)}
+                            placeholder={t('سبب التأخير...', 'Reason for being late...')}
+                            className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                          <button onClick={() => handleSaveLateReason(l.recordId)} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-bold">{t('حفظ', 'Save')}</button>
+                          <button onClick={() => setEditingLateReasonId(null)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold">{t('إلغاء', 'Cancel')}</button>
+                        </div>
+                      ) : l.reason ? (
+                        <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(l.reason || ''); }} className={`text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full ${isRTL ? 'text-right' : 'text-left'} hover:border-violet-300`}>
+                          {l.reason}
+                        </button>
+                      ) : (
+                        <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
+                          + {t('إضافة سبب التأخير', 'Add late reason')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============ EXCUSE CASES ============ */}
+      {activeSection === 'excuse' && (
+        <div className="space-y-6">
+          {!selectedExcuseClass ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-50">
+                <h3 className="text-lg font-bold text-gray-900">{t('الفصول اللي فيها حالات عذر اليوم', "Today's Classes With Excuse Cases")}</h3>
+              </div>
+              {isLoadingDashboard ? (
+                <p className="text-sm text-gray-400 text-center py-12">{t('جاري التحميل...', 'Loading...')}</p>
+              ) : Object.keys(excuseByClass).length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-12">{t('مفيش حالات عذر النهاردة.', 'No excuse cases today.')}</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {Object.entries(excuseByClass).map(([className, rows]) => (
+                    <button
+                      key={className}
+                      onClick={() => setSelectedExcuseClass(className)}
+                      className="w-full flex items-center justify-between px-6 py-4 hover:bg-gray-50/50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center shrink-0">
+                          <MessageSquare size={16} />
+                        </div>
+                        <span className="font-bold text-gray-900">{className}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">{rows.length} {t('حالة', 'case(s)')}</span>
+                        <ChevronRight size={18} className={`text-gray-400 ${isRTL ? 'rotate-180' : ''}`} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-50 flex items-center gap-3">
+                <button onClick={() => setSelectedExcuseClass(null)} className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                  <ChevronDown size={20} className={`${isRTL ? 'rotate-90' : '-rotate-90'} text-gray-600`} />
+                </button>
+                <h3 className="text-lg font-bold text-gray-900">{selectedExcuseClass}</h3>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {(excuseByClass[selectedExcuseClass] || []).map(ex => (
+                  <div key={ex.recordId} className="p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center shrink-0">
+                        <MessageSquare size={16} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-gray-900 text-sm">{ex.studentName}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{ex.time}</p>
+                      </div>
+                      {ex.fileUrl && (
+                        <a href={ex.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-violet-600 hover:underline shrink-0">
+                          {t('عرض المستند', 'View Document')}
+                        </a>
+                      )}
+                    </div>
+                    <div className="mt-3">
+                      {editingExcuseId === ex.recordId ? (
+                        <div className="space-y-2">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={excuseReasonDraft}
+                            onChange={(e) => setExcuseReasonDraft(e.target.value)}
+                            placeholder={t('سبب العذر...', 'Reason for excuse...')}
+                            className="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                          />
+                          <input
+                            type="file"
+                            onChange={(e) => setExcuseFileDraft(e.target.files?.[0] || null)}
+                            className="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-violet-50 file:text-violet-600 file:text-xs file:font-bold"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleSaveExcuse(ex.recordId)} disabled={isSavingExcuse} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold">
+                              {isSavingExcuse ? t('جاري الحفظ...', 'Saving...') : t('حفظ', 'Save')}
+                            </button>
+                            <button onClick={() => { setEditingExcuseId(null); setExcuseFileDraft(null); }} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold">{t('إلغاء', 'Cancel')}</button>
+                          </div>
+                        </div>
+                      ) : ex.reason ? (
+                        <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(ex.reason || ''); }} className={`text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full ${isRTL ? 'text-right' : 'text-left'} hover:border-violet-300`}>
+                          {ex.reason}
+                        </button>
+                      ) : (
+                        <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
+                          + {t('مراجعة العذر وإضافة السبب', 'Review excuse and add reason')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============ SETTINGS ============ */}
+      {activeSection === 'settings' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="flex items-center justify-between bg-violet-50 border border-violet-100 rounded-2xl p-4">
+              <p className="text-sm text-violet-800 font-bold">{settingsLoaded ? t('الإعدادات محمّلة من قاعدة البيانات', 'Settings loaded from database') : t('جاري تحميل الإعدادات...', 'Loading settings...')}</p>
+              <Button onClick={handleSaveSettings} disabled={!canEditSettings} className="bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-40">{t('حفظ الإعدادات', 'Save Settings')}</Button>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <SettingsIcon size={20} className="text-violet-600" />
+                {t('تكرار تسجيل الحضور', 'Attendance Frequency')}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => setAttendanceMode('Daily')}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${attendanceMode === 'Daily' ? 'border-violet-500 bg-violet-50' : 'border-gray-100 hover:border-gray-200'}`}
+                >
+                  <Calendar size={24} className={`mb-2 ${attendanceMode === 'Daily' ? 'text-violet-600' : 'text-gray-400'}`} />
+                  <h4 className="font-bold text-gray-900">{t('مرة يومياً', 'Once Daily')}</h4>
+                  <p className="text-xs text-gray-500 mt-1">{t('الأفضل للمرحلة الابتدائية. يُسجل مرة واحدة صباحاً.', 'Best for primary school. Recorded once in the morning.')}</p>
+                </div>
+                <div 
+                  onClick={() => setAttendanceMode('Period')}
+                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${attendanceMode === 'Period' ? 'border-violet-500 bg-violet-50' : 'border-gray-100 hover:border-gray-200'}`}
+                >
+                  <Clock size={24} className={`mb-2 ${attendanceMode === 'Period' ? 'text-violet-600' : 'text-gray-400'}`} />
+                  <h4 className="font-bold text-gray-900">{t('حسب المادة/الحصة', 'Per Subject/Period')}</h4>
+                  <p className="text-xs text-gray-500 mt-1">{t('الأفضل للمرحلة الثانوية. يُسجل في بداية كل حصة.', 'Best for high school. Recorded at the start of each period.')}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <AlertCircle size={20} className="text-violet-600" />
+                {t('القواعد والأتمتة', 'Rules & Automation')}
+              </h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                    <span>{t('فترة السماح (دقائق التأخير)', 'Grace Period (late minutes)')}</span>
+                    <span className="text-violet-600">{lateThreshold} {t('دقيقة', 'min')}</span>
+                  </label>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="60" 
+                    step="5"
+                    value={lateThreshold}
+                    onChange={(e) => setLateThreshold(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">{t(`الطلاب الذين يسجلون حضورهم بعد ${lateThreshold} دقيقة سيتم اعتبارهم 'متأخرين' تلقائياً.`, `Students checking in after ${lateThreshold} minutes will automatically be marked 'Late'.`)}</p>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100">
+                  <label className="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                    <span>{t('الحد الأقصى لمرات التأخير المسموحة للطالب', 'Max allowed late count per student')}</span>
+                    <span className="text-violet-600">{maxLateCount} {t('مرة', 'times')}</span>
+                  </label>
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="20" 
+                    step="1"
+                    value={maxLateCount}
+                    onChange={(e) => setMaxLateCount(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">{t(`لو الطالب تعدّى ${maxLateCount} مرة تأخير، هيظهر تنبيه للمشرف في لوحة الحضور.`, `If a student exceeds ${maxLateCount} late arrivals, an alert will show in the admin's attendance dashboard.`)}</p>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-gray-900">{t('رسالة نصية فورية عند الغياب', 'Instant SMS on absence')}</p>
+                      <p className="text-xs text-gray-500">{t('إشعار أولياء الأمور فوراً عند تسجيل غياب الطالب.', 'Notifies parents instantly when a student is marked absent.')}</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={smsOnAbsent} onChange={() => setSmsOnAbsent(!smsOnAbsent)} />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-500"></div>
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-gray-900">{t('رسالة نصية فورية عند التأخير', 'Instant SMS on late arrival')}</p>
+                      <p className="text-xs text-gray-500">{t('إشعار أولياء الأمور فوراً عند تسجيل تأخير الطالب.', 'Notifies parents instantly when a student is marked late.')}</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" checked={smsOnLate} onChange={() => setSmsOnLate(!smsOnLate)} />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-500"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {warningCriteria && (
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h3 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
+                <AlertCircle size={20} className="text-violet-600" />
+                {t('معايير التحذير المبكر — الحضور', 'Early Warning Criteria — Attendance')}
+              </h3>
+              <p className="text-xs text-gray-500 mb-4">{t('تحدد نسبة الحضور اللي بتصنّف الطالب "حرج" أو "تحذير" في رادار التحذير المبكر بـ Talia Learn.', "Determines the attendance percentage that classifies a student as 'Critical' or 'Warning' in Talia Learn's Early Warning Radar.")}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-bold text-red-600 mb-2 block">{t('حالة حرجة: نسبة الحضور أقل من (%)', 'Critical: attendance below (%)')}</label>
+                  <input
+                    type="number"
+                    value={warningCriteria.criticalAttendance}
+                    onChange={(e) => setWarningCriteria({ ...warningCriteria, criticalAttendance: Number(e.target.value) })}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-amber-600 mb-2 block">{t('تحذير: نسبة الحضور أقل من (%)', 'Warning: attendance below (%)')}</label>
+                  <input
+                    type="number"
+                    value={warningCriteria.warningAttendance}
+                    onChange={(e) => setWarningCriteria({ ...warningCriteria, warningAttendance: Number(e.target.value) })}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400 transition-all"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleSaveWarningCriteria}
+                disabled={isSavingWarningCriteria}
+                className="mt-4 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors"
+              >
+                {isSavingWarningCriteria ? t('جاري الحفظ...', 'Saving...') : t('حفظ المعايير', 'Save Criteria')}
+              </button>
+            </div>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm h-fit">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <List size={20} className="text-violet-600" />
+                {t('حالات مخصصة', 'Custom Statuses')}
+              </span>
+              <Button variant="ghost" className="p-1 h-auto" onClick={() => setIsAddingStatus(true)}><Plus size={18} /></Button>
+            </h3>
+            
+            <div className="space-y-3">
+              {statuses.map((status) => (
+                <div key={status.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-xl bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full ${status.color}`}></div>
+                    <span className="font-bold text-gray-900">{status.label}</span>
+                  </div>
+                  <button onClick={() => handleDeleteStatus(status.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+
+              {isAddingStatus && (
+                <div className="p-4 border border-violet-200 rounded-xl bg-violet-50 space-y-4 animate-fadeIn">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">{t('اسم الحالة', 'Status Name')}</label>
+                    <input 
+                      type="text" 
+                      value={newStatusLabel}
+                      onChange={(e) => setNewStatusLabel(e.target.value)}
+                      placeholder={t('مثال: رحلة ميدانية', 'e.g. Field Trip')}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-2">{t('اللون', 'Color')}</label>
+                    <div className="flex flex-wrap gap-2">
+                      {availableColors.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => setNewStatusColor(color)}
+                          className={`w-6 h-6 rounded-full ${color} ${newStatusColor === color ? 'ring-2 ring-offset-2 ring-gray-400' : ''}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="secondary" className="flex-1 py-1.5 text-xs" onClick={() => setIsAddingStatus(false)}>{t('إلغاء', 'Cancel')}</Button>
+                    <Button className="flex-1 py-1.5 text-xs" onClick={handleAddStatus}>{t('حفظ', 'Save')}</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
