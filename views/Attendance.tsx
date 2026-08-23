@@ -17,7 +17,7 @@ import {
   AlertCircle,
   Users
 } from 'lucide-react';
-import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDate, AttendanceLogRow, getLateStudentsForDate, saveLateReason, LateStudentRow } from '../services/supabaseData';
+import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDate, AttendanceLogRow, getLateStudentsForDate, saveLateReason, LateStudentRow, getExcusedStudentsForDate, saveExcuseDetails, uploadExcuseFile, ExcusedStudentRow } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { Teacher } from '../types';
 import { Student, ClassSection } from '../types';
@@ -235,18 +235,49 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [editingLateReasonId, setEditingLateReasonId] = useState<string | null>(null);
   const [lateReasonDraft, setLateReasonDraft] = useState('');
 
+  const [excusedStudents, setExcusedStudents] = useState<ExcusedStudentRow[]>([]);
+  const [editingExcuseId, setEditingExcuseId] = useState<string | null>(null);
+  const [excuseReasonDraft, setExcuseReasonDraft] = useState('');
+  const [excuseFileDraft, setExcuseFileDraft] = useState<File | null>(null);
+  const [isSavingExcuse, setIsSavingExcuse] = useState(false);
+
   const refreshAdminDashboard = () => {
     setIsLoadingDashboard(true);
     Promise.all([
       getClassesAttendanceOverview(adminSelectedDate, attendanceMode),
       getAttendanceLogsForDate(adminSelectedDate),
       getLateStudentsForDate(adminSelectedDate),
-    ]).then(([overview, logs, late]) => {
+      getExcusedStudentsForDate(adminSelectedDate),
+    ]).then(([overview, logs, late, excused]) => {
       setClassesOverview(overview);
       setAttendanceLogs(logs);
       setLateStudents(late);
+      setExcusedStudents(excused);
       setIsLoadingDashboard(false);
     });
+  };
+
+  const handleSaveExcuse = async (recordId: string) => {
+    setIsSavingExcuse(true);
+    let fileUrl: string | null = null;
+    if (excuseFileDraft) {
+      fileUrl = await uploadExcuseFile(recordId, excuseFileDraft);
+      if (!fileUrl) {
+        showToast('حصل خطأ أثناء رفع الملف.', 'error');
+        setIsSavingExcuse(false);
+        return;
+      }
+    }
+    const ok = await saveExcuseDetails(recordId, excuseReasonDraft.trim(), fileUrl);
+    setIsSavingExcuse(false);
+    if (ok) {
+      setExcusedStudents(prev => prev.map(e => e.recordId === recordId ? { ...e, reason: excuseReasonDraft.trim(), fileUrl: fileUrl || e.fileUrl } : e));
+      setEditingExcuseId(null);
+      setExcuseFileDraft(null);
+      showToast('تم حفظ تفاصيل العذر.', 'success');
+    } else {
+      showToast('حصل خطأ أثناء الحفظ.', 'error');
+    }
   };
 
   const handleSaveLateReason = async (recordId: string) => {
@@ -704,6 +735,72 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                           ) : (
                             <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
                               + إضافة سبب التأخير
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* حالات العذر — للمراجعة */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">حالات العذر اليوم — للمراجعة</h3>
+                {isLoadingDashboard ? (
+                  <p className="text-sm text-gray-400 text-center py-8">جاري التحميل...</p>
+                ) : excusedStudents.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">مفيش حالات عذر النهاردة.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {excusedStudents.map(ex => (
+                      <div key={ex.recordId} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center shrink-0">
+                            <MessageSquare size={16} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold text-gray-900 text-sm">{ex.studentName}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{ex.className} • {ex.time}</p>
+                          </div>
+                          {ex.fileUrl && (
+                            <a href={ex.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-violet-600 hover:underline shrink-0">
+                              عرض المستند
+                            </a>
+                          )}
+                        </div>
+                        <div className="mt-3">
+                          {editingExcuseId === ex.recordId ? (
+                            <div className="space-y-2">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={excuseReasonDraft}
+                                onChange={(e) => setExcuseReasonDraft(e.target.value)}
+                                placeholder="سبب العذر..."
+                                className="w-full p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="file"
+                                  onChange={(e) => setExcuseFileDraft(e.target.files?.[0] || null)}
+                                  className="flex-1 text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-violet-50 file:text-violet-600 file:text-xs file:font-bold"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => handleSaveExcuse(ex.recordId)} disabled={isSavingExcuse} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold">
+                                  {isSavingExcuse ? 'جاري الحفظ...' : 'حفظ'}
+                                </button>
+                                <button onClick={() => { setEditingExcuseId(null); setExcuseFileDraft(null); }} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold">إلغاء</button>
+                              </div>
+                            </div>
+                          ) : ex.reason ? (
+                            <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(ex.reason || ''); }} className="text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full text-right hover:border-violet-300">
+                              {ex.reason}
+                            </button>
+                          ) : (
+                            <button onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
+                              + مراجعة العذر وإضافة السبب
                             </button>
                           )}
                         </div>
