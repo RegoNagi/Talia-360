@@ -626,30 +626,90 @@ export async function getTodayAttendanceForSection(sectionId: string): Promise<R
 
 
 // إعدادات تسجيل الحضور (يومي أو حسب الحصة) — صف واحد عام للمدرسة كلها
-export async function getAttendanceSettings(): Promise<{ mode: 'Daily' | 'Period'; lateThreshold: number }> {
+export async function getAttendanceSettings(): Promise<{ mode: 'Daily' | 'Period'; lateThreshold: number; maxLateCount: number }> {
   const { data, error } = await supabase
     .from('attendance_settings')
-    .select('mode, late_threshold')
+    .select('mode, late_threshold, max_late_count')
     .eq('id', 1)
     .maybeSingle();
 
   if (error || !data) {
     console.error('Error fetching attendance settings:', error);
-    return { mode: 'Period', lateThreshold: 15 };
+    return { mode: 'Period', lateThreshold: 15, maxLateCount: 5 };
   }
-  return { mode: data.mode, lateThreshold: data.late_threshold };
+  return { mode: data.mode, lateThreshold: data.late_threshold, maxLateCount: data.max_late_count ?? 5 };
 }
 
-export async function saveAttendanceSettings(mode: 'Daily' | 'Period', lateThreshold: number): Promise<boolean> {
+export async function saveAttendanceSettings(mode: 'Daily' | 'Period', lateThreshold: number, maxLateCount: number): Promise<boolean> {
   const { error } = await supabase
     .from('attendance_settings')
-    .upsert({ id: 1, mode, late_threshold: lateThreshold });
+    .upsert({ id: 1, mode, late_threshold: lateThreshold, max_late_count: maxLateCount });
 
   if (error) {
     console.error('Error saving attendance settings:', error);
     return false;
   }
   return true;
+}
+
+export interface LateStudentRow {
+  recordId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  time: string;
+  reason: string | null;
+  totalLateCount: number;
+}
+
+// كل حالات التأخير بتاعة يوم معيّن، مع إجمالي مرات التأخير التاريخية لكل طالب (لمقارنتها بالحد المسموح)
+export async function getLateStudentsForDate(date: string): Promise<LateStudentRow[]> {
+  const { data: sessions } = await supabase
+    .from('attendance_sessions')
+    .select('id, created_at, class_sections(name)')
+    .eq('date', date);
+  const sessionIds = (sessions || []).map((s: any) => s.id);
+  if (sessionIds.length === 0) return [];
+
+  const { data: records } = await supabase
+    .from('attendance_records')
+    .select('id, session_id, student_id, late_reason')
+    .in('session_id', sessionIds)
+    .eq('status', 'Late');
+  if (!records || records.length === 0) return [];
+
+  const studentIds = Array.from(new Set(records.map((r: any) => r.student_id)));
+  const [studentsRes, allLateCountsRes] = await Promise.all([
+    supabase.from('students').select('id, name').in('id', studentIds),
+    supabase.from('attendance_records').select('student_id').eq('status', 'Late').in('student_id', studentIds),
+  ]);
+
+  const studentNameById: Record<string, string> = {};
+  (studentsRes.data || []).forEach((s: any) => { studentNameById[s.id] = s.name; });
+
+  const lateCountByStudent: Record<string, number> = {};
+  (allLateCountsRes.data || []).forEach((r: any) => { lateCountByStudent[r.student_id] = (lateCountByStudent[r.student_id] || 0) + 1; });
+
+  const sessionById: Record<string, any> = {};
+  (sessions || []).forEach((s: any) => { sessionById[s.id] = s; });
+
+  return (records as any[]).map((r) => {
+    const session = sessionById[r.session_id];
+    return {
+      recordId: r.id,
+      studentId: r.student_id,
+      studentName: studentNameById[r.student_id] || '—',
+      className: session?.class_sections?.name || '—',
+      time: session?.created_at ? new Date(session.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—',
+      reason: r.late_reason || null,
+      totalLateCount: lateCountByStudent[r.student_id] || 0,
+    };
+  });
+}
+
+export async function saveLateReason(recordId: string, reason: string): Promise<boolean> {
+  const { error } = await supabase.from('attendance_records').update({ late_reason: reason }).eq('id', recordId);
+  return !error;
 }
 
 // بيحفظ جلسة حضور جديدة (تاريخ اليوم + حالة كل طالب) في قاعدة البيانات
