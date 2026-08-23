@@ -151,11 +151,11 @@ const ALL_PERMISSION_IDS = PERMISSION_GROUPS.flatMap(g => g.perms.map(p => p.id)
 const ADMIN_TEMPLATES: Record<string, string[]> = {
     'Super Admin': ALL_PERMISSION_IDS,
     'Academic Manager': ['curriculum_view', 'curriculum_edit', 'curriculum_library', 'curriculum_lesson_plans', 'classes_view', 'classes_manage', 'schedule_manage', 'grades_view', 'grades_approve', 'grades_reports', 'grades_supervise', 'dashboard_view', 'users_view'],
-    'مشرف مرحلة': ['classes_view', 'attendance_view', 'attendance_reports', 'grades_view', 'grades_supervise', 'grades_reports', 'dashboard_view'],
+    'Grade Supervisor': ['classes_view', 'attendance_view', 'attendance_reports', 'grades_view', 'grades_supervise', 'grades_reports', 'dashboard_view'],
     'Registrar': ['users_view', 'users_create', 'users_reset', 'classes_view', 'classes_manage', 'attendance_view', 'attendance_reports', 'dashboard_view'],
     'Finance Officer': ['fin_view', 'fin_manage', 'dashboard_view', 'dashboard_financial_widgets'],
     'IT Support': ['sys_settings', 'sys_logs', 'users_reset', 'users_view'],
-    'مشرف بنك الأسئلة': ['qb_manage', 'qb_approve', 'qb_analytics', 'dashboard_view']
+    'Question Bank Supervisor': ['qb_manage', 'qb_approve', 'qb_analytics', 'dashboard_view']
 };
 
 // (الصفوف الدراسية بقت بتتجاب حقيقي من قاعدة البيانات، مش قايمة ثابتة هنا)
@@ -165,8 +165,8 @@ const ADMIN_TEMPLATES: Record<string, string[]> = {
 // عشان لما تكتب جوه المودال، بس المودال نفسه يعيد الرسم — مش الصفحة اللي وراه كلها.
 // ده اللي بيمنع اهتزاز الخلفية اللي كان بيحصل قبل كده مع كل حرف بتكتبه.
 
-const AddStudentModal: React.FC<{ gradeLevels: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean> }> = ({ gradeLevels, onClose, onSubmit }) => {
-  const [form, setForm] = useState({ firstName: '', secondName: '', thirdName: '', lastName: '', grade: 'الصف 10', dob: '', email: '', password: '' });
+const AddStudentModal: React.FC<{ gradeLevels: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean>; isRTL: boolean }> = ({ gradeLevels, onClose, onSubmit, isRTL }) => {
+  const [form, setForm] = useState({ firstName: '', secondName: '', thirdName: '', lastName: '', grade: gradeLevels[0] || '', dob: '', email: '', password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -178,61 +178,61 @@ const AddStudentModal: React.FC<{ gradeLevels: string[]; onClose: () => void; on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
-       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
           <div className="flex justify-between items-center mb-6">
              <div>
-               <h3 className="text-xl font-bold text-gray-900">تسجيل طالب جديد</h3>
-               <p className="text-sm text-gray-500">Add a single student record to the system.</p>
+               <h3 className="text-xl font-bold text-gray-900">{isRTL ? 'تسجيل طالب جديد' : 'Register New Student'}</h3>
+               <p className="text-sm text-gray-500">{isRTL ? 'إضافة سجل طالب جديد للنظام.' : 'Add a single student record to the system.'}</p>
              </div>
              <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={24}/></button>
           </div>
           <div className="space-y-6">
              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-4">
-                   <label className="block text-sm font-bold text-gray-700 mb-2">Student Name</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'اسم الطالب' : 'Student Name'}</label>
                 </div>
                 <div>
-                   <input type="text" placeholder="First" value={form.firstName} onChange={(e) => setForm({...form, firstName: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
+                   <input type="text" placeholder={isRTL ? 'الأول' : 'First'} value={form.firstName} onChange={(e) => setForm({...form, firstName: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
                 <div>
-                   <input type="text" placeholder="Second" value={form.secondName} onChange={(e) => setForm({...form, secondName: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
+                   <input type="text" placeholder={isRTL ? 'الثاني' : 'Second'} value={form.secondName} onChange={(e) => setForm({...form, secondName: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
                 <div>
-                   <input type="text" placeholder="Third" value={form.thirdName} onChange={(e) => setForm({...form, thirdName: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
+                   <input type="text" placeholder={isRTL ? 'الثالث' : 'Third'} value={form.thirdName} onChange={(e) => setForm({...form, thirdName: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
                 <div>
-                   <input type="text" placeholder="Last" value={form.lastName} onChange={(e) => setForm({...form, lastName: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
+                   <input type="text" placeholder={isRTL ? 'الأخير' : 'Last'} value={form.lastName} onChange={(e) => setForm({...form, lastName: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
                 <div className="md:col-span-2">
-                   <label className="block text-sm font-bold text-gray-700 mb-2">Grade Level</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'المستوى الدراسي' : 'Grade Level'}</label>
                    <select value={form.grade} onChange={(e) => setForm({...form, grade: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500 bg-white">
                      {gradeLevels.map(g => <option key={g} value={g}>{g}</option>)}
                    </select>
                 </div>
                 <div className="md:col-span-2">
-                   <label className="block text-sm font-bold text-gray-700 mb-2">Date of Birth</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'تاريخ الميلاد' : 'Date of Birth'}</label>
                    <input type="date" value={form.dob} onChange={(e) => setForm({...form, dob: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
                 <div className="md:col-span-2">
-                   <label className="block text-sm font-bold text-gray-700 mb-2">الإيميل (لتسجيل الدخول في Talia Learn)</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'الإيميل (لتسجيل الدخول في Talia Learn)' : 'Email (for Talia Learn login)'}</label>
                    <input type="email" placeholder="student@school.com" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
                 <div className="md:col-span-2">
-                   <label className="block text-sm font-bold text-gray-700 mb-2">كلمة المرور</label>
-                   <input type="text" placeholder="اكتب كلمة مرور" value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
+                   <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'كلمة المرور' : 'Password'}</label>
+                   <input type="text" placeholder={isRTL ? 'اكتب كلمة مرور' : 'Enter a password'} value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
                 </div>
              </div>
           </div>
           <div className="flex gap-4 mt-8 pt-4 border-t border-gray-100">
-             <Button variant="secondary" className="flex-1" onClick={onClose}>إلغاء</Button>
-             <Button variant="primary" className="flex-1" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? 'جاري الإنشاء...' : 'Create Student'}</Button>
+             <Button variant="secondary" className="flex-1" onClick={onClose}>{isRTL ? 'إلغاء' : 'Cancel'}</Button>
+             <Button variant="primary" className="flex-1" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? (isRTL ? 'جاري الإنشاء...' : 'Creating...') : (isRTL ? 'تسجيل الطالب' : 'Create Student')}</Button>
           </div>
        </div>
     </div>
   );
 };
 
-const AddTeacherModal: React.FC<{ gradeLevels: string[]; subjectOptions: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean> }> = ({ gradeLevels, subjectOptions, onClose, onSubmit }) => {
+const AddTeacherModal: React.FC<{ gradeLevels: string[]; subjectOptions: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean>; isRTL: boolean }> = ({ gradeLevels, subjectOptions, onClose, onSubmit, isRTL }) => {
   const [form, setForm] = useState({
     name: '', email: '', password: '', hiringDate: new Date().toISOString().split('T')[0], type: 'Full-time',
     subjects: [] as string[], allSubjects: false, grades: [] as string[], teacherType: 'Main' as 'Main' | 'Assistant',
@@ -253,11 +253,11 @@ const AddTeacherModal: React.FC<{ gradeLevels: string[]; subjectOptions: string[
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
-       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
           <div className="flex justify-between items-center mb-6">
              <div>
-               <h3 className="text-xl font-bold text-gray-900">إضافة عضو هيئة تدريس</h3>
-               <p className="text-sm text-gray-500">Create a new teacher profile and assign subjects.</p>
+               <h3 className="text-xl font-bold text-gray-900">{isRTL ? 'إضافة عضو هيئة تدريس' : 'Add Faculty Member'}</h3>
+               <p className="text-sm text-gray-500">{isRTL ? 'إنشاء ملف معلم جديد وتحديد المواد.' : 'Create a new teacher profile and assign subjects.'}</p>
              </div>
              <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={24}/></button>
           </div>
@@ -271,40 +271,40 @@ const AddTeacherModal: React.FC<{ gradeLevels: string[]; subjectOptions: string[
                 <input type="email" placeholder="teacher@school.edu" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
              </div>
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">كلمة المرور (لتسجيل الدخول في Talia Learn)</label>
-                <input type="text" placeholder="اكتب كلمة مرور" value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'كلمة المرور (لتسجيل الدخول في Talia Learn)' : 'Password (for Talia Learn login)'}</label>
+                <input type="text" placeholder={isRTL ? 'اكتب كلمة مرور' : 'Enter a password'} value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
              </div>
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Hiring Date</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'تاريخ التعيين' : 'Hiring Date'}</label>
                 <input type="date" value={form.hiringDate} onChange={(e) => setForm({...form, hiringDate: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
              </div>
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Employment Type</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'نوع العقد' : 'Employment Type'}</label>
                 <select value={form.type} onChange={(e) => setForm({...form, type: e.target.value as any})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500 bg-white">
-                  <option value="Full-time">Full-time</option>
-                  <option value="Part-time">Part-time</option>
-                  <option value="Contract">Contract</option>
+                  <option value="Full-time">{isRTL ? 'دوام كامل' : 'Full-time'}</option>
+                  <option value="Part-time">{isRTL ? 'دوام جزئي' : 'Part-time'}</option>
+                  <option value="Contract">{isRTL ? 'عقد مؤقت' : 'Contract'}</option>
                 </select>
              </div>
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">نوع المعلم</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'نوع المعلم' : 'Teacher Type'}</label>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setForm({...form, teacherType: 'Main'})} className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border transition-all ${form.teacherType === 'Main' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>مدرس رئيسي</button>
-                  <button type="button" onClick={() => setForm({...form, teacherType: 'Assistant'})} className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border transition-all ${form.teacherType === 'Assistant' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>مدرس مساعد</button>
+                  <button type="button" onClick={() => setForm({...form, teacherType: 'Main'})} className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border transition-all ${form.teacherType === 'Main' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{isRTL ? 'مدرس رئيسي' : 'Main'}</button>
+                  <button type="button" onClick={() => setForm({...form, teacherType: 'Assistant'})} className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border transition-all ${form.teacherType === 'Assistant' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{isRTL ? 'مدرس مساعد' : 'Assistant'}</button>
                 </div>
              </div>
              <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">المواد اللي بيدرّسها</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'المواد اللي بيدرّسها' : 'Subjects Taught'}</label>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setForm({...form, allSubjects: !form.allSubjects, subjects: []})} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${form.allSubjects ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>كل المواد</button>
+                  <button type="button" onClick={() => setForm({...form, allSubjects: !form.allSubjects, subjects: []})} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${form.allSubjects ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{isRTL ? 'كل المواد' : 'All Subjects'}</button>
                   {subjectOptions.map(subject => (
                     <button type="button" key={subject} disabled={form.allSubjects} onClick={() => toggleSubject(subject)} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${form.subjects.includes(subject) ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{subject}</button>
                   ))}
                 </div>
-                {form.allSubjects && <p className="text-xs text-slate-400 mt-1">هيدرّس كل مواد الفصل (مناسب لمدرس فصل ابتدائي مثلًا).</p>}
+                {form.allSubjects && <p className="text-xs text-slate-400 mt-1">{isRTL ? 'هيدرّس كل مواد الفصل (مناسب لمدرس فصل ابتدائي مثلًا).' : 'Will teach all subjects for the class (suitable for a primary homeroom teacher).'}</p>}
              </div>
              <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">الصفوف اللي بيدرّس فيها (تقدر تختار أكتر من صف)</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'الصفوف اللي بيدرّس فيها (تقدر تختار أكتر من صف)' : 'Grades Taught (select one or more)'}</label>
                 <div className="flex flex-wrap gap-2">
                   {gradeLevels.map(grade => (
                     <button type="button" key={grade} onClick={() => toggleGrade(grade)} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${form.grades.includes(grade) ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{grade}</button>
@@ -314,20 +314,20 @@ const AddTeacherModal: React.FC<{ gradeLevels: string[]; subjectOptions: string[
              <div className="md:col-span-2">
                 <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                   <input type="checkbox" checked={form.canUseQuestionBank} onChange={(e) => setForm({...form, canUseQuestionBank: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
-                  <span className="text-sm font-bold text-gray-700">يقدر يستخدم بنك الأسئلة (إضافة أسئلة بس، مش إدارة أو اعتماد)</span>
+                  <span className="text-sm font-bold text-gray-700">{isRTL ? 'يقدر يستخدم بنك الأسئلة (إضافة أسئلة بس، مش إدارة أو اعتماد)' : 'Can use the question bank (add questions only, not manage or approve)'}</span>
                 </label>
              </div>
           </div>
           <div className="flex gap-4 mt-8 pt-4 border-t border-gray-100">
-             <Button variant="secondary" className="flex-1" onClick={onClose}>إلغاء</Button>
-             <Button variant="primary" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? 'جاري الإنشاء...' : 'Create Teacher'}</Button>
+             <Button variant="secondary" className="flex-1" onClick={onClose}>{isRTL ? 'إلغاء' : 'Cancel'}</Button>
+             <Button variant="primary" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? (isRTL ? 'جاري الإنشاء...' : 'Creating...') : (isRTL ? 'إنشاء معلم' : 'Create Teacher')}</Button>
           </div>
        </div>
     </div>
   );
 };
 
-const EditTeacherModal: React.FC<{ teacher: any; gradeLevels: string[]; subjectOptions: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean> }> = ({ teacher, gradeLevels, subjectOptions, onClose, onSubmit }) => {
+const EditTeacherModal: React.FC<{ teacher: any; gradeLevels: string[]; subjectOptions: string[]; onClose: () => void; onSubmit: (data: any) => Promise<boolean>; isRTL: boolean }> = ({ teacher, gradeLevels, subjectOptions, onClose, onSubmit, isRTL }) => {
   const [form, setForm] = useState({
     name: teacher.name || '',
     email: teacher.email || '',
@@ -354,50 +354,50 @@ const EditTeacherModal: React.FC<{ teacher: any; gradeLevels: string[]; subjectO
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
-       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
           <div className="flex justify-between items-center mb-6">
-             <h3 className="text-xl font-bold text-gray-900">تعديل بيانات المعلم</h3>
+             <h3 className="text-xl font-bold text-gray-900">{isRTL ? 'تعديل بيانات المعلم' : "Edit Teacher's Information"}</h3>
              <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={24}/></button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
              <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">الاسم الكامل</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'الاسم الكامل' : 'Full Name'}</label>
                 <input type="text" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
              </div>
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">البريد الإلكتروني</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'البريد الإلكتروني' : 'Email'}</label>
                 <input type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
              </div>
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">كلمة مرور جديدة (سيبها فاضية لو مش عايز تغيّرها)</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'كلمة مرور جديدة (سيبها فاضية لو مش عايز تغيّرها)' : "New password (leave blank if you don't want to change it)"}</label>
                 <input type="text" placeholder="•••••••" value={form.password} onChange={(e) => setForm({...form, password: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
              </div>
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">نوع التوظيف</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'نوع التوظيف' : 'Employment Type'}</label>
                 <select value={form.type} onChange={(e) => setForm({...form, type: e.target.value as any})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500 bg-white">
-                  <option value="Full-time">Full-time</option>
-                  <option value="Part-time">Part-time</option>
-                  <option value="Contract">Contract</option>
+                  <option value="Full-time">{isRTL ? 'دوام كامل' : 'Full-time'}</option>
+                  <option value="Part-time">{isRTL ? 'دوام جزئي' : 'Part-time'}</option>
+                  <option value="Contract">{isRTL ? 'عقد مؤقت' : 'Contract'}</option>
                 </select>
              </div>
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">نوع المعلم</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'نوع المعلم' : 'Teacher Type'}</label>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setForm({...form, teacherType: 'Main'})} className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border transition-all ${form.teacherType === 'Main' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>مدرس رئيسي</button>
-                  <button type="button" onClick={() => setForm({...form, teacherType: 'Assistant'})} className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border transition-all ${form.teacherType === 'Assistant' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>مدرس مساعد</button>
+                  <button type="button" onClick={() => setForm({...form, teacherType: 'Main'})} className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border transition-all ${form.teacherType === 'Main' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{isRTL ? 'مدرس رئيسي' : 'Main'}</button>
+                  <button type="button" onClick={() => setForm({...form, teacherType: 'Assistant'})} className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold border transition-all ${form.teacherType === 'Assistant' ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{isRTL ? 'مدرس مساعد' : 'Assistant'}</button>
                 </div>
              </div>
              <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">المواد اللي بيدرّسها</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'المواد اللي بيدرّسها' : 'Subjects Taught'}</label>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setForm({...form, allSubjects: !form.allSubjects, subjects: []})} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${form.allSubjects ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>كل المواد</button>
+                  <button type="button" onClick={() => setForm({...form, allSubjects: !form.allSubjects, subjects: []})} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${form.allSubjects ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{isRTL ? 'كل المواد' : 'All Subjects'}</button>
                   {subjectOptions.map(subject => (
                     <button type="button" key={subject} disabled={form.allSubjects} onClick={() => toggleSubject(subject)} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${form.subjects.includes(subject) ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{subject}</button>
                   ))}
                 </div>
              </div>
              <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">الصفوف اللي بيدرّس فيها</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">{isRTL ? 'الصفوف اللي بيدرّس فيها' : 'Grades Taught'}</label>
                 <div className="flex flex-wrap gap-2">
                   {gradeLevels.map(grade => (
                     <button type="button" key={grade} onClick={() => toggleGrade(grade)} className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${form.grades.includes(grade) ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'}`}>{grade}</button>
@@ -407,13 +407,13 @@ const EditTeacherModal: React.FC<{ teacher: any; gradeLevels: string[]; subjectO
              <div className="md:col-span-2">
                 <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
                   <input type="checkbox" checked={form.canUseQuestionBank} onChange={(e) => setForm({...form, canUseQuestionBank: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
-                  <span className="text-sm font-bold text-gray-700">يقدر يستخدم بنك الأسئلة (إضافة أسئلة بس، مش إدارة أو اعتماد)</span>
+                  <span className="text-sm font-bold text-gray-700">{isRTL ? 'يقدر يستخدم بنك الأسئلة (إضافة أسئلة بس، مش إدارة أو اعتماد)' : 'Can use the question bank (add questions only, not manage or approve)'}</span>
                 </label>
              </div>
           </div>
           <div className="flex gap-4 mt-8 pt-4 border-t border-gray-100">
-             <Button variant="secondary" className="flex-1" onClick={onClose}>إلغاء</Button>
-             <Button variant="primary" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? 'جاري الحفظ...' : 'حفظ التعديلات'}</Button>
+             <Button variant="secondary" className="flex-1" onClick={onClose}>{isRTL ? 'إلغاء' : 'Cancel'}</Button>
+             <Button variant="primary" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'حفظ التعديلات' : 'Save Changes')}</Button>
           </div>
        </div>
     </div>
@@ -1662,17 +1662,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({ language, role, 
 
        {/* 2. ADD STUDENT MODAL */}
        {isAddStudentOpen && (
-         <AddStudentModal gradeLevels={gradeLevels} onClose={() => setIsAddStudentOpen(false)} onSubmit={handleCreateStudent} />
+         <AddStudentModal gradeLevels={gradeLevels} onClose={() => setIsAddStudentOpen(false)} onSubmit={handleCreateStudent} isRTL={isRTL} />
        )}
 
        {/* 3. ADD TEACHER MODAL */}
        {isAddTeacherOpen && (
-         <AddTeacherModal gradeLevels={gradeLevels} subjectOptions={subjectOptions} onClose={() => setIsAddTeacherOpen(false)} onSubmit={handleCreateTeacher} />
+         <AddTeacherModal gradeLevels={gradeLevels} subjectOptions={subjectOptions} onClose={() => setIsAddTeacherOpen(false)} onSubmit={handleCreateTeacher} isRTL={isRTL} />
        )}
 
        {/* EDIT TEACHER MODAL */}
        {editingTeacher && (
-         <EditTeacherModal teacher={editingTeacher} gradeLevels={gradeLevels} subjectOptions={subjectOptions} onClose={() => setEditingTeacher(null)} onSubmit={handleUpdateTeacher} />
+         <EditTeacherModal teacher={editingTeacher} gradeLevels={gradeLevels} subjectOptions={subjectOptions} onClose={() => setEditingTeacher(null)} onSubmit={handleUpdateTeacher} isRTL={isRTL} />
        )}
 
        {/* TEACHER PROFILE */}
