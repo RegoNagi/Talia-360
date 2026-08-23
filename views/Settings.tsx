@@ -1331,7 +1331,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div className="space-y-2">
+                              <div className="space-y-2 md:col-span-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{isRTL ? 'القسم' : 'Department'}</label>
                                 <select 
                                   value={newCourse.department}
@@ -1595,9 +1595,20 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <h4 className="font-bold text-gray-900">{isRTL ? 'الصفوف الدراسية' : 'Grade Levels'}</h4>
                       <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'زي Year 1، Grade 10...' : 'e.g. Year 1, Grade 10...'}</p>
                     </div>
-                    <button onClick={() => setIsAddingGradeLevel(!isAddingGradeLevel)} className={`text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors ${isAddingGradeLevel ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-violet-600 text-white hover:bg-violet-700'}`}>
-                      {isAddingGradeLevel ? <><X size={16} /> {isRTL ? 'تم' : 'Done'}</> : <><Plus size={16} /> {isRTL ? 'إضافة صف' : 'Add Grade'}</>}
-                    </button>
+                    {isAddingGradeLevel ? (
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }} className="text-sm font-bold px-4 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                          {isRTL ? 'إلغاء' : 'Cancel'}
+                        </button>
+                        <button onClick={() => { setIsAddingGradeLevel(false); setNewGradeLevelName(''); }} className="text-sm font-bold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                          {isRTL ? 'حفظ' : 'Save'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setIsAddingGradeLevel(true)} className="text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors bg-violet-600 text-white hover:bg-violet-700">
+                        <Plus size={16} /> {isRTL ? 'إضافة صف' : 'Add Grade'}
+                      </button>
+                    )}
                   </div>
                   {isAddingGradeLevel && (
                     <div className="flex items-center gap-2 mb-4 p-3 bg-violet-50/50 border border-violet-100 rounded-2xl">
@@ -1637,9 +1648,20 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <h4 className="font-bold text-gray-900">{isRTL ? 'الأقسام العلمية' : 'Departments'}</h4>
                       <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'المادة بتقع تحت أي قسم — علوم، رياضيات، لغات...' : 'Which department a subject falls under — Science, Math, Languages...'}</p>
                     </div>
-                    <button onClick={() => setIsAddDeptModalOpen(!isAddDeptModalOpen)} className={`text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors ${isAddDeptModalOpen ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-violet-600 text-white hover:bg-violet-700'}`}>
-                      {isAddDeptModalOpen ? <><X size={16} /> {isRTL ? 'تم' : 'Done'}</> : <><Plus size={16} /> {isRTL ? 'إضافة قسم' : 'Add Department'}</>}
-                    </button>
+                    {isAddDeptModalOpen ? (
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => { setIsAddDeptModalOpen(false); setNewDeptName(''); }} className="text-sm font-bold px-4 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                          {isRTL ? 'إلغاء' : 'Cancel'}
+                        </button>
+                        <button onClick={() => { setIsAddDeptModalOpen(false); setNewDeptName(''); }} className="text-sm font-bold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                          {isRTL ? 'حفظ' : 'Save'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setIsAddDeptModalOpen(true)} className="text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors bg-violet-600 text-white hover:bg-violet-700">
+                        <Plus size={16} /> {isRTL ? 'إضافة قسم' : 'Add Department'}
+                      </button>
+                    )}
                   </div>
                   {isAddDeptModalOpen && (
                     <div className="flex items-center gap-2 mb-4 p-3 bg-violet-50/50 border border-violet-100 rounded-2xl">
@@ -1679,9 +1701,20 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                       <h4 className="font-bold text-gray-900">{isRTL ? 'المسارات' : 'Academic Tracks'}</h4>
                       <p className="text-xs text-gray-400 mt-0.5">{isRTL ? 'اختياري — زي علمي وأدبي، وبيترتبط بصف أو أكتر' : 'Optional — e.g. Science and Literary, linked to one or more grades'}</p>
                     </div>
-                    <button onClick={() => setIsAddTrackModalOpen(!isAddTrackModalOpen)} className={`text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors ${isAddTrackModalOpen ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-violet-600 text-white hover:bg-violet-700'}`}>
-                      {isAddTrackModalOpen ? <><X size={16} /> {isRTL ? 'تم' : 'Done'}</> : <><Plus size={16} /> {isRTL ? 'إضافة مسار' : 'Add Track'}</>}
-                    </button>
+                    {isAddTrackModalOpen ? (
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => { setIsAddTrackModalOpen(false); setNewTrackName(''); setNewTrackGradeIds([]); }} className="text-sm font-bold px-4 py-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                          {isRTL ? 'إلغاء' : 'Cancel'}
+                        </button>
+                        <button onClick={() => { setIsAddTrackModalOpen(false); setNewTrackName(''); setNewTrackGradeIds([]); }} className="text-sm font-bold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                          {isRTL ? 'حفظ' : 'Save'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setIsAddTrackModalOpen(true)} className="text-sm font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors bg-violet-600 text-white hover:bg-violet-700">
+                        <Plus size={16} /> {isRTL ? 'إضافة مسار' : 'Add Track'}
+                      </button>
+                    )}
                   </div>
                   {isAddTrackModalOpen && (
                     <div className="mb-4 p-3 bg-violet-50/50 border border-violet-100 rounded-2xl space-y-3">
