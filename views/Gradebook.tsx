@@ -506,7 +506,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="البحث عن فصول..."
+                  placeholder={t('البحث عن فصول...', 'Search classes...')}
                   value={classSearchQuery}
                   onChange={(e) => setClassSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500"
@@ -518,7 +518,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                   onChange={(e) => setClassGradeFilter(e.target.value)}
                   className="appearance-none w-full p-3 pr-10 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 font-medium text-gray-800 transition-all cursor-pointer hover:bg-gray-100/50 text-sm"
                 >
-                  <option value="All">جميع الصفوف</option>
+                  <option value="All">{t('جميع الصفوف', 'All Grades')}</option>
                   {k12Grades.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
                 <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -541,7 +541,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                 <p className="text-sm text-gray-500 mb-4">{cls.gradeLevel}</p>
                 <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                   <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <Users size={14} /> {(cls.students || []).length} طالب
+                    <Users size={14} /> {(cls.students || []).length} {t('طالب', 'students')}
                   </div>
                   <ArrowRight size={18} className="text-violet-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
                 </div>
@@ -552,7 +552,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Filter size={32} className="text-gray-300" />
                 </div>
-                <p className="text-gray-500">لم يتم العثور على فصول تطابق عوامل التصفية الخاصة بك.</p>
+                <p className="text-gray-500">{t('لم يتم العثور على فصول تطابق عوامل التصفية الخاصة بك.', 'No classes match your filters.')}</p>
               </div>
             )}
           </div>
@@ -566,11 +566,11 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
     return (
       <div className="space-y-6 animate-fadeIn">
         <button onClick={() => setSupervisionClassId(null)} className="flex items-center gap-2 text-sm font-bold text-violet-600 hover:underline">
-          <ArrowRight size={16} className="rotate-180" /> رجوع لاختيار الفصل
+          <ArrowRight size={16} className="rotate-180" /> {t('رجوع لاختيار الفصل', 'Back to class selection')}
         </button>
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
           <h2 className="text-xl font-bold text-gray-900 mb-1">{cls?.name}</h2>
-          <p className="text-sm text-gray-500 mb-6">اختار المادة اللي عايز تراقب رصد درجاتها</p>
+          <p className="text-sm text-gray-500 mb-6">{t('اختار المادة اللي عايز تراقب رصد درجاتها', 'Choose the subject whose grading you want to monitor')}</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {applicableConfigs.map(config => (
               <div
@@ -581,14 +581,14 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                 <div className="flex justify-between items-start mb-2">
                   <BookOpen size={20} className="text-violet-600" />
                   <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase ${config.status === 'draft' ? 'bg-gray-100 text-gray-600 border-gray-200' : config.status === 'pending' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
-                    {config.status === 'draft' ? 'مسودة' : config.status === 'pending' ? 'طلب اعتماد' : 'معتمد'}
+                    {config.status === 'draft' ? t('مسودة', 'Draft') : config.status === 'pending' ? t('طلب اعتماد', 'Pending Approval') : t('معتمد', 'Approved')}
                   </span>
                 </div>
                 <h3 className="font-bold text-gray-800">{config.name}</h3>
               </div>
             ))}
             {applicableConfigs.length === 0 && (
-              <p className="col-span-full text-center text-gray-400 py-10">مفيش نظام درجات معمول للصف ده لسه.</p>
+              <p className="col-span-full text-center text-gray-400 py-10">{t('مفيش نظام درجات معمول للصف ده لسه.', 'No grading system set up for this grade yet.')}</p>
             )}
           </div>
         </div>
@@ -604,8 +604,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
           <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
             <CheckCircle2 size={32} className="text-gray-300" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد سجلات بانتظار الاعتماد</h3>
-          <p className="text-gray-500 text-sm">تم انجاز جميع المهام حتى الآن.</p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">{t('لا توجد سجلات بانتظار الاعتماد', 'No records pending approval')}</h3>
+          <p className="text-gray-500 text-sm">{t('تم انجاز جميع المهام حتى الآن.', 'All tasks are complete for now.')}</p>
         </div>
       );
     }
@@ -619,7 +619,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                 <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
                   <BookOpen size={24} />
                 </div>
-                <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-100 text-amber-700">طلب اعتماد</span>
+                <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-100 text-amber-700">{t('طلب اعتماد', 'Pending Approval')}</span>
               </div>
               <h3 className="text-lg font-bold text-gray-800 mb-1">{schema.name}</h3>
               <p className="text-sm text-gray-500 mb-4">{schema.grades}</p>
@@ -637,7 +637,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                   setAdminView('wizard');
                 }}
               >
-                فتح للمراجعة
+                {t('فتح للمراجعة', 'Open for Review')}
               </Button>
             </div>
           </div>
@@ -660,8 +660,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                 <FileWarning size={32} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">قوالب مرفوضة للتعديل</h3>
-                <p className="text-sm text-gray-500 mt-1">{draftConfigs.length} قالب محتاج مراجعة</p>
+                <h3 className="text-lg font-bold text-gray-900">{t('قوالب مرفوضة للتعديل', 'Rejected Templates for Editing')}</h3>
+                <p className="text-sm text-gray-500 mt-1">{draftConfigs.length} {t('قالب محتاج مراجعة', 'template(s) need review')}</p>
               </div>
             </button>
           )}
@@ -673,8 +673,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
               <Plus size={32} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">إنشاء نظام درجات جديد</h3>
-              <p className="text-sm text-gray-500 mt-1">ابدأ إعداد نظام درجات من الصفر</p>
+              <h3 className="text-lg font-bold text-gray-900">{t('إنشاء نظام درجات جديد', 'Create New Grading System')}</h3>
+              <p className="text-sm text-gray-500 mt-1">{t('ابدأ إعداد نظام درجات من الصفر', 'Start setting up a grading system from scratch')}</p>
             </div>
           </button>
         </div>
@@ -687,7 +687,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
     return (
       <div className="space-y-6 animate-fadeIn">
         <button onClick={() => setAdminView('landing')} className="flex items-center gap-2 text-sm font-bold text-violet-600 hover:underline">
-          <ArrowRight size={16} className="rotate-180" /> رجوع
+          <ArrowRight size={16} className="rotate-180" /> {t('رجوع', 'Back')}
         </button>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {draftConfigs.map((g: any) => (
@@ -701,7 +701,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
             </button>
           ))}
           {draftConfigs.length === 0 && (
-            <p className="col-span-full text-center text-gray-400 py-10">مفيش قوالب مسودة دلوقتي.</p>
+            <p className="col-span-full text-center text-gray-400 py-10">{t('مفيش قوالب مسودة دلوقتي.', 'No draft templates right now.')}</p>
           )}
         </div>
       </div>
@@ -712,9 +712,9 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
     const isPendingSchema = selectedClassId ? gradebooksData.find(g => g.id === selectedClassId)?.status === 'pending' : false;
 
     const steps = [
-      { id: 1, label: 'سياسة التقييم', icon: <Settings size={18} /> },
-      { id: 2, label: 'الأوزان', icon: <LucidePieChart size={18} /> },
-      { id: 3, label: 'نشر', icon: <CheckCircle2 size={18} /> },
+      { id: 1, label: t('سياسة التقييم', 'Grading Policy'), icon: <Settings size={18} /> },
+      { id: 2, label: t('الأوزان', 'Weights'), icon: <LucidePieChart size={18} /> },
+      { id: 3, label: t('نشر', 'Publish'), icon: <CheckCircle2 size={18} /> },
     ];
 
 
@@ -825,17 +825,17 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
            <div className="flex justify-between items-center mb-4">
              <div>
                <button onClick={() => { setAdminView('landing'); setSelectedClassId(null); }} className="flex items-center gap-2 text-sm font-bold text-violet-600 hover:underline mb-2">
-                 <ArrowRight size={16} className="rotate-180" /> رجوع
+                 <ArrowRight size={16} className="rotate-180" /> {t('رجوع', 'Back')}
                </button>
-               <h2 className="text-2xl font-bold text-gray-900">إعدادات سجل الدرجات</h2>
+               <h2 className="text-2xl font-bold text-gray-900">{t('إعدادات سجل الدرجات', 'Gradebook Settings')}</h2>
                <p className="text-sm text-gray-500">
-                  تكوين قواعد التقييم ومسارات العمل لهذا المقرر.
+                  {t('تكوين قواعد التقييم ومسارات العمل لهذا المقرر.', 'Configure grading rules and workflows for this course.')}
                </p>
              </div>
              <div className="flex gap-2">
                 {!isPendingSchema && (
                   <>
-                     <Button variant="secondary" disabled={adminStep === 1} className="shadow-none" onClick={() => setAdminStep(s => s - 1)}>السابق</Button>
+                     <Button variant="secondary" disabled={adminStep === 1} className="shadow-none" onClick={() => setAdminStep(s => s - 1)}>{t('السابق', 'Previous')}</Button>
                      <Button
                        className="bg-purple-600 text-white shadow-none"
                        disabled={adminStep === 3 && (!subjectNameInput.trim() || selectedTargetGrades.length === 0)}
@@ -880,7 +880,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                          setAdminStep(s => Math.min(3, s + 1));
                        }
                      }}>
-                        {adminStep === 3 ? 'إرسال للاعتماد' : 'الخطوة التالية'}
+                        {adminStep === 3 ? t('إرسال للاعتماد', 'Submit for Approval') : t('الخطوة التالية', 'Next Step')}
                      </Button>
                   </>
                 )}
@@ -919,7 +919,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                      setAdminView('landing');
                   }}
                >
-                 إرجاع للتعديل
+                 {t('إرجاع للتعديل', 'Send Back for Edits')}
                </button>
                )}
                {canApproveGrades && (
@@ -936,8 +936,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                      ) as any;
                      if (conflict) {
                        const confirmed = await confirmDialog(
-                         `فيه نظام درجات معتمد بالفعل لمادة "${thisConfig?.name}" لنفس الصف (اسمه "${conflict.name}"). لو كمّلت، النظام القديم هيرجع مسودة والنظام ده هيبقى هو المعتمد. تحب تكمّل؟`,
-                         'استبدال واعتماد'
+                                                 t(`فيه نظام درجات معتمد بالفعل لمادة "${thisConfig?.name}" لنفس الصف (اسمه "${conflict.name}"). لو كمّلت، النظام القديم هيرجع مسودة والنظام ده هيبقى هو المعتمد. تحب تكمّل؟`, `An approved grading system already exists for "${thisConfig?.name}" in this grade (called "${conflict.name}"). If you continue, the old system will become a draft and this one will become the approved one. Continue?`),
+                         isRTL ? 'استبدال واعتماد' : 'Replace & Approve'
                        );
                        if (!confirmed) return;
                        await updateGradebookConfigStatus(conflict.id, 'draft');
@@ -949,22 +949,22 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                      setAdminView('landing');
                   }}
                >
-                 اعتماد ونشر السجل
+                 {t('اعتماد ونشر السجل', 'Approve & Publish Gradebook')}
                </button>
                )}
              </div>
            )}
 
            {adminStep === 1 && (() => {
-             const templateLabels: Record<string, string> = { custom: 'مخصص (بعد تعديل يدوي)', american: 'أمريكي', british: 'بريطاني', national: 'وطني' };
-             const selectedTemplateName = templateLabels[activeTemplate] || 'مخصص (بعد تعديل يدوي)';
+             const templateLabels: Record<string, string> = { custom: t('مخصص (بعد تعديل يدوي)', 'Custom (manually edited)'), american: t('أمريكي', 'American'), british: t('بريطاني', 'British'), national: t('وطني', 'National') };
+             const selectedTemplateName = templateLabels[activeTemplate] || t('مخصص (بعد تعديل يدوي)', 'Custom (manually edited)');
              return (
              <div className="max-w-4xl mx-auto space-y-8">
                 <div className="flex justify-between items-center">
                    <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                      إعداد مخطط التقييم
+                      {t('إعداد مخطط التقييم', 'Set Up Grading Scheme')}
                       <span className={`ml-3 px-3 py-1 rounded-full text-xs font-bold border ${activeTemplate !== 'custom' ? 'bg-violet-100 text-violet-700 border-violet-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                        النظام: {selectedTemplateName}
+                        {t('النظام:', 'System:')} {selectedTemplateName}
                       </span>
                    </h3>
                 </div>
@@ -973,34 +973,34 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    {/* Section A: Configuration */}
                    <div className="p-6 border border-gray-200 rounded-3xl bg-white shadow-none space-y-6">
                       <div className="w-full">
-                         <label className="text-sm font-bold text-gray-700 mb-2 block">اسم سجل الدرجات</label>
+                         <label className="text-sm font-bold text-gray-700 mb-2 block">{t('اسم سجل الدرجات', 'Gradebook Name')}</label>
                          <input 
                            type="text" 
                            className="border border-gray-200 rounded-md p-3 w-full bg-gray-50 focus:bg-white focus:border-purple-500 focus:ring-0 outline-none shadow-none"
-                           placeholder="مثال: سجل أعمال السنة - الفصل الدراسي الأول..." 
+                           placeholder={t('مثال: سجل أعمال السنة - الفصل الدراسي الأول...', 'e.g. Coursework Log - First Semester...')}
                            value={subjectNameInput}
                            onChange={(e) => setSubjectNameInput(e.target.value)}
                          />
                       </div>
                       <div className="flex flex-col md:flex-row md:items-start justify-between gap-8 w-full">
                          <div className="w-full md:w-1/2">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">نظام التعليم (من إعدادات المدرسة)</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">{t('نظام التعليم (من إعدادات المدرسة)', 'Education System (from school settings)')}</label>
                             <div className="w-full p-3 bg-violet-50 border border-violet-100 rounded-xl flex items-center justify-between">
                                <span className="font-medium text-violet-800">{selectedTemplateName}</span>
-                               <span className="text-[10px] text-violet-500">تلقائي</span>
+                               <span className="text-[10px] text-violet-500">{t('تلقائي', 'Automatic')}</span>
                             </div>
-                            <p className="text-[10px] text-gray-400 mt-1">اتطبّق تلقائي بناءً على نظام التعليم المحدد في الإعدادات العامة — عدّل مقياس الدرجات تحت مباشرة لو عايز تخصّصه لهذا السجل بس.</p>
+                            <p className="text-[10px] text-gray-400 mt-1">{t('اتطبّق تلقائي بناءً على نظام التعليم المحدد في الإعدادات العامة — عدّل مقياس الدرجات تحت مباشرة لو عايز تخصّصه لهذا السجل بس.', 'Applied automatically based on the education system set in general settings — edit the grading scale directly below to customize it for this gradebook only.')}</p>
                          </div>
 
                          <div className="relative w-full md:w-1/2">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">الصفوف المستهدفة</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">{t('الصفوف المستهدفة', 'Target Grades')}</label>
                             <div 
                               className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-xl cursor-default min-h-[46px]"
                               onClick={() => setIsTargetGradesMenuOpen(!isTargetGradesMenuOpen)}
                             >
                               <div className="flex flex-wrap items-center gap-2">
                                 {selectedTargetGrades.length === 0 ? (
-                                  <span className="text-gray-500 text-sm px-2">اختر الصفوف...</span>
+                                  <span className="text-gray-500 text-sm px-2">{t('اختر الصفوف...', 'Select grades...')}</span>
                                 ) : (
                                   selectedTargetGrades.map(grade => (
                                     <span key={grade} className="bg-violet-50 text-violet-700 border border-violet-200 px-2 pl-1 py-1 rounded-md text-xs font-bold flex items-center gap-1">
@@ -1054,11 +1054,11 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    {/* Section C: Passing Criteria */}
                    <div className="p-6 border border-gray-200 rounded-3xl bg-white shadow-sm">
                       <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <CheckCircle2 size={18} className="text-violet-500" /> معايير النجاح
+                        <CheckCircle2 size={18} className="text-violet-500" /> {t('معايير النجاح', 'Passing Criteria')}
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                          <div className="flex flex-col w-full">
-                           <label className="block text-sm font-bold text-gray-700 mb-2">الحد الأدنى لدرجة النجاح</label>
+                           <label className="block text-sm font-bold text-gray-700 mb-2">{t('الحد الأدنى لدرجة النجاح', 'Minimum Passing Grade')}</label>
                            <div className="relative w-full">
                               <div 
                                 onClick={() => setIsPassingMenuOpen(!isPassingMenuOpen)}
@@ -1078,7 +1078,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                       onClick={() => { setConfig({...config, passingScore: 0}); setIsPassingMenuOpen(false); }}
                                       className={`px-4 py-3 text-sm cursor-pointer transition-colors flex justify-between items-center ${config.passingScore === 0 ? 'bg-violet-50 text-violet-800 font-bold' : 'font-medium text-gray-700 hover:bg-violet-50 hover:text-violet-700'}`}
                                     >
-                                      اختر درجة النجاح...
+                                      {t('اختر درجة النجاح...', 'Select passing grade...')}
                                       {config.passingScore === 0 && <Check size={16} className="text-violet-600" />}
                                     </div>
                                     {config.gradingScale.map(g => (
@@ -1103,9 +1103,9 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    {/* Section B: The Dynamic Builder */}
                    <div className="p-6 border border-gray-200 rounded-3xl bg-white shadow-sm">
                       <div className="flex justify-between items-center mb-6">
-                         <h4 className="font-bold text-gray-900">بناء مقياس الدرجات</h4>
+                         <h4 className="font-bold text-gray-900">{t('بناء مقياس الدرجات', 'Build Grading Scale')}</h4>
                          <Button variant="secondary" onClick={handleAddGradingRule} className="text-xs py-1.5 h-8">
-                            <Plus size={14} /> إضافة حد للدرجة
+                            <Plus size={14} /> {t('إضافة حد للدرجة', 'Add Grade Threshold')}
                          </Button>
                       </div>
                       
@@ -1113,8 +1113,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                           {/* Header Row */}
                           {config.gradingScale.length > 0 && (
                             <div className="flex items-center gap-4 px-4 pb-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                               <div className="flex-1">قيمة العرض</div>
-                               <div className="w-40 text-center">المدى (%)</div>
+                               <div className="flex-1">{t('قيمة العرض', 'Display Value')}</div>
+                               <div className="w-40 text-center">{t('المدى (%)', 'Range (%)')}</div>
                                <div className="w-10"></div>
                             </div>
                           )}
@@ -1130,7 +1130,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                    <input 
                                      type="text" 
                                      value={rule.grade}
-                                     placeholder="اسم الدرجة"
+                                     placeholder={t('اسم الدرجة', 'Grade Name')}
                                      onChange={(e) => handleUpdateGradingRule(idx, 'grade', e.target.value)}
                                      className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 font-bold text-gray-900 transition-all"
                                    />
@@ -1142,13 +1142,13 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                         <span className={`font-medium text-sm ${rule.color}`}>
                                           {
   {
-    'text-green-600': 'أخضر',
-    'text-blue-600': 'أزرق',
-    'text-yellow-600': 'أصفر',
-    'text-violet-600': 'بنفسجي',
-    'text-pink-600': 'أحمر',
-    'text-purple-600': 'أرجواني',
-    'text-gray-600': 'رمادي'
+    'text-green-600': t('أخضر', 'Green'),
+    'text-blue-600': t('أزرق', 'Blue'),
+    'text-yellow-600': t('أصفر', 'Yellow'),
+    'text-violet-600': t('بنفسجي', 'Violet'),
+    'text-pink-600': t('أحمر', 'Red'),
+    'text-purple-600': t('أرجواني', 'Purple'),
+    'text-gray-600': t('رمادي', 'Gray')
   }[rule.color as string] || rule.color
 }
                                         </span>
@@ -1160,13 +1160,13 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                           <div className="fixed inset-0 z-40" onClick={() => setOpenColorMenuIdx(null)}></div>
                                           <div className="absolute z-50 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
                                             {[
-                                              { value: 'text-green-600', label: 'أخضر' },
-                                              { value: 'text-blue-600', label: 'أزرق' },
-                                              { value: 'text-yellow-600', label: 'أصفر' },
-                                              { value: 'text-violet-600', label: 'بنفسجي' },
-                                              { value: 'text-pink-600', label: 'أحمر' },
-                                              { value: 'text-purple-600', label: 'أرجواني' },
-                                              { value: 'text-gray-600', label: 'رمادي' }
+                                              { value: 'text-green-600', label: t('أخضر', 'Green') },
+                                              { value: 'text-blue-600', label: t('أزرق', 'Blue') },
+                                              { value: 'text-yellow-600', label: t('أصفر', 'Yellow') },
+                                              { value: 'text-violet-600', label: t('بنفسجي', 'Violet') },
+                                              { value: 'text-pink-600', label: t('أحمر', 'Red') },
+                                              { value: 'text-purple-600', label: t('أرجواني', 'Purple') },
+                                              { value: 'text-gray-600', label: t('رمادي', 'Gray') }
                                             ].map(colorOption => (
                                               <div 
                                                 key={colorOption.value}
@@ -1212,8 +1212,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                           
                           {config.gradingScale.length === 0 && (
                               <div className="text-center p-8 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50">
-                                 <p className="text-gray-500 mb-4">لم يتم تحديد حدود الدرجات</p>
-                                 <Button variant="secondary" onClick={handleAddGradingRule}>إنشاء الدرجة الأولى</Button>
+                                 <p className="text-gray-500 mb-4">{t('لم يتم تحديد حدود الدرجات', 'No grade thresholds defined')}</p>
+                                 <Button variant="secondary" onClick={handleAddGradingRule}>{t('إنشاء الدرجة الأولى', 'Create First Grade')}</Button>
                               </div>
                           )}
                       </div>
@@ -1224,13 +1224,13 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    <div className="p-6 border border-gray-200 rounded-3xl bg-white shadow-sm">
                       <div className="flex justify-between items-center mb-6">
                          <div>
-                           <h4 className="font-bold text-gray-900">معايير التحذير المبكر — الدرجات</h4>
-                           <p className="text-xs text-gray-400 mt-0.5">تحدد متوسط الأداء اللي بيصنّف الطالب "حرج" أو "تحذير" في رادار التحذير المبكر بـ Talia Learn.</p>
+                           <h4 className="font-bold text-gray-900">{t('معايير التحذير المبكر — الدرجات', 'Early Warning Criteria — Grades')}</h4>
+                           <p className="text-xs text-gray-400 mt-0.5">{t('تحدد متوسط الأداء اللي بيصنّف الطالب "حرج" أو "تحذير" في رادار التحذير المبكر بـ Talia Learn.', "Determines the average performance that classifies a student as 'Critical' or 'Warning' in Talia Learn's Early Warning Radar.")}</p>
                          </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div>
-                            <label className="text-sm font-bold text-red-600 mb-2 block">حالة حرجة: متوسط الأداء أقل من (%)</label>
+                            <label className="text-sm font-bold text-red-600 mb-2 block">{t('حالة حرجة: متوسط الأداء أقل من (%)', 'Critical: average performance below (%)')}</label>
                             <input
                               type="number"
                               value={warningCriteria.criticalMinAverage}
@@ -1239,7 +1239,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                             />
                          </div>
                          <div>
-                            <label className="text-sm font-bold text-amber-600 mb-2 block">تحذير: متوسط الأداء أقل من (%)</label>
+                            <label className="text-sm font-bold text-amber-600 mb-2 block">{t('تحذير: متوسط الأداء أقل من (%)', 'Warning: average performance below (%)')}</label>
                             <input
                               type="number"
                               value={warningCriteria.warningMinAverage}
@@ -1253,7 +1253,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                         disabled={isSavingWarningCriteria}
                         className="mt-4 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors"
                       >
-                        {isSavingWarningCriteria ? 'جاري الحفظ...' : 'حفظ المعايير'}
+                        {isSavingWarningCriteria ? t('جاري الحفظ...', 'Saving...') : t('حفظ المعايير', 'Save Criteria')}
                       </button>
                    </div>
                    )}
@@ -1266,25 +1266,25 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
            {adminStep === 2 && (
              <div className="max-w-5xl mx-auto space-y-8">
                 <div className="flex justify-between items-center">
-                   <h3 className="text-xl font-bold text-gray-900">صانع قوالب سجل الدرجات</h3>
+                   <h3 className="text-xl font-bold text-gray-900">{t('صانع قوالب سجل الدرجات', 'Gradebook Template Builder')}</h3>
                 </div>
 
                 <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 mb-6">
-                  <h4 className="text-sm font-bold text-gray-900 mb-1">بناء هيكل التقييم الخاص بك</h4>
-                  <p className="text-xs text-gray-500 mb-4">قم بإنشاء فئات لتجميع التقييمات وتحديد أوزانها...</p>
+                  <h4 className="text-sm font-bold text-gray-900 mb-1">{t('بناء هيكل التقييم الخاص بك', 'Build Your Assessment Structure')}</h4>
+                  <p className="text-xs text-gray-500 mb-4">{t('قم بإنشاء فئات لتجميع التقييمات وتحديد أوزانها...', 'Create categories to group assessments and set their weights...')}</p>
                   <div className="flex bg-white rounded-xl border border-gray-300 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100 transition-all shadow-sm p-1">
                     <div className="flex-1 flex items-center px-3">
                        <FolderPlus size={18} className="text-gray-400 mr-2" />
                        <input 
                          type="text" 
-                         placeholder="اكتب اسم الفئة الجديدة..." 
+                         placeholder={t('اكتب اسم الفئة الجديدة...', 'Enter new category name...')}
                          className="w-full bg-transparent outline-none text-sm font-medium text-gray-800" 
                          value={newCategoryName} 
                          onChange={(e) => setNewCategoryName(e.target.value)} 
                          onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()} 
                        />
                     </div>
-                    <Button onClick={handleAddCategory} className="rounded-lg px-6 bg-gray-900 text-white hover:bg-gray-800 border-none">إضافة فئة</Button>
+                    <Button onClick={handleAddCategory} className="rounded-lg px-6 bg-gray-900 text-white hover:bg-gray-800 border-none">{t('إضافة فئة', 'Add Category')}</Button>
                   </div>
                 </div>
 
@@ -1337,9 +1337,9 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                             {isExpanded && (
                               <div className="p-4 bg-gray-50 border-t border-gray-100">
                                  <div className="flex justify-between items-center mb-3">
-                                    <h5 className="text-sm font-bold text-gray-700">التقييمات في {categoryName}</h5>
+                                    <h5 className="text-sm font-bold text-gray-700">{t('التقييمات في', 'Assessments in')} {categoryName}</h5>
                                     <Button variant="secondary" className="text-xs py-1 h-7" onClick={() => openAddAssessment(categoryName)}>
-                                       <Plus size={12} /> إضافة تقييم
+                                       <Plus size={12} /> {t('إضافة تقييم', 'Add Assessment')}
                                     </Button>
                                  </div>
                                  
@@ -1353,14 +1353,14 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                          </div>
                                          <div className="flex items-center gap-4 text-xs text-gray-500">
                                            <span>{assessment.date}</span>
-                                           <span className="font-bold bg-gray-100 px-2 py-1 rounded">{assessment.maxScore} نقطة</span>
+                                           <span className="font-bold bg-gray-100 px-2 py-1 rounded">{assessment.maxScore} {t('نقطة', 'pts')}</span>
                                          </div>
                                        </div>
                                      ))}
                                    </div>
                                  ) : (
                                    <div className="text-center p-6 border-2 border-dashed border-gray-200 rounded-lg bg-white">
-                                      <p className="text-sm text-gray-500">لا توجد تقييمات حتى الآن.</p>
+                                      <p className="text-sm text-gray-500">{t('لا توجد تقييمات حتى الآن.', 'No assessments yet.')}</p>
                                    </div>
                                  )}
                               </div>
@@ -1371,8 +1371,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                       
                       {Object.keys(config.categoryWeights).length === 0 && (
                          <div className="text-center p-12 border-2 border-dashed border-gray-200 rounded-xl bg-white">
-                            <p className="text-gray-500 mb-4">لم يتم تحديد فئات. ابدأ في بناء قالب سجل الدرجات الخاص بك.</p>
-                            <Button onClick={handleAddCategory}>إضافة الفئة الأولى</Button>
+                            <p className="text-gray-500 mb-4">{t('لم يتم تحديد فئات. ابدأ في بناء قالب سجل الدرجات الخاص بك.', 'No categories defined. Start building your gradebook template.')}</p>
+                            <Button onClick={handleAddCategory}>{t('إضافة الفئة الأولى', 'Add First Category')}</Button>
                          </div>
                       )}
                    </div>
@@ -1380,7 +1380,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    {/* Right Column: The Donut Chart */}
                    <div className="lg:col-span-1">
                       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm sticky top-6">
-                         <h4 className="font-bold text-gray-900 mb-6 text-center">توزيع الأوزان</h4>
+                         <h4 className="font-bold text-gray-900 mb-6 text-center">{t('توزيع الأوزان', 'Weight Distribution')}</h4>
                          
                          <div className="h-64 relative">
                             <ResponsiveContainer width="100%" height="100%">
@@ -1400,7 +1400,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                     ))}
                                   </Pie>
                                   <RechartsTooltip 
-                                    formatter={(value: number) => [`${value}%`, 'الوزن']}
+                                    formatter={(value: number) => [`${value}%`, t('الوزن', 'Weight')]}
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                   />
                                </PieChart>
@@ -1409,14 +1409,14 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                <span className={`text-3xl font-black ${totalWeight === 100 ? 'text-violet-500' : 'text-pink-600'}`}>
                                  {totalWeight}%
                                </span>
-                               <span className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-1">المجموع</span>
+                               <span className="text-xs text-gray-500 font-medium uppercase tracking-wider mt-1">{t('المجموع', 'Total')}</span>
                             </div>
                          </div>
                          
                          {totalWeight !== 100 && (
                             <div className="mt-6 p-3 bg-red-50 text-red-700 rounded-xl text-sm flex items-start gap-2 border border-red-100">
                                <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                               <p>يجب أن يكون الوزن الإجمالي 100% بالضبط. الوزن الحالي {totalWeight}%.</p>
+                               <p>{t(`يجب أن يكون الوزن الإجمالي 100% بالضبط. الوزن الحالي ${totalWeight}%.`, `Total weight must be exactly 100%. Current weight is ${totalWeight}%.`)}</p>
                             </div>
                          )}
                          
@@ -1444,8 +1444,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                   <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
                      <CheckCircle2 size={32} />
                   </div>
-                  <h3 className="text-3xl font-bold text-gray-900">المراجعة النهائية</h3>
-                  <p className="text-gray-500">راجع إعدادات سجل الدرجات قبل الاعتماد النهائي.</p>
+                  <h3 className="text-3xl font-bold text-gray-900">{t('المراجعة النهائية', 'Final Review')}</h3>
+                  <p className="text-gray-500">{t('راجع إعدادات سجل الدرجات قبل الاعتماد النهائي.', 'Review the gradebook settings before final approval.')}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -1453,14 +1453,14 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-violet-100 transition-colors">
                       <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
                       <div className="flex justify-between items-start mb-4">
-                         <h4 className="font-bold text-gray-900 flex items-center gap-2"><CalendarRange size={18} className="text-blue-500" /> الفصول الدراسية</h4>
+                         <h4 className="font-bold text-gray-900 flex items-center gap-2"><CalendarRange size={18} className="text-blue-500" /> {t('الفصول الدراسية', 'Academic Terms')}</h4>
                          <button onClick={() => setAdminStep(2)} className="text-gray-400 hover:text-blue-600"><Settings size={14} /></button>
                       </div>
                       <div className="space-y-3">
-                         {config.terms.map(t => (
-                            <div key={t.id} className="flex justify-between text-sm">
-                               <span className="text-gray-600">{t.name}</span>
-                               <span className="font-mono text-gray-400 text-xs bg-gray-50 px-2 py-0.5 rounded">{t.startDate || 'غير متاح'}</span>
+                         {config.terms.map(term => (
+                            <div key={term.id} className="flex justify-between text-sm">
+                               <span className="text-gray-600">{term.name}</span>
+                               <span className="font-mono text-gray-400 text-xs bg-gray-50 px-2 py-0.5 rounded">{term.startDate || t('غير متاح', 'N/A')}</span>
                             </div>
                          ))}
                       </div>
@@ -1470,12 +1470,12 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-violet-100 transition-colors">
                       <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
                       <div className="flex justify-between items-start mb-4">
-                         <h4 className="font-bold text-gray-900 flex items-center gap-2"><Settings size={18} className="text-purple-500" /> السياسة</h4>
+                         <h4 className="font-bold text-gray-900 flex items-center gap-2"><Settings size={18} className="text-purple-500" /> {t('السياسة', 'Policy')}</h4>
                          <button onClick={() => setAdminStep(3)} className="text-gray-400 hover:text-purple-600"><Settings size={14} /></button>
                       </div>
                       <div className="space-y-4">
                          <div className="flex justify-between items-center bg-purple-50 p-3 rounded-xl">
-                            <span className="text-sm font-bold text-purple-900">درجة النجاح</span>
+                            <span className="text-sm font-bold text-purple-900">{t('درجة النجاح', 'Passing Grade')}</span>
                             <span className="text-xl font-bold text-purple-600">{config.passingScore}%</span>
                          </div>
                          <div className="flex gap-1 flex-wrap">
@@ -1490,7 +1490,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group hover:border-violet-100 transition-colors">
                       <div className="absolute top-0 left-0 w-full h-1 bg-violet-500"></div>
                       <div className="flex justify-between items-start mb-4">
-                         <h4 className="font-bold text-gray-900 flex items-center gap-2"><LucidePieChart size={18} className="text-violet-500" /> الأوزان</h4>
+                         <h4 className="font-bold text-gray-900 flex items-center gap-2"><LucidePieChart size={18} className="text-violet-500" /> {t('الأوزان', 'Weights')}</h4>
                          <button onClick={() => setAdminStep(2)} className="text-gray-400 hover:text-violet-600"><Settings size={14} /></button>
                       </div>
                       <div className="space-y-2">
@@ -1522,7 +1522,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                            if (newId) { refreshConfigs(); showToast('تم حفظ المسودة.', 'success'); setSelectedClassId(null); setAdminStep(1); }
                            else showToast('حصل خطأ أثناء الحفظ.', 'error');
                          }
-                      }}>حفظ كمسودة</Button>
+                      }}>{t('حفظ كمسودة', 'Save as Draft')}</Button>
                       <Button 
                         className="bg-purple-600 text-white shadow-none px-10 py-3 text-lg" 
                         disabled={totalWeight !== 100 || !subjectNameInput.trim() || selectedTargetGrades.length === 0}
@@ -1549,7 +1549,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                            setAdminView('landing');
                         }}
                       >
-                         إرسال للاعتماد
+                         {t('إرسال للاعتماد', 'Submit for Approval')}
                       </Button>
                       <Button
                         className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-none px-10 py-3 text-lg"
@@ -1563,8 +1563,8 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                            ) as any;
                            if (conflict) {
                              const confirmed = await confirmDialog(
-                               `فيه نظام درجات معتمد بالفعل لمادة "${subjectNameInput}" لنفس الصف (اسمه "${conflict.name}"). لو كمّلت، النظام القديم هيرجع مسودة وده هيبقى هو المعتمد. تحب تكمّل؟`,
-                               'استبدال واعتماد'
+                                                         t(`فيه نظام درجات معتمد بالفعل لمادة "${subjectNameInput}" لنفس الصف (اسمه "${conflict.name}"). لو كمّلت، النظام القديم هيرجع مسودة والنظام ده هيبقى هو المعتمد. تحب تكمّل؟`, `An approved grading system already exists for "${subjectNameInput}" in this grade (called "${conflict.name}"). If you continue, the old system will become a draft and this one will become the approved one. Continue?`),
+                               isRTL ? 'استبدال واعتماد' : 'Replace & Approve'
                              );
                              if (!confirmed) return;
                              await updateGradebookConfigStatus(conflict.id, 'draft');
@@ -1591,7 +1591,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                            setAdminView('landing');
                         }}
                       >
-                         اعتماد
+                         {t('اعتماد', 'Approve')}
                       </Button>
                    </div>
                 )}
@@ -1649,7 +1649,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
     const eligibleStudents = supervisedClass
       ? realStudents.filter(s => (supervisedClass.students || []).includes(s.id))
       : realStudents.filter(s => (selectedClass?.gradesList || []).includes(s.grade));
-    const subjects = ['جميع المواد', ...curriculumSubjects];
+    const subjects = ['ALL_SUBJECTS', ...curriculumSubjects];
     const displaySubjects = curriculumSubjects;
 
     const getStudentSubjectGrade = (studentId: string, subject: string, _termId: string) => {
@@ -1673,10 +1673,10 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                     <div className="flex items-center gap-2">
                       <h2 className="text-xl font-bold text-gray-900">{selectedClass?.name || config.subjectName}</h2>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${status === 'draft' ? 'bg-gray-100 text-gray-600' : status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'}`}>
-                        {status === 'draft' ? 'مسودة' : status === 'pending' ? 'طلب اعتماد' : 'معتمد'}
+                        {status === 'draft' ? t('مسودة', 'Draft') : status === 'pending' ? t('طلب اعتماد', 'Pending Approval') : t('معتمد', 'Approved')}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500">{selectedClass?.gradeLevel} • {selectedClass?.students.length || 0} طلاب</p>
+                    <p className="text-xs text-gray-500">{selectedClass?.gradeLevel} • {selectedClass?.students.length || 0} {t('طلاب', 'students')}</p>
                  </div>
                </div>
 
@@ -1687,7 +1687,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    onClick={() => setIsSubjectMenuOpen(!isSubjectMenuOpen)}
                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
                  >
-                   {selectedSubject}
+                   {selectedSubject === 'ALL_SUBJECTS' ? t('جميع المواد', 'All Subjects') : selectedSubject}
                    <ChevronDown size={14} className="text-gray-400" />
                  </button>
                  {isSubjectMenuOpen && (
@@ -1700,7 +1700,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                            onClick={() => { setSelectedSubject(subject); setIsSubjectMenuOpen(false); }}
                            className={`w-full text-right px-4 py-2 text-sm transition-colors ${selectedSubject === subject ? 'bg-violet-50 text-violet-700 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
                          >
-                           {subject}
+                           {subject === 'ALL_SUBJECTS' ? t('جميع المواد', 'All Subjects') : subject}
                          </button>
                        ))}
                      </div>
@@ -1724,18 +1724,18 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    onClick={() => setActiveTermId('year')}
                    className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${activeTermId === 'year' ? 'bg-violet-100 text-violet-700' : 'text-gray-500 hover:bg-gray-100'}`}
                  >
-                   النهائي
+                   {t('النهائي', 'Final')}
                  </button>
                </div>
             </div>
             <div className="flex items-center gap-3 w-full lg:w-auto">
                {Object.keys(editedEntries).length > 0 && canEnterGrades && (
                   <Button variant="secondary" onClick={handleSaveGrades} disabled={isSavingGrades} className="text-xs">
-                     <Save size={16} /> {isSavingGrades ? 'جاري الحفظ...' : 'حفظ كمسودة'}
+                     <Save size={16} /> {isSavingGrades ? t('جاري الحفظ...', 'Saving...') : t('حفظ كمسودة', 'Save as Draft')}
                   </Button>
                )}
                <Button variant="tonal" className="text-xs" onClick={() => setIsAddingAssessment(true)}>
-                  <Plus size={16} /> إضافة تقييم
+                  <Plus size={16} /> {t('إضافة تقييم', 'Add Assessment')}
                </Button>
                <button 
                  onClick={() => setShowAnalytics(!showAnalytics)}
@@ -1748,11 +1748,11 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
          
          {/* Status Legend */}
          <div className="px-4 py-2 flex flex-wrap gap-4 text-[10px] font-bold text-gray-400 uppercase border-b border-gray-100 bg-white">
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div> تم التقييم</div>
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500"></div> تم التسليم</div>
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div> مفقود</div>
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-500"></div> متأخر</div>
-            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-gray-300"></div> معذور</div>
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div> {t('تم التقييم', 'Graded')}</div>
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500"></div> {t('تم التسليم', 'Submitted')}</div>
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div> {t('مفقود', 'Missing')}</div>
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-500"></div> {t('متأخر', 'Late')}</div>
+            <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-gray-300"></div> {t('معذور', 'Excused')}</div>
          </div>
          
          {/* Data Grid & Sidebar Container */}
@@ -1762,16 +1762,16 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
              <table className="w-full text-sm border-collapse">
                 <thead className="bg-gray-50 text-gray-500 font-semibold sticky top-0 z-20 shadow-sm">
                    <tr>
-                      <th className="sticky right-0 z-20 bg-gray-50 px-4 py-3 text-right w-[250px] border-b border-l border-gray-200">اسم الطالب</th>
-                      {selectedSubject === 'جميع المواد' ? (
+                      <th className="sticky right-0 z-20 bg-gray-50 px-4 py-3 text-right w-[250px] border-b border-l border-gray-200">{t('اسم الطالب', 'Student Name')}</th>
+                      {selectedSubject === 'ALL_SUBJECTS' ? (
                         <>
                           {displaySubjects.map(sub => (
                             <th key={sub} className="px-4 py-3 text-center min-w-[100px] border-b border-gray-200">
                                <span className="text-gray-900">{sub}</span>
                             </th>
                           ))}
-                          <th className="px-4 py-3 text-center min-w-[100px] border-b border-gray-200">التقدم</th>
-                          <th className="px-4 py-3 text-center w-[100px] border-b border-r border-gray-200 bg-gray-50 sticky left-0 z-20">النسبة الإجمالية</th>
+                          <th className="px-4 py-3 text-center min-w-[100px] border-b border-gray-200">{t('التقدم', 'Progress')}</th>
+                          <th className="px-4 py-3 text-center w-[100px] border-b border-r border-gray-200 bg-gray-50 sticky left-0 z-20">{t('النسبة الإجمالية', 'Overall Percentage')}</th>
                         </>
                       ) : activeTermId === 'year' ? (
                         <>
@@ -1789,12 +1789,12 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                <div className="flex flex-col items-center">
                                   <span className="text-gray-900">{ass.title}</span>
                                   <span className="text-[10px] font-normal uppercase bg-gray-200 px-1.5 rounded mt-1">
-                                    {ass.category} • {ass.maxScore} نقطة {ass.isGraded === false ? '• تدريب' : ''}
+                                    {ass.category} • {ass.maxScore} {t('نقطة', 'pts')} {ass.isGraded === false ? t('• تدريب', '• Practice') : ''}
                                   </span>
                                </div>
                             </th>
                           ))}
-                          <th className="px-4 py-3 text-center w-[100px] border-b border-r border-gray-200 bg-gray-50 sticky left-0 z-20">الدرجة النهائية</th>
+                          <th className="px-4 py-3 text-center w-[100px] border-b border-r border-gray-200 bg-gray-50 sticky left-0 z-20">{t('الدرجة النهائية', 'Final Grade')}</th>
                         </>
                       )}
                    </tr>
@@ -1828,7 +1828,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                </button>
                             </td>
                             
-                            {selectedSubject === 'جميع المواد' ? (
+                            {selectedSubject === 'ALL_SUBJECTS' ? (
                               <>
                                 {subjectGrades.map((grade, idx) => (
                                   <td key={idx} className="px-2 py-2 text-center border-r border-gray-50">
@@ -1887,10 +1887,10 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                                              'bg-transparent border-transparent hover:border-gray-200'
                                           }`}
                                         />
-                                        {status === 'Missing' && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" title="مفقود"></div>}
-                                        {status === 'Submitted' && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-blue-500 rounded-full" title="تم التسليم"></div>}
-                                        {status === 'Late' && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-yellow-500 rounded-full" title="متأخر"></div>}
-                                        {status === 'Graded' && score !== null && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-green-500 rounded-full" title="تم التقييم"></div>}
+                                        {status === 'Missing' && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" title={t('مفقود', 'Missing')}></div>}
+                                        {status === 'Submitted' && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-blue-500 rounded-full" title={t('تم التسليم', 'Submitted')}></div>}
+                                        {status === 'Late' && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-yellow-500 rounded-full" title={t('متأخر', 'Late')}></div>}
+                                        {status === 'Graded' && score !== null && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-green-500 rounded-full" title={t('تم التقييم', 'Graded')}></div>}
                                      </td>
                                    );
                                 })}
@@ -1914,7 +1914,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                <div className="bg-red-50 border border-red-100 rounded-2xl p-5">
                  <div className="flex items-center gap-2 text-red-700 font-bold mb-4">
                    <AlertCircle size={20} />
-                   <h3>طلاب في خطر</h3>
+                   <h3>{t('طلاب في خطر', 'At-Risk Students')}</h3>
                  </div>
                  <div className="space-y-3 mb-6">
                    {eligibleStudents.map(student => {
@@ -1946,7 +1946,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                            <span className="text-sm font-medium text-gray-900 truncate w-24">{student.name}</span>
                          </div>
                          <span className="text-[10px] font-bold px-2 py-1 rounded bg-red-100 text-red-700">
-                           {missingCount > 0 ? `${missingCount} مفقود` : 'راسب'}
+                           {missingCount > 0 ? t(`${missingCount} مفقود`, `${missingCount} missing`) : t('راسب', 'Failing')}
                          </span>
                        </div>
                      );
@@ -1956,7 +1956,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                     className="w-full bg-red-600 hover:bg-red-700 border-red-600 text-white shadow-sm"
                     onClick={() => setShowMessagingDrawer(true)}
                   >
-                   ⚡ {selectedAtRiskطلاب.length > 0 ? `إشعار ${selectedAtRiskطلاب.length} من أولياء الأمور` : 'إشعار أولياء الأمور (الكل)'}
+                   ⚡ {selectedAtRiskطلاب.length > 0 ? t(`إشعار ${selectedAtRiskطلاب.length} من أولياء الأمور`, `Notify ${selectedAtRiskطلاب.length} Guardians`) : t('إشعار أولياء الأمور (الكل)', 'Notify All Guardians')}
                  </Button>
                </div>
              </div>
@@ -1969,32 +1969,32 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 animate-fadeIn">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="text-xl font-bold text-gray-900">رسالة تدخل</h3>
+              <h3 className="text-xl font-bold text-gray-900">{t('رسالة تدخل', 'Intervention Message')}</h3>
               <button onClick={() => setShowMessagingDrawer(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <XIcon size={20} />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 text-blue-800 p-3 rounded-xl text-sm border border-blue-100">
-                <strong>المستلمون:</strong> {selectedAtRiskطلاب.length > 0 
+                <strong>{t('المستلمون:', 'Recipients:')}</strong> {selectedAtRiskطلاب.length > 0
                   ? eligibleStudents.filter(s => selectedAtRiskطلاب.includes(s.id)).map(s => s.name).join(', ')
-                  : 'جميع الطلاب في خطر'}
+                                    : t('جميع الطلاب في خطر', 'All at-risk students')}
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">الرسالة</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">{t('الرسالة', 'Message')}</label>
                 <textarea 
                   rows={5}
-                  placeholder="اكتب رسالة التدخل الخاصة بك هنا..."
+                  placeholder={t('اكتب رسالة التدخل الخاصة بك هنا...', 'Write your intervention message here...')}
                   className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 font-medium resize-none"
                 ></textarea>
               </div>
             </div>
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setShowMessagingDrawer(false)}>إلغاء</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setShowMessagingDrawer(false)}>{t('إلغاء', 'Cancel')}</Button>
               <Button className="bg-violet-600 text-white hover:bg-violet-700 shadow-sm flex-1" onClick={() => {
                 setShowMessagingDrawer(false);
                 setSelectedAtRiskطلاب([]);
-              }}>إرسال رسالة</Button>
+              }}>{t('إرسال رسالة', 'Send Message')}</Button>
             </div>
           </div>
         </div>
@@ -2015,7 +2015,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                 <ArrowLeft size={20} />
               </button>
             )}
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">سجل الدرجات</h1>
+            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{t('سجل الدرجات', 'Gradebook')}</h1>
           </div>
           
           {role === UserRole.ADMIN && (
@@ -2025,21 +2025,21 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                     onClick={() => { setActiveTab('admin'); setAdminView('landing'); setSelectedClassId(null); }}
                     className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'admin' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
                   >
-                    إعدادات الإدارة
+                    {t('إعدادات الإدارة', 'Admin Settings')}
                   </button>
                   {canSupervise && (
                   <button 
                     onClick={() => { setActiveTab('teacher'); setSupervisionClassId(null); setSelectedClassId(null); }}
                     className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'teacher' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
                   >
-                    الإشراف والمتابعة
+                    {t('الإشراف والمتابعة', 'Supervision & Tracking')}
                   </button>
                   )}
                   <button 
                     onClick={() => setActiveTab('approvals')}
                     className={`relative px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'approvals' ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900'}`}
                   >
-                    الاعتمادات
+                    {t('الاعتمادات', 'Approvals')}
                     {status === 'pending' && (
                       <span className="absolute top-1 right-2 w-2 h-2 bg-purple-500 rounded-full border border-white"></span>
                     )}
@@ -2047,7 +2047,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                </div>
                {activeTab === 'admin' && (
                  <Button onClick={startNewGradebookConfig} className="bg-violet-600 hover:bg-violet-700 text-white whitespace-nowrap">
-                    <Plus size={18} className="mr-2" /> إنشاء نظام درجات جديد
+                    <Plus size={18} className="mr-2" /> {t('إنشاء نظام درجات جديد', 'Create New Grading System')}
                  </Button>
                )}
              </div>
@@ -2074,17 +2074,17 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 animate-fadeIn">
            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-               <h3 className="text-xl font-bold text-gray-900">تقييم جديد</h3>
+               <h3 className="text-xl font-bold text-gray-900">{t('تقييم جديد', 'New Assessment')}</h3>
                <button onClick={() => setIsAddingAssessment(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                  <XIcon size={20} />
                </button>
              </div>
              <div className="p-6 space-y-4">
                <div>
-                 <label className="block text-sm font-bold text-gray-700 mb-1">العنوان</label>
+                 <label className="block text-sm font-bold text-gray-700 mb-1">{t('العنوان', 'Title')}</label>
                  <input 
                    type="text" 
-                   placeholder="مثال: الاختبار النصفي"
+                   placeholder={t('مثال: الاختبار النصفي', 'e.g. Midterm Exam')}
                    value={newAssessment.title}
                    onChange={(e) => setNewAssessment({...newAssessment, title: e.target.value})}
                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 font-medium"
@@ -2092,7 +2092,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                </div>
                <div className="grid grid-cols-2 gap-4">
                  <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-1">الفئة</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">{t('الفئة', 'Category')}</label>
                    <select 
                      value={newAssessment.category}
                      onChange={(e) => setNewAssessment({...newAssessment, category: e.target.value as AssessmentCategory})}
@@ -2104,20 +2104,20 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    </select>
                  </div>
                  <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-1">نوع التقييم</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">{t('نوع التقييم', 'Assessment Type')}</label>
                    <select 
                      value={newAssessment.gradingType}
                      onChange={(e) => setNewAssessment({...newAssessment, gradingType: e.target.value as 'Points' | 'Percentage'})}
                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 font-medium"
                    >
-                     <option value="Points">نقاط</option>
-                     <option value="Percentage">نسبة مئوية</option>
+                     <option value="Points">{t('نقاط', 'Points')}</option>
+                     <option value="Percentage">{t('نسبة مئوية', 'Percentage')}</option>
                    </select>
                  </div>
                </div>
                <div className="grid grid-cols-2 gap-4">
                  <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-1">الدرجة القصوى</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">{t('الدرجة القصوى', 'Max Score')}</label>
                    <input 
                      type="number" 
                      value={newAssessment.gradingType === 'Percentage' ? 100 : newAssessment.maxScore}
@@ -2129,7 +2129,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                </div>
                <div className="grid grid-cols-2 gap-4">
                  <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-1">تاريخ البدء</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">{t('تاريخ البدء', 'Start Date')}</label>
                    <input 
                      type="date" 
                      value={newAssessment.startDate}
@@ -2138,7 +2138,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    />
                  </div>
                  <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-1">تاريخ الاستحقاق</label>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">{t('تاريخ الاستحقاق', 'Due Date')}</label>
                    <input 
                      type="date" 
                      value={newAssessment.date}
@@ -2156,13 +2156,13 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
                    className="w-5 h-5 accent-violet-600 rounded cursor-pointer"
                  />
                  <label htmlFor="isGraded" className="text-sm font-bold text-gray-700 cursor-pointer">
-                   يحتسب ضمن الدرجة النهائية
+                   {t('يحتسب ضمن الدرجة النهائية', 'Counts toward the final grade')}
                  </label>
                </div>
              </div>
              <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
-               <Button variant="secondary" className="flex-1" onClick={() => setIsAddingAssessment(false)}>إلغاء</Button>
-               <Button className="bg-violet-600 text-white hover:bg-violet-700 shadow-sm flex-1" onClick={handleCreateAssessment} disabled={!newAssessment.title || isCreatingAssessment}>{isCreatingAssessment ? 'جاري الإضافة...' : 'إنشاء'}</Button>
+               <Button variant="secondary" className="flex-1" onClick={() => setIsAddingAssessment(false)}>{t('إلغاء', 'Cancel')}</Button>
+               <Button className="bg-violet-600 text-white hover:bg-violet-700 shadow-sm flex-1" onClick={handleCreateAssessment} disabled={!newAssessment.title || isCreatingAssessment}>{isCreatingAssessment ? t('جاري الإضافة...', 'Adding...') : t('إنشاء', 'Create')}</Button>
              </div>
            </div>
          </div>
