@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Student, Language, ReportCard } from '../types';
-import { getStudentGrades, StudentSubjectGrade, getTerms, getStudentAttendanceForTerm, getSchoolSettings, SchoolSettings, getStudentTranscript, StudentTranscript } from '../services/supabaseData';
+import { getStudentGrades, StudentSubjectGrade, getTerms, getStudentAttendanceForTerm, getSchoolSettings, SchoolSettings, getStudentTranscript, StudentTranscript, getBehaviorNotes, addBehaviorNote, deleteBehaviorNote, BehaviorNote, getMessagesLog, addMessageLog, StudentMessageLog } from '../services/supabaseData';
 import { Button } from '../components/Button';
 import { showToast } from '../components/Toast';
 import AdmissionForm from '../components/AdmissionForm';
@@ -121,8 +121,64 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, languag
   });
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(true);
 
-  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  // ============ التابات الجديدة: البيانات الأساسية | الطبية | الأكاديمي | السلوكي | التواصل ============
+  const [activeSection, setActiveSection] = useState<'basic' | 'medical' | 'academic' | 'behavioral' | 'communication'>('academic');
+
+  const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
+  const [isLoadingBehavior, setIsLoadingBehavior] = useState(true);
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [newNoteType, setNewNoteType] = useState<'positive' | 'negative' | 'neutral'>('positive');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+
+  const refreshBehaviorNotes = () => {
+    setIsLoadingBehavior(true);
+    getBehaviorNotes(student.id).then((notes) => { setBehaviorNotes(notes); setIsLoadingBehavior(false); });
+  };
+  useEffect(() => { refreshBehaviorNotes(); }, [student.id]);
+
+  const handleAddBehaviorNote = async () => {
+    if (!newNoteContent.trim()) return;
+    setIsSavingNote(true);
+    const ok = await addBehaviorNote(student.id, { authorName: 'المشرف', noteType: newNoteType, content: newNoteContent.trim() });
+    setIsSavingNote(false);
+    if (ok) {
+      setNewNoteContent('');
+      refreshBehaviorNotes();
+      showToast(isRTL ? 'تم إضافة الملاحظة.' : 'Note added.', 'success');
+    } else {
+      showToast(isRTL ? 'حصل خطأ أثناء الحفظ.' : 'Error saving.', 'error');
+    }
+  };
+
+  const handleDeleteBehaviorNote = async (id: string) => {
+    const ok = await deleteBehaviorNote(id);
+    if (ok) refreshBehaviorNotes();
+  };
+
+  const [messagesLog, setMessagesLog] = useState<StudentMessageLog[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [messageContent, setMessageContent] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+
+  const refreshMessagesLog = () => {
+    setIsLoadingMessages(true);
+    getMessagesLog(student.id).then((msgs) => { setMessagesLog(msgs); setIsLoadingMessages(false); });
+  };
+  useEffect(() => { refreshMessagesLog(); }, [student.id]);
+
+  const handleSendMessage = async () => {
+    if (!messageContent.trim()) return;
+    setIsSendingMessage(true);
+    const ok = await addMessageLog(student.id, { senderName: 'المشرف', content: messageContent.trim() });
+    setIsSendingMessage(false);
+    if (ok) {
+      setMessageContent('');
+      refreshMessagesLog();
+      showToast(isRTL ? 'تم حفظ الرسالة في السجل.' : 'Message saved to log.', 'success');
+    } else {
+      showToast(isRTL ? 'حصل خطأ أثناء الحفظ.' : 'Error saving.', 'error');
+    }
+  };
 
 
   const handleAssign = () => {
@@ -402,39 +458,6 @@ Result: ${doc.gradeAverage}`;
       
       {/* Assign Modal */}
       
-      {/* مراسلة Modal */}
-      {isMessageModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex justify-center items-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl" dir="rtl">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">إرسال رسالة إلى {student.name}</h2>
-            <textarea 
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 min-h-[150px] mb-4 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-              placeholder="اكتب رسالتك هنا..."
-              value={messageContent}
-              onChange={(e) => setMessageContent(e.target.value)}
-            ></textarea>
-            <div className="flex justify-end gap-3">
-              <button 
-                onClick={() => setIsMessageModalOpen(false)}
-                className="px-6 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors font-bold"
-              >
-                إلغاء
-              </button>
-              <button 
-                onClick={() => {
-                  showToast('تم إرسال الرسالة بنجاح', 'success');
-                  setIsMessageModalOpen(false);
-                  setMessageContent('');
-                }}
-                className="px-6 py-2 rounded-xl text-white bg-violet-600 hover:bg-violet-700 transition-colors font-bold"
-              >
-                إرسال
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {isAssigning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fadeIn p-6">
@@ -886,7 +909,7 @@ Result: ${doc.gradeAverage}`;
              <Button variant="secondary" className="px-6 py-2 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm rounded-xl" onClick={() => setViewMode('transcript-generator')}>
                <Award size={16} /> {isRTL ? 'السجل الأكاديمي' : 'Transcript'}
              </Button>
-             <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => setIsMessageModalOpen(true)}>
+             <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => setActiveSection('communication')}>
                <MessageSquare size={16} /> مراسلة
              </Button>
              <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => onEditProfile?.(student.id)}>
@@ -896,6 +919,252 @@ Result: ${doc.gradeAverage}`;
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 mb-8">
+        {([
+          { id: 'basic', ar: 'البيانات الأساسية', en: 'Basic Info' },
+          { id: 'medical', ar: 'البيانات الطبية', en: 'Medical' },
+          { id: 'academic', ar: 'الأكاديمي', en: 'Academic' },
+          { id: 'behavioral', ar: 'السلوكي', en: 'Behavioral' },
+          { id: 'communication', ar: 'التواصل', en: 'Communication' },
+        ] as const).map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSection(tab.id)}
+            className={`px-5 py-3 text-sm font-bold border-b-2 -mb-px transition-colors ${
+              activeSection === tab.id ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {isRTL ? tab.ar : tab.en}
+          </button>
+        ))}
+      </div>
+
+      {/* ============ البيانات الأساسية ============ */}
+      {activeSection === 'basic' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'الهوية' : 'Identity'}</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الاسم بالعربي' : 'Arabic Name'}</p><p className="font-bold text-gray-900">{[student.identityInfo?.firstNameAr, student.identityInfo?.secondNameAr, student.identityInfo?.thirdNameAr, student.identityInfo?.lastNameAr].filter(Boolean).join(' ') || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الاسم بالإنجليزي' : 'English Name'}</p><p className="font-bold text-gray-900">{[student.identityInfo?.firstName, student.identityInfo?.secondName, student.identityInfo?.thirdName, student.identityInfo?.lastName].filter(Boolean).join(' ') || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الجنس' : 'Gender'}</p><p className="font-bold text-gray-900">{student.identityInfo?.gender || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الديانة' : 'Religion'}</p><p className="font-bold text-gray-900">{student.identityInfo?.religion || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الجنسية' : 'Nationality'}</p><p className="font-bold text-gray-900">{student.identityInfo?.nationality || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الجنسية الثانية' : '2nd Nationality'}</p><p className="font-bold text-gray-900">{student.identityInfo?.secondNationality || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'اللغة الأم' : 'Native Language'}</p><p className="font-bold text-gray-900">{student.identityInfo?.nativeLanguage || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'اللغة الثانية' : '2nd Language'}</p><p className="font-bold text-gray-900">{student.identityInfo?.secondLanguage || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'إجادة الإنجليزية' : 'English Proficiency'}</p><p className="font-bold text-gray-900">{student.identityInfo?.englishProficiency || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'العام الدراسي' : 'Academic Year'}</p><p className="font-bold text-gray-900">{student.identityInfo?.academicYear || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'تاريخ الميلاد' : 'Date of Birth'}</p><p className="font-bold text-gray-900">{student.dob || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الرقم القومي' : 'National ID'}</p><p className="font-bold text-gray-900">{student.nationalId || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'تاريخ الالتحاق' : 'Enrollment Date'}</p><p className="font-bold text-gray-900">{student.enrollmentDate || '—'}</p></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'الوالدين وولي الأمر' : 'Parents & Guardian'}</h3>
+              <div className="space-y-4 text-sm">
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'الأب' : 'Father'}</p>
+                  <p className="font-bold text-gray-900">{[student.fatherInfo?.firstName, student.fatherInfo?.secondName, student.fatherInfo?.thirdName, student.fatherInfo?.lastName].filter(Boolean).join(' ') || '—'}</p>
+                  <p className="text-gray-500 text-xs">{student.fatherInfo?.mobile || ''} {student.fatherInfo?.email ? `• ${student.fatherInfo.email}` : ''}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'الأم' : 'Mother'}</p>
+                  <p className="font-bold text-gray-900">{[student.motherInfo?.firstName, student.motherInfo?.secondName, student.motherInfo?.thirdName, student.motherInfo?.lastName].filter(Boolean).join(' ') || '—'}</p>
+                  <p className="text-gray-500 text-xs">{student.motherInfo?.mobile || ''} {student.motherInfo?.email ? `• ${student.motherInfo.email}` : ''}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'ولي الأمر' : 'Legal Guardian'}</p>
+                  <p className="font-bold text-gray-900">{student.legalGuardian || '—'}</p>
+                  <p className="text-gray-500 text-xs">{student.guardianRelationship || ''}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'جهات اتصال الطوارئ' : 'Emergency Contacts'}</h3>
+              <div className="space-y-4 text-sm">
+                {[student.emergencyContact1, student.emergencyContact2].filter(Boolean).map((c, i) => (
+                  <div key={i} className="p-3 bg-gray-50 rounded-xl">
+                    <p className="font-bold text-gray-900">{[c?.firstName, c?.secondName, c?.thirdName, c?.lastName].filter(Boolean).join(' ') || '—'}</p>
+                    <p className="text-gray-500 text-xs">{c?.relativity || ''} {c?.mobile ? `• ${c.mobile}` : ''}</p>
+                  </div>
+                ))}
+                {!student.emergencyContact1 && !student.emergencyContact2 && <p className="text-gray-400 text-sm">{isRTL ? 'مفيش جهات اتصال مسجّلة.' : 'No emergency contacts on file.'}</p>}
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'العنوان' : 'Home Address'}</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'المدينة' : 'City'}</p><p className="font-bold text-gray-900">{student.homeAddress?.city || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'المنطقة' : 'Area'}</p><p className="font-bold text-gray-900">{student.homeAddress?.area || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الشارع' : 'Street'}</p><p className="font-bold text-gray-900">{student.homeAddress?.street || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'المبنى' : 'Building'}</p><p className="font-bold text-gray-900">{student.homeAddress?.building || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الشقة' : 'Apartment'}</p><p className="font-bold text-gray-900">{student.homeAddress?.apartment || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الأرضي' : 'Landline'}</p><p className="font-bold text-gray-900">{student.homeAddress?.landline || '—'}</p></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2">
+              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'معلومات إضافية' : 'Additional Information'}</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'خدمة الباص' : 'Bus Service'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.busService || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'إخوة بالمدرسة' : 'Has Siblings'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.hasSiblings || '—'}</p></div>
+                {student.additionalInfo?.hasSiblings === 'Yes' && (
+                  <>
+                    <div><p className="text-gray-400 text-xs">{isRTL ? 'اسم الأخ/الأخت' : 'Sibling Name'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.siblingName || '—'}</p></div>
+                    <div><p className="text-gray-400 text-xs">{isRTL ? 'صف الأخ/الأخت' : 'Sibling Grade'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.siblingYearGroup || '—'}</p></div>
+                  </>
+                )}
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'تقدّم من قبل' : 'Applied Before'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.appliedBefore || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'الهوايات' : 'Hobbies'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.hobbies || '—'}</p></div>
+                <div><p className="text-gray-400 text-xs">{isRTL ? 'مصدر المعرفة بالمدرسة' : 'Marketing Source'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.marketing || '—'}</p></div>
+              </div>
+              {student.additionalInfo?.additionalNotes && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'ملاحظات إضافية' : 'Additional Notes'}</p>
+                  <p className="text-gray-700 text-sm">{student.additionalInfo.additionalNotes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ البيانات الطبية ============ */}
+      {activeSection === 'medical' && (
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+          <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'الحالة الطبية' : 'Medical Status'}</h3>
+          {student.additionalInfo?.hasMedical === 'Yes' || student.additionalInfo?.hasMedication === 'Yes' ? (
+            <div className="space-y-4">
+              {student.additionalInfo?.hasMedical === 'Yes' && (
+                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl">
+                  <p className="text-xs font-bold text-red-600 uppercase mb-1">{isRTL ? 'حالة طبية' : 'Medical Condition'}</p>
+                  <p className="text-sm text-gray-800">{student.additionalInfo.medicalDetails || (isRTL ? 'مفيش تفاصيل مسجّلة.' : 'No details on file.')}</p>
+                </div>
+              )}
+              {student.additionalInfo?.hasMedication === 'Yes' && (
+                <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                  <p className="text-xs font-bold text-amber-600 uppercase mb-1">{isRTL ? 'أدوية' : 'Medication'}</p>
+                  <p className="text-sm text-gray-800">{student.additionalInfo.medicationDetails || (isRTL ? 'مفيش تفاصيل مسجّلة.' : 'No details on file.')}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm">{isRTL ? 'مفيش حالات طبية أو أدوية مسجّلة لهذا الطالب.' : 'No medical conditions or medications on file for this student.'}</p>
+          )}
+        </div>
+      )}
+
+      {/* ============ السلوكي ============ */}
+      {activeSection === 'behavioral' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'إضافة ملاحظة سلوكية' : 'Add Behavioral Note'}</h3>
+            <div className="flex gap-2 mb-3">
+              {(['positive', 'neutral', 'negative'] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setNewNoteType(type)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+                    newNoteType === type
+                      ? type === 'positive' ? 'bg-green-600 text-white' : type === 'negative' ? 'bg-red-600 text-white' : 'bg-gray-600 text-white'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {type === 'positive' ? (isRTL ? 'إيجابية' : 'Positive') : type === 'negative' ? (isRTL ? 'سلبية' : 'Negative') : (isRTL ? 'محايدة' : 'Neutral')}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={newNoteContent}
+              onChange={(e) => setNewNoteContent(e.target.value)}
+              placeholder={isRTL ? 'اكتبي الملاحظة هنا...' : 'Write the note here...'}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 min-h-[100px] mb-3 outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+            />
+            <Button onClick={handleAddBehaviorNote} disabled={isSavingNote || !newNoteContent.trim()} className="px-6">
+              {isSavingNote ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'إضافة الملاحظة' : 'Add Note')}
+            </Button>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'سجل الملاحظات' : 'Notes History'}</h3>
+            {isLoadingBehavior ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
+            ) : behaviorNotes.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'مفيش ملاحظات مسجّلة لسه.' : 'No notes recorded yet.'}</p>
+            ) : (
+              <div className="space-y-3">
+                {behaviorNotes.map(note => (
+                  <div key={note.id} className={`p-4 rounded-2xl border ${
+                    note.noteType === 'positive' ? 'bg-green-50 border-green-100' :
+                    note.noteType === 'negative' ? 'bg-red-50 border-red-100' : 'bg-gray-50 border-gray-100'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                        note.noteType === 'positive' ? 'bg-green-100 text-green-700' :
+                        note.noteType === 'negative' ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-600'
+                      }`}>
+                        {note.noteType === 'positive' ? (isRTL ? 'إيجابية' : 'Positive') : note.noteType === 'negative' ? (isRTL ? 'سلبية' : 'Negative') : (isRTL ? 'محايدة' : 'Neutral')}
+                      </span>
+                      <button onClick={() => handleDeleteBehaviorNote(note.id)} className="text-gray-300 hover:text-red-500">
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-800">{note.content}</p>
+                    <p className="text-[11px] text-gray-400 mt-2">{note.authorName} • {new Date(note.createdAt).toLocaleString(isRTL ? 'ar-EG' : 'en-US')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============ التواصل ============ */}
+      {activeSection === 'communication' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? `إرسال رسالة إلى ${student.name}` : `Send a message to ${student.name}`}</h3>
+            <textarea
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              placeholder={isRTL ? 'اكتبي رسالتك هنا...' : 'Write your message here...'}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 min-h-[100px] mb-3 outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+            />
+            <Button onClick={handleSendMessage} disabled={isSendingMessage || !messageContent.trim()} className="px-6">
+              {isSendingMessage ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'حفظ في السجل' : 'Save to Log')}
+            </Button>
+            <p className="text-[11px] text-gray-400 mt-2">{isRTL ? 'ملحوظة: الرسالة دلوقتي بتتحفظ كسجل بس، مفيش توصيل فعلي لولي الأمر لسه.' : 'Note: messages are currently saved as a log only — no live delivery yet.'}</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'سجل الرسائل' : 'Message Log'}</h3>
+            {isLoadingMessages ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
+            ) : messagesLog.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'مفيش رسائل متبعتة لسه.' : 'No messages sent yet.'}</p>
+            ) : (
+              <div className="space-y-3">
+                {messagesLog.map(msg => (
+                  <div key={msg.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p className="text-sm text-gray-800">{msg.content}</p>
+                    <p className="text-[11px] text-gray-400 mt-2">{msg.senderName} • {new Date(msg.createdAt).toLocaleString(isRTL ? 'ar-EG' : 'en-US')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============ الأكاديمي ============ */}
+      {activeSection === 'academic' && (
+      <div className="space-y-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
          {/* Academic Chart */}
          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 lg:col-span-2">
@@ -1011,6 +1280,8 @@ Result: ${doc.gradeAverage}`;
             ))}
          </div>
       </div>
+      </div>
+      )}
     </div>
   );
 };
