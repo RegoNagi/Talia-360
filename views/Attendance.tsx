@@ -17,7 +17,7 @@ import {
   AlertCircle,
   Users
 } from 'lucide-react';
-import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDate, AttendanceLogRow } from '../services/supabaseData';
+import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDate, AttendanceLogRow, getLateStudentsForDate, saveLateReason, LateStudentRow } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { Teacher } from '../types';
 import { Student, ClassSection } from '../types';
@@ -40,6 +40,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   // Setup State
   const [attendanceMode, setAttendanceMode] = useState<'Daily' | 'Period'>('Daily');
   const [lateThreshold, setLateThreshold] = useState(15);
+  const [maxLateCount, setMaxLateCount] = useState(5);
   const [smsOnAbsent, setSmsOnAbsent] = useState(true);
   const [smsOnLate, setSmsOnLate] = useState(false);
   
@@ -113,6 +114,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
       setRealTeachers(teachersData);
       setAttendanceMode(settings.mode);
       setLateThreshold(settings.lateThreshold);
+      setMaxLateCount(settings.maxLateCount);
       setSettingsLoaded(true);
     });
   }, []);
@@ -165,7 +167,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
       showToast('معندكش صلاحية تعديل إعدادات الحضور.', 'error');
       return;
     }
-    const ok = await saveAttendanceSettings(attendanceMode, lateThreshold);
+    const ok = await saveAttendanceSettings(attendanceMode, lateThreshold, maxLateCount);
     if (ok) {
       showToast('تم حفظ إعدادات الحضور بنجاح.', 'success');
     } else {
@@ -229,16 +231,33 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     ? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); })()
     : todayStr;
 
+  const [lateStudents, setLateStudents] = useState<LateStudentRow[]>([]);
+  const [editingLateReasonId, setEditingLateReasonId] = useState<string | null>(null);
+  const [lateReasonDraft, setLateReasonDraft] = useState('');
+
   const refreshAdminDashboard = () => {
     setIsLoadingDashboard(true);
     Promise.all([
       getClassesAttendanceOverview(adminSelectedDate, attendanceMode),
       getAttendanceLogsForDate(adminSelectedDate),
-    ]).then(([overview, logs]) => {
+      getLateStudentsForDate(adminSelectedDate),
+    ]).then(([overview, logs, late]) => {
       setClassesOverview(overview);
       setAttendanceLogs(logs);
+      setLateStudents(late);
       setIsLoadingDashboard(false);
     });
+  };
+
+  const handleSaveLateReason = async (recordId: string) => {
+    const ok = await saveLateReason(recordId, lateReasonDraft.trim());
+    if (ok) {
+      setLateStudents(prev => prev.map(l => l.recordId === recordId ? { ...l, reason: lateReasonDraft.trim() } : l));
+      setEditingLateReasonId(null);
+      showToast('تم حفظ سبب التأخير.', 'success');
+    } else {
+      showToast('حصل خطأ أثناء الحفظ.', 'error');
+    }
   };
 
   React.useEffect(() => {
@@ -435,6 +454,23 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                       <p className="text-xs text-gray-500 mt-2">الطلاب الذين يسجلون حضورهم بعد {lateThreshold} دقيقة سيتم اعتبارهم 'متأخرين' تلقائياً.</p>
                     </div>
 
+                    <div className="pt-4 border-t border-gray-100">
+                      <label className="flex justify-between text-sm font-bold text-gray-700 mb-2">
+                        <span>الحد الأقصى لمرات التأخير المسموحة للطالب</span>
+                        <span className="text-violet-600">{maxLateCount} مرة</span>
+                      </label>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="20" 
+                        step="1"
+                        value={maxLateCount}
+                        onChange={(e) => setMaxLateCount(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-violet-600"
+                      />
+                      <p className="text-xs text-gray-500 mt-2">لو الطالب تعدّى {maxLateCount} مرة تأخير، هيظهر تنبيه للمشرف في لوحة الحضور.</p>
+                    </div>
+
                     <div className="pt-4 border-t border-gray-100 space-y-4">
                       <div className="flex items-center justify-between">
                         <div>
@@ -614,6 +650,63 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                             خد الحضور
                           </button>
                         )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* حالات التأخير اليوم */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">حالات التأخير اليوم</h3>
+                {isLoadingDashboard ? (
+                  <p className="text-sm text-gray-400 text-center py-8">جاري التحميل...</p>
+                ) : lateStudents.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">مفيش حالات تأخير النهاردة.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {lateStudents.map(l => (
+                      <div key={l.recordId} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center shrink-0">
+                              <Clock size={16} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-900 text-sm">{l.studentName}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{l.className} • {l.time}</p>
+                            </div>
+                          </div>
+                          {l.totalLateCount > maxLateCount && (
+                            <span className="flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold shrink-0">
+                              <AlertCircle size={11} /> تعدّى الحد ({l.totalLateCount} مرة)
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-3">
+                          {editingLateReasonId === l.recordId ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                autoFocus
+                                type="text"
+                                value={lateReasonDraft}
+                                onChange={(e) => setLateReasonDraft(e.target.value)}
+                                placeholder="سبب التأخير..."
+                                className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                              <button onClick={() => handleSaveLateReason(l.recordId)} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-bold">حفظ</button>
+                              <button onClick={() => setEditingLateReasonId(null)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold">إلغاء</button>
+                            </div>
+                          ) : l.reason ? (
+                            <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(l.reason || ''); }} className="text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full text-right hover:border-violet-300">
+                              {l.reason}
+                            </button>
+                          ) : (
+                            <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline">
+                              + إضافة سبب التأخير
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
