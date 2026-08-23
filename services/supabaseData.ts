@@ -657,17 +657,19 @@ export interface LateStudentRow {
   studentId: string;
   studentName: string;
   className: string;
+  gradeLevel: string;
   time: string;
   reason: string | null;
   totalLateCount: number;
 }
 
 // كل حالات التأخير بتاعة يوم معيّن، مع إجمالي مرات التأخير التاريخية لكل طالب (لمقارنتها بالحد المسموح)
-export async function getLateStudentsForDate(date: string): Promise<LateStudentRow[]> {
+export async function getLateStudentsForDateRange(startDate: string, endDate: string): Promise<LateStudentRow[]> {
   const { data: sessions } = await supabase
     .from('attendance_sessions')
-    .select('id, created_at, class_sections(name)')
-    .eq('date', date);
+    .select('id, created_at, class_sections(name, grade_level)')
+    .gte('date', startDate)
+    .lte('date', endDate);
   const sessionIds = (sessions || []).map((s: any) => s.id);
   if (sessionIds.length === 0) return [];
 
@@ -678,10 +680,9 @@ export async function getLateStudentsForDate(date: string): Promise<LateStudentR
     .eq('status', 'Late');
   if (!records || records.length === 0) return [];
 
-  const studentIds = Array.from(new Set(records.map((r: any) => r.student_id)));
   const [studentsRes, allLateCountsRes] = await Promise.all([
-    supabase.from('students').select('id, name').in('id', studentIds),
-    supabase.from('attendance_records').select('student_id').eq('status', 'Late').in('student_id', studentIds),
+    supabase.from('students').select('id, name'),
+    supabase.from('attendance_records').select('student_id').eq('status', 'Late'),
   ]);
 
   const studentNameById: Record<string, string> = {};
@@ -700,6 +701,7 @@ export async function getLateStudentsForDate(date: string): Promise<LateStudentR
       studentId: r.student_id,
       studentName: studentNameById[r.student_id] || '—',
       className: session?.class_sections?.name || '—',
+      gradeLevel: session?.class_sections?.grade_level || '—',
       time: session?.created_at ? new Date(session.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—',
       reason: r.late_reason || null,
       totalLateCount: lateCountByStudent[r.student_id] || 0,
@@ -2191,11 +2193,12 @@ export interface AttendanceLogRow {
 }
 
 // سجل حقيقي بكل حالات الحضور اللي اتسجلت ليوم معيّن، في كل الفصول
-export async function getAttendanceLogsForDate(date: string): Promise<AttendanceLogRow[]> {
+export async function getAttendanceLogsForDateRange(startDate: string, endDate: string): Promise<AttendanceLogRow[]> {
   const { data: sessions, error } = await supabase
     .from('attendance_sessions')
     .select('id, section_id, created_at, class_sections(name, grade_level, teacher_id)')
-    .eq('date', date);
+    .gte('date', startDate)
+    .lte('date', endDate);
   if (error || !sessions) return [];
 
   const sessionIds = (sessions as any[]).map((s) => s.id);
@@ -2239,17 +2242,19 @@ export interface ExcusedStudentRow {
   studentId: string;
   studentName: string;
   className: string;
+  gradeLevel: string;
   time: string;
   reason: string | null;
   fileUrl: string | null;
 }
 
 // كل حالات "معذور" اللي المعلم سجّلها ليوم معيّن، جاهزة لمراجعة المشرف
-export async function getExcusedStudentsForDate(date: string): Promise<ExcusedStudentRow[]> {
+export async function getExcusedStudentsForDateRange(startDate: string, endDate: string): Promise<ExcusedStudentRow[]> {
   const { data: sessions } = await supabase
     .from('attendance_sessions')
-    .select('id, created_at, class_sections(name)')
-    .eq('date', date);
+    .select('id, created_at, class_sections(name, grade_level)')
+    .gte('date', startDate)
+    .lte('date', endDate);
   const sessionIds = (sessions || []).map((s: any) => s.id);
   if (sessionIds.length === 0) return [];
 
@@ -2260,8 +2265,7 @@ export async function getExcusedStudentsForDate(date: string): Promise<ExcusedSt
     .eq('status', 'Excused');
   if (!records || records.length === 0) return [];
 
-  const studentIds = Array.from(new Set(records.map((r: any) => r.student_id)));
-  const { data: students } = await supabase.from('students').select('id, name').in('id', studentIds);
+  const { data: students } = await supabase.from('students').select('id, name');
   const studentNameById: Record<string, string> = {};
   (students || []).forEach((s: any) => { studentNameById[s.id] = s.name; });
 
@@ -2275,6 +2279,7 @@ export async function getExcusedStudentsForDate(date: string): Promise<ExcusedSt
       studentId: r.student_id,
       studentName: studentNameById[r.student_id] || '—',
       className: session?.class_sections?.name || '—',
+      gradeLevel: session?.class_sections?.grade_level || '—',
       time: session?.created_at ? new Date(session.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—',
       reason: r.excuse_reason || null,
       fileUrl: r.excuse_file_url || null,
