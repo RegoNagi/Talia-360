@@ -2301,9 +2301,17 @@ export async function getExcusedStudentsForDateRange(startDate: string, endDate:
 }
 
 export async function saveExcuseDetails(recordId: string, reason: string, fileUrl: string | null): Promise<boolean> {
-  const patch: any = { excuse_reason: reason };
+  const patch: any = { excuse_reason: reason, status: 'Excused' };
   if (fileUrl !== null) patch.excuse_file_url = fileUrl;
   const { error } = await supabase.from('attendance_records').update(patch).eq('id', recordId);
+  return !error;
+}
+
+// بيلغي التبرير عن حالة غياب — بيرجّعها "غائب" عادي وبيمسح سبب العذر
+export async function unexcuseAttendanceRecord(recordId: string): Promise<boolean> {
+  const { error } = await supabase.from('attendance_records').update({
+    status: 'Absent', excuse_reason: null, excuse_file_url: null,
+  }).eq('id', recordId);
   return !error;
 }
 
