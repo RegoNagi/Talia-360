@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Student, Language, ReportCard } from '../types';
-import { getStudentGrades, StudentSubjectGrade, getTerms, getStudentAttendanceForTerm, getSchoolSettings, SchoolSettings, getStudentTranscript, StudentTranscript, getBehaviorNotes, addBehaviorNote, deleteBehaviorNote, BehaviorNote, getMessagesLog, addMessageLog, StudentMessageLog } from '../services/supabaseData';
+import { 
+  getStudentGrades, StudentSubjectGrade, getTerms, getStudentAttendanceForTerm, getSchoolSettings, SchoolSettings, getStudentTranscript, StudentTranscript,
+  getMessagesLog, addMessageLog, StudentMessageLog, updateStudent,
+  getMedicalInfo, updateMedicalInfo, StudentMedicalInfo, getClinicVisits, addClinicVisit, deleteClinicVisit, ClinicVisit,
+  getBehaviorIncidents, addBehaviorIncident, deleteBehaviorIncident, BehaviorIncident,
+  getAdminActions, addAdminAction, deleteAdminAction, AdminAction,
+  getWarnings, addWarning, StudentWarning,
+  getGuardianSummons, addGuardianSummon, GuardianSummon,
+  getStudentAttendanceSummary, StudentAttendanceSummary,
+} from '../services/supabaseData';
 import { Button } from '../components/Button';
 import { showToast } from '../components/Toast';
 import AdmissionForm from '../components/AdmissionForm';
@@ -121,38 +130,219 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, languag
   });
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(true);
 
-  // ============ التابات الجديدة: البيانات الأساسية | الطبية | الأكاديمي | السلوكي | التواصل ============
-  const [activeSection, setActiveSection] = useState<'basic' | 'medical' | 'academic' | 'behavioral' | 'communication'>('academic');
+  // ============ التابات: البيانات الأساسية | الطبية | الأكاديمي | السلوكي | التواصل | الإجراءات الإدارية | الحضور ============
+  const [activeSection, setActiveSection] = useState<'basic' | 'medical' | 'academic' | 'behavioral' | 'communication' | 'admin' | 'attendance'>('academic');
+  const currentUserName = isRTL ? 'المشرف' : 'Admin';
 
-  const [behaviorNotes, setBehaviorNotes] = useState<BehaviorNote[]>([]);
-  const [isLoadingBehavior, setIsLoadingBehavior] = useState(true);
-  const [newNoteContent, setNewNoteContent] = useState('');
-  const [newNoteType, setNewNoteType] = useState<'positive' | 'negative' | 'neutral'>('positive');
-  const [isSavingNote, setIsSavingNote] = useState(false);
+  // عنصر مساعد: يعرض القيمة للقراءة، أو حقل إدخال واضح للتعديل — بيتكرر في كل أقسام البيانات الأساسية والطبية
+  const Field: React.FC<{ label: string; value: string; onChange: (v: string) => void; editing: boolean; type?: string; full?: boolean }> = ({ label, value, onChange, editing, type = 'text', full }) => (
+    <div className={full ? 'md:col-span-2' : ''}>
+      <p className="text-gray-400 text-xs mb-1">{label}</p>
+      {editing ? (
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+        />
+      ) : (
+        <p className="font-bold text-gray-900">{value || '—'}</p>
+      )}
+    </div>
+  );
 
-  const refreshBehaviorNotes = () => {
-    setIsLoadingBehavior(true);
-    getBehaviorNotes(student.id).then((notes) => { setBehaviorNotes(notes); setIsLoadingBehavior(false); });
-  };
-  useEffect(() => { refreshBehaviorNotes(); }, [student.id]);
+  // ---- تعديل البيانات الأساسية ----
+  const [isEditingBasic, setIsEditingBasic] = useState(false);
+  const [basicDraft, setBasicDraft] = useState({
+    identityInfo: { ...student.identityInfo },
+    fatherInfo: { ...student.fatherInfo },
+    motherInfo: { ...student.motherInfo },
+    legalGuardian: student.legalGuardian || '',
+    guardianRelationship: student.guardianRelationship || '',
+    emergencyContact1: { ...student.emergencyContact1 },
+    emergencyContact2: { ...student.emergencyContact2 },
+    homeAddress: { ...student.homeAddress },
+    additionalInfo: { ...student.additionalInfo },
+    dob: student.dob || '',
+    nationalId: student.nationalId || '',
+    enrollmentDate: student.enrollmentDate || '',
+  });
+  const [isSavingBasic, setIsSavingBasic] = useState(false);
 
-  const handleAddBehaviorNote = async () => {
-    if (!newNoteContent.trim()) return;
-    setIsSavingNote(true);
-    const ok = await addBehaviorNote(student.id, { authorName: 'المشرف', noteType: newNoteType, content: newNoteContent.trim() });
-    setIsSavingNote(false);
+  const handleSaveBasicInfo = async () => {
+    setIsSavingBasic(true);
+    const ok = await updateStudent({
+      studentId: student.id,
+      userId: (student as any).userId,
+      name: student.name,
+      grade: student.grade,
+      dob: basicDraft.dob,
+      status: student.status,
+      fatherInfo: basicDraft.fatherInfo,
+      motherInfo: basicDraft.motherInfo,
+      legalGuardian: basicDraft.legalGuardian,
+      guardianRelationship: basicDraft.guardianRelationship,
+      identityInfo: basicDraft.identityInfo,
+      emergencyContact1: basicDraft.emergencyContact1,
+      emergencyContact2: basicDraft.emergencyContact2,
+      homeAddress: basicDraft.homeAddress,
+      additionalInfo: basicDraft.additionalInfo,
+    });
+    setIsSavingBasic(false);
     if (ok) {
-      setNewNoteContent('');
-      refreshBehaviorNotes();
-      showToast(isRTL ? 'تم إضافة الملاحظة.' : 'Note added.', 'success');
+      setIsEditingBasic(false);
+      showToast(isRTL ? 'تم حفظ البيانات.' : 'Information saved.', 'success');
     } else {
       showToast(isRTL ? 'حصل خطأ أثناء الحفظ.' : 'Error saving.', 'error');
     }
   };
 
-  const handleDeleteBehaviorNote = async (id: string) => {
-    const ok = await deleteBehaviorNote(id);
-    if (ok) refreshBehaviorNotes();
+  // ---- الملف الطبي ----
+  const [medicalInfo, setMedicalInfo] = useState<StudentMedicalInfo>({ bloodType: '', allergies: '', chronicConditions: '', doctorName: '', doctorPhone: '', insuranceProvider: '', insuranceNumber: '' });
+  const [isLoadingMedical, setIsLoadingMedical] = useState(true);
+  const [isSavingMedical, setIsSavingMedical] = useState(false);
+  const [clinicVisits, setClinicVisits] = useState<ClinicVisit[]>([]);
+  const [newVisit, setNewVisit] = useState({ visitDate: '', reason: '', notes: '' });
+  const [isAddingVisit, setIsAddingVisit] = useState(false);
+
+  const refreshMedical = () => {
+    setIsLoadingMedical(true);
+    Promise.all([getMedicalInfo(student.id), getClinicVisits(student.id)]).then(([info, visits]) => {
+      if (info) setMedicalInfo(info);
+      setClinicVisits(visits);
+      setIsLoadingMedical(false);
+    });
+  };
+  useEffect(() => { refreshMedical(); }, [student.id]);
+
+  const handleSaveMedical = async () => {
+    setIsSavingMedical(true);
+    const ok = await updateMedicalInfo(student.id, medicalInfo);
+    setIsSavingMedical(false);
+    showToast(ok ? (isRTL ? 'تم حفظ الملف الطبي.' : 'Medical file saved.') : (isRTL ? 'حصل خطأ.' : 'Error.'), ok ? 'success' : 'error');
+  };
+
+  const handleAddVisit = async () => {
+    if (!newVisit.visitDate) return;
+    const ok = await addClinicVisit(student.id, { ...newVisit, recordedBy: currentUserName });
+    if (ok) {
+      setNewVisit({ visitDate: '', reason: '', notes: '' });
+      setIsAddingVisit(false);
+      refreshMedical();
+      showToast(isRTL ? 'تم تسجيل الزيارة.' : 'Visit recorded.', 'success');
+    }
+  };
+
+  const handleDeleteVisit = async (id: string) => {
+    const ok = await deleteClinicVisit(id);
+    if (ok) refreshMedical();
+  };
+
+  // ---- السجل السلوكي الهيكلي ----
+  const [behaviorIncidents, setBehaviorIncidents] = useState<BehaviorIncident[]>([]);
+  const [isLoadingBehavior, setIsLoadingBehavior] = useState(true);
+  const [isAddingIncident, setIsAddingIncident] = useState(false);
+  const [newIncident, setNewIncident] = useState({ incidentDate: '', incidentTime: '', problemTitle: '', description: '', actionTaken: '' });
+  const [isSavingIncident, setIsSavingIncident] = useState(false);
+
+  const refreshBehaviorIncidents = () => {
+    setIsLoadingBehavior(true);
+    getBehaviorIncidents(student.id).then((rows) => { setBehaviorIncidents(rows); setIsLoadingBehavior(false); });
+  };
+  useEffect(() => { refreshBehaviorIncidents(); }, [student.id]);
+
+  const handleAddIncident = async () => {
+    if (!newIncident.incidentDate || !newIncident.problemTitle.trim()) return;
+    setIsSavingIncident(true);
+    const ok = await addBehaviorIncident(student.id, { ...newIncident, recordedBy: currentUserName });
+    setIsSavingIncident(false);
+    if (ok) {
+      setNewIncident({ incidentDate: '', incidentTime: '', problemTitle: '', description: '', actionTaken: '' });
+      setIsAddingIncident(false);
+      refreshBehaviorIncidents();
+      showToast(isRTL ? 'تم تسجيل الواقعة.' : 'Incident recorded.', 'success');
+    } else {
+      showToast(isRTL ? 'حصل خطأ أثناء الحفظ.' : 'Error saving.', 'error');
+    }
+  };
+
+  const handleDeleteIncident = async (id: string) => {
+    const ok = await deleteBehaviorIncident(id);
+    if (ok) refreshBehaviorIncidents();
+  };
+
+  // ---- الإجراءات الإدارية + استدعاء ولي الأمر ----
+  const [adminActions, setAdminActions] = useState<AdminAction[]>([]);
+  const [guardianSummons, setGuardianSummons] = useState<GuardianSummon[]>([]);
+  const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
+  const [isAddingAction, setIsAddingAction] = useState(false);
+  const [newAction, setNewAction] = useState({ actionDate: '', actionType: '', reason: '' });
+  const [isAddingSummon, setIsAddingSummon] = useState(false);
+  const [newSummon, setNewSummon] = useState({ summonDate: '', reason: '', outcome: '' });
+
+  const refreshAdminTab = () => {
+    setIsLoadingAdmin(true);
+    Promise.all([getAdminActions(student.id), getGuardianSummons(student.id)]).then(([actions, summons]) => {
+      setAdminActions(actions);
+      setGuardianSummons(summons);
+      setIsLoadingAdmin(false);
+    });
+  };
+  useEffect(() => { refreshAdminTab(); }, [student.id]);
+
+  const handleAddAdminAction = async () => {
+    if (!newAction.actionDate || !newAction.actionType.trim()) return;
+    const ok = await addAdminAction(student.id, { ...newAction, issuedBy: currentUserName });
+    if (ok) {
+      setNewAction({ actionDate: '', actionType: '', reason: '' });
+      setIsAddingAction(false);
+      refreshAdminTab();
+      showToast(isRTL ? 'تم تسجيل الإجراء.' : 'Action recorded.', 'success');
+    }
+  };
+
+  const handleDeleteAdminAction = async (id: string) => {
+    const ok = await deleteAdminAction(id);
+    if (ok) refreshAdminTab();
+  };
+
+  const handleAddSummon = async () => {
+    if (!newSummon.summonDate) return;
+    const ok = await addGuardianSummon(student.id, { ...newSummon, attendedBy: currentUserName });
+    if (ok) {
+      setNewSummon({ summonDate: '', reason: '', outcome: '' });
+      setIsAddingSummon(false);
+      refreshAdminTab();
+      showToast(isRTL ? 'تم تسجيل الاستدعاء.' : 'Summon recorded.', 'success');
+    }
+  };
+
+  // ---- الحضور والإنذارات ----
+  const [attendanceSummary, setAttendanceSummary] = useState<StudentAttendanceSummary>({ attendanceRate: 0, absentCount: 0, lateCount: 0, totalSessions: 0 });
+  const [warnings, setWarnings] = useState<StudentWarning[]>([]);
+  const [isLoadingAttendanceTab, setIsLoadingAttendanceTab] = useState(true);
+  const [isAddingWarning, setIsAddingWarning] = useState(false);
+  const [newWarning, setNewWarning] = useState({ warningDate: '', reason: '' });
+
+  const refreshAttendanceTab = () => {
+    setIsLoadingAttendanceTab(true);
+    Promise.all([getStudentAttendanceSummary(student.id), getWarnings(student.id)]).then(([summary, w]) => {
+      setAttendanceSummary(summary);
+      setWarnings(w);
+      setIsLoadingAttendanceTab(false);
+    });
+  };
+  useEffect(() => { refreshAttendanceTab(); }, [student.id]);
+
+  const handleAddWarning = async () => {
+    if (!newWarning.warningDate || !newWarning.reason.trim()) return;
+    const ok = await addWarning(student.id, { ...newWarning, issuedBy: currentUserName });
+    if (ok) {
+      setNewWarning({ warningDate: '', reason: '' });
+      setIsAddingWarning(false);
+      refreshAttendanceTab();
+      showToast(isRTL ? 'تم إصدار الإنذار.' : 'Warning issued.', 'success');
+    }
   };
 
   const [messagesLog, setMessagesLog] = useState<StudentMessageLog[]>([]);
@@ -909,12 +1099,6 @@ Result: ${doc.gradeAverage}`;
              <Button variant="secondary" className="px-6 py-2 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm rounded-xl" onClick={() => setViewMode('transcript-generator')}>
                <Award size={16} /> {isRTL ? 'السجل الأكاديمي' : 'Transcript'}
              </Button>
-             <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => setActiveSection('communication')}>
-               <MessageSquare size={16} /> مراسلة
-             </Button>
-             <Button variant="secondary" className="px-4 py-2 text-xs shadow-sm bg-white border border-gray-200 rounded-xl" onClick={() => onEditProfile?.(student.id)}>
-               <Edit size={16} /> تعديل الملف
-             </Button>
           </div>
         </div>
       </div>
@@ -926,6 +1110,8 @@ Result: ${doc.gradeAverage}`;
           { id: 'medical', ar: 'البيانات الطبية', en: 'Medical' },
           { id: 'academic', ar: 'الأكاديمي', en: 'Academic' },
           { id: 'behavioral', ar: 'السلوكي', en: 'Behavioral' },
+          { id: 'attendance', ar: 'الحضور والإنذارات', en: 'Attendance & Warnings' },
+          { id: 'admin', ar: 'الإجراءات الإدارية', en: 'Administrative Actions' },
           { id: 'communication', ar: 'التواصل', en: 'Communication' },
         ] as const).map(tab => (
           <button
@@ -943,93 +1129,124 @@ Result: ${doc.gradeAverage}`;
       {/* ============ البيانات الأساسية ============ */}
       {activeSection === 'basic' && (
         <div className="space-y-6">
+          <div className="flex justify-end">
+            {isEditingBasic ? (
+              <div className="flex gap-2">
+                <button onClick={() => { setIsEditingBasic(false); setBasicDraft({ identityInfo: { ...student.identityInfo }, fatherInfo: { ...student.fatherInfo }, motherInfo: { ...student.motherInfo }, legalGuardian: student.legalGuardian || '', guardianRelationship: student.guardianRelationship || '', emergencyContact1: { ...student.emergencyContact1 }, emergencyContact2: { ...student.emergencyContact2 }, homeAddress: { ...student.homeAddress }, additionalInfo: { ...student.additionalInfo }, dob: student.dob || '', nationalId: student.nationalId || '', enrollmentDate: student.enrollmentDate || '' }); }} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm font-bold">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                <button onClick={handleSaveBasicInfo} disabled={isSavingBasic} className="px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-bold">{isSavingBasic ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'حفظ التعديلات' : 'Save Changes')}</button>
+              </div>
+            ) : (
+              <button onClick={() => setIsEditingBasic(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-50 text-violet-700 hover:bg-violet-100 text-sm font-bold">
+                <Edit size={16} /> {isRTL ? 'تعديل البيانات' : 'Edit Information'}
+              </button>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
               <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'الهوية' : 'Identity'}</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الاسم بالعربي' : 'Arabic Name'}</p><p className="font-bold text-gray-900">{[student.identityInfo?.firstNameAr, student.identityInfo?.secondNameAr, student.identityInfo?.thirdNameAr, student.identityInfo?.lastNameAr].filter(Boolean).join(' ') || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الاسم بالإنجليزي' : 'English Name'}</p><p className="font-bold text-gray-900">{[student.identityInfo?.firstName, student.identityInfo?.secondName, student.identityInfo?.thirdName, student.identityInfo?.lastName].filter(Boolean).join(' ') || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الجنس' : 'Gender'}</p><p className="font-bold text-gray-900">{student.identityInfo?.gender || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الديانة' : 'Religion'}</p><p className="font-bold text-gray-900">{student.identityInfo?.religion || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الجنسية' : 'Nationality'}</p><p className="font-bold text-gray-900">{student.identityInfo?.nationality || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الجنسية الثانية' : '2nd Nationality'}</p><p className="font-bold text-gray-900">{student.identityInfo?.secondNationality || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'اللغة الأم' : 'Native Language'}</p><p className="font-bold text-gray-900">{student.identityInfo?.nativeLanguage || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'اللغة الثانية' : '2nd Language'}</p><p className="font-bold text-gray-900">{student.identityInfo?.secondLanguage || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'إجادة الإنجليزية' : 'English Proficiency'}</p><p className="font-bold text-gray-900">{student.identityInfo?.englishProficiency || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'العام الدراسي' : 'Academic Year'}</p><p className="font-bold text-gray-900">{student.identityInfo?.academicYear || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'تاريخ الميلاد' : 'Date of Birth'}</p><p className="font-bold text-gray-900">{student.dob || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الرقم القومي' : 'National ID'}</p><p className="font-bold text-gray-900">{student.nationalId || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'تاريخ الالتحاق' : 'Enrollment Date'}</p><p className="font-bold text-gray-900">{student.enrollmentDate || '—'}</p></div>
+                <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول (عربي)' : 'First Name (AR)'} value={basicDraft.identityInfo.firstNameAr || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, firstNameAr: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير (عربي)' : 'Last Name (AR)'} value={basicDraft.identityInfo.lastNameAr || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, lastNameAr: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول (إنجليزي)' : 'First Name (EN)'} value={basicDraft.identityInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, firstName: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير (إنجليزي)' : 'Last Name (EN)'} value={basicDraft.identityInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, lastName: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الجنس' : 'Gender'} value={basicDraft.identityInfo.gender || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, gender: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الديانة' : 'Religion'} value={basicDraft.identityInfo.religion || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, religion: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الجنسية' : 'Nationality'} value={basicDraft.identityInfo.nationality || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, nationality: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الجنسية الثانية' : '2nd Nationality'} value={basicDraft.identityInfo.secondNationality || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, secondNationality: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'اللغة الأم' : 'Native Language'} value={basicDraft.identityInfo.nativeLanguage || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, nativeLanguage: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'اللغة الثانية' : '2nd Language'} value={basicDraft.identityInfo.secondLanguage || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, secondLanguage: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'إجادة الإنجليزية' : 'English Proficiency'} value={basicDraft.identityInfo.englishProficiency || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, englishProficiency: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'العام الدراسي' : 'Academic Year'} value={basicDraft.identityInfo.academicYear || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, academicYear: v } })} />
+                <Field editing={isEditingBasic} type="date" label={isRTL ? 'تاريخ الميلاد' : 'Date of Birth'} value={basicDraft.dob} onChange={(v) => setBasicDraft({ ...basicDraft, dob: v })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الرقم القومي' : 'National ID'} value={basicDraft.nationalId} onChange={(v) => setBasicDraft({ ...basicDraft, nationalId: v })} />
+                <Field editing={isEditingBasic} type="date" label={isRTL ? 'تاريخ الالتحاق' : 'Enrollment Date'} value={basicDraft.enrollmentDate} onChange={(v) => setBasicDraft({ ...basicDraft, enrollmentDate: v })} />
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'الوالدين وولي الأمر' : 'Parents & Guardian'}</h3>
-              <div className="space-y-4 text-sm">
-                <div>
-                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'الأب' : 'Father'}</p>
-                  <p className="font-bold text-gray-900">{[student.fatherInfo?.firstName, student.fatherInfo?.secondName, student.fatherInfo?.thirdName, student.fatherInfo?.lastName].filter(Boolean).join(' ') || '—'}</p>
-                  <p className="text-gray-500 text-xs">{student.fatherInfo?.mobile || ''} {student.fatherInfo?.email ? `• ${student.fatherInfo.email}` : ''}</p>
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'الوالدين وولي الأمر' : 'Parents & Guardian'}</h3>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? 'الأب' : 'Father'}</p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First Name'} value={basicDraft.fatherInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, firstName: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير' : 'Last Name'} value={basicDraft.fatherInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, lastName: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'الموبايل' : 'Mobile'} value={basicDraft.fatherInfo.mobile || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, mobile: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'البريد الإلكتروني' : 'Email'} value={basicDraft.fatherInfo.email || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, email: v } })} />
                 </div>
-                <div>
-                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'الأم' : 'Mother'}</p>
-                  <p className="font-bold text-gray-900">{[student.motherInfo?.firstName, student.motherInfo?.secondName, student.motherInfo?.thirdName, student.motherInfo?.lastName].filter(Boolean).join(' ') || '—'}</p>
-                  <p className="text-gray-500 text-xs">{student.motherInfo?.mobile || ''} {student.motherInfo?.email ? `• ${student.motherInfo.email}` : ''}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? 'الأم' : 'Mother'}</p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First Name'} value={basicDraft.motherInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, firstName: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير' : 'Last Name'} value={basicDraft.motherInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, lastName: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'الموبايل' : 'Mobile'} value={basicDraft.motherInfo.mobile || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, mobile: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'البريد الإلكتروني' : 'Email'} value={basicDraft.motherInfo.email || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, email: v } })} />
                 </div>
-                <div>
-                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'ولي الأمر' : 'Legal Guardian'}</p>
-                  <p className="font-bold text-gray-900">{student.legalGuardian || '—'}</p>
-                  <p className="text-gray-500 text-xs">{student.guardianRelationship || ''}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? 'ولي الأمر' : 'Legal Guardian'}</p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم' : 'Name'} value={basicDraft.legalGuardian} onChange={(v) => setBasicDraft({ ...basicDraft, legalGuardian: v })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'صلة القرابة' : 'Relationship'} value={basicDraft.guardianRelationship} onChange={(v) => setBasicDraft({ ...basicDraft, guardianRelationship: v })} />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'جهات اتصال الطوارئ' : 'Emergency Contacts'}</h3>
-              <div className="space-y-4 text-sm">
-                {[student.emergencyContact1, student.emergencyContact2].filter(Boolean).map((c, i) => (
-                  <div key={i} className="p-3 bg-gray-50 rounded-xl">
-                    <p className="font-bold text-gray-900">{[c?.firstName, c?.secondName, c?.thirdName, c?.lastName].filter(Boolean).join(' ') || '—'}</p>
-                    <p className="text-gray-500 text-xs">{c?.relativity || ''} {c?.mobile ? `• ${c.mobile}` : ''}</p>
+            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'جهات اتصال الطوارئ' : 'Emergency Contacts'}</h3>
+              {[1, 2].map((n) => {
+                const key = n === 1 ? 'emergencyContact1' : 'emergencyContact2';
+                const c: any = (basicDraft as any)[key] || {};
+                return (
+                  <div key={n}>
+                    <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? `جهة اتصال ${n}` : `Contact ${n}`}</p>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First Name'} value={c.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, [key]: { ...c, firstName: v } } as any)} />
+                      <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير' : 'Last Name'} value={c.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, [key]: { ...c, lastName: v } } as any)} />
+                      <Field editing={isEditingBasic} label={isRTL ? 'صلة القرابة' : 'Relation'} value={c.relativity || ''} onChange={(v) => setBasicDraft({ ...basicDraft, [key]: { ...c, relativity: v } } as any)} />
+                      <Field editing={isEditingBasic} label={isRTL ? 'الموبايل' : 'Mobile'} value={c.mobile || ''} onChange={(v) => setBasicDraft({ ...basicDraft, [key]: { ...c, mobile: v } } as any)} />
+                    </div>
                   </div>
-                ))}
-                {!student.emergencyContact1 && !student.emergencyContact2 && <p className="text-gray-400 text-sm">{isRTL ? 'مفيش جهات اتصال مسجّلة.' : 'No emergency contacts on file.'}</p>}
-              </div>
+                );
+              })}
             </div>
 
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
               <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'العنوان' : 'Home Address'}</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'المدينة' : 'City'}</p><p className="font-bold text-gray-900">{student.homeAddress?.city || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'المنطقة' : 'Area'}</p><p className="font-bold text-gray-900">{student.homeAddress?.area || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الشارع' : 'Street'}</p><p className="font-bold text-gray-900">{student.homeAddress?.street || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'المبنى' : 'Building'}</p><p className="font-bold text-gray-900">{student.homeAddress?.building || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الشقة' : 'Apartment'}</p><p className="font-bold text-gray-900">{student.homeAddress?.apartment || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الأرضي' : 'Landline'}</p><p className="font-bold text-gray-900">{student.homeAddress?.landline || '—'}</p></div>
+                <Field editing={isEditingBasic} label={isRTL ? 'المدينة' : 'City'} value={basicDraft.homeAddress.city || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, city: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'المنطقة' : 'Area'} value={basicDraft.homeAddress.area || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, area: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الشارع' : 'Street'} value={basicDraft.homeAddress.street || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, street: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'المبنى' : 'Building'} value={basicDraft.homeAddress.building || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, building: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الشقة' : 'Apartment'} value={basicDraft.homeAddress.apartment || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, apartment: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الأرضي' : 'Landline'} value={basicDraft.homeAddress.landline || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, landline: v } })} />
               </div>
             </div>
 
             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2">
               <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'معلومات إضافية' : 'Additional Information'}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'خدمة الباص' : 'Bus Service'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.busService || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'إخوة بالمدرسة' : 'Has Siblings'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.hasSiblings || '—'}</p></div>
-                {student.additionalInfo?.hasSiblings === 'Yes' && (
-                  <>
-                    <div><p className="text-gray-400 text-xs">{isRTL ? 'اسم الأخ/الأخت' : 'Sibling Name'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.siblingName || '—'}</p></div>
-                    <div><p className="text-gray-400 text-xs">{isRTL ? 'صف الأخ/الأخت' : 'Sibling Grade'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.siblingYearGroup || '—'}</p></div>
-                  </>
-                )}
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'تقدّم من قبل' : 'Applied Before'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.appliedBefore || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'الهوايات' : 'Hobbies'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.hobbies || '—'}</p></div>
-                <div><p className="text-gray-400 text-xs">{isRTL ? 'مصدر المعرفة بالمدرسة' : 'Marketing Source'}</p><p className="font-bold text-gray-900">{student.additionalInfo?.marketing || '—'}</p></div>
+                <Field editing={isEditingBasic} label={isRTL ? 'خدمة الباص' : 'Bus Service'} value={basicDraft.additionalInfo.busService || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, busService: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'إخوة بالمدرسة (Yes/No)' : 'Has Siblings (Yes/No)'} value={basicDraft.additionalInfo.hasSiblings || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, hasSiblings: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'اسم الأخ/الأخت' : 'Sibling Name'} value={basicDraft.additionalInfo.siblingName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, siblingName: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'صف الأخ/الأخت' : 'Sibling Grade'} value={basicDraft.additionalInfo.siblingYearGroup || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, siblingYearGroup: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'تقدّم من قبل (Yes/No)' : 'Applied Before (Yes/No)'} value={basicDraft.additionalInfo.appliedBefore || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, appliedBefore: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'الهوايات' : 'Hobbies'} value={basicDraft.additionalInfo.hobbies || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, hobbies: v } })} />
+                <Field editing={isEditingBasic} label={isRTL ? 'مصدر المعرفة بالمدرسة' : 'Marketing Source'} value={basicDraft.additionalInfo.marketing || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, marketing: v } })} />
               </div>
-              {student.additionalInfo?.additionalNotes && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'ملاحظات إضافية' : 'Additional Notes'}</p>
-                  <p className="text-gray-700 text-sm">{student.additionalInfo.additionalNotes}</p>
-                </div>
-              )}
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-gray-400 text-xs mb-1">{isRTL ? 'ملاحظات إضافية' : 'Additional Notes'}</p>
+                {isEditingBasic ? (
+                  <textarea
+                    value={basicDraft.additionalInfo.additionalNotes || ''}
+                    onChange={(e) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, additionalNotes: e.target.value } })}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[80px]"
+                  />
+                ) : (
+                  <p className="text-gray-700 text-sm">{basicDraft.additionalInfo.additionalNotes || '—'}</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1037,26 +1254,69 @@ Result: ${doc.gradeAverage}`;
 
       {/* ============ البيانات الطبية ============ */}
       {activeSection === 'medical' && (
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'الحالة الطبية' : 'Medical Status'}</h3>
-          {student.additionalInfo?.hasMedical === 'Yes' || student.additionalInfo?.hasMedication === 'Yes' ? (
-            <div className="space-y-4">
-              {student.additionalInfo?.hasMedical === 'Yes' && (
-                <div className="p-4 bg-red-50 border border-red-100 rounded-2xl">
-                  <p className="text-xs font-bold text-red-600 uppercase mb-1">{isRTL ? 'حالة طبية' : 'Medical Condition'}</p>
-                  <p className="text-sm text-gray-800">{student.additionalInfo.medicalDetails || (isRTL ? 'مفيش تفاصيل مسجّلة.' : 'No details on file.')}</p>
-                </div>
-              )}
-              {student.additionalInfo?.hasMedication === 'Yes' && (
-                <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
-                  <p className="text-xs font-bold text-amber-600 uppercase mb-1">{isRTL ? 'أدوية' : 'Medication'}</p>
-                  <p className="text-sm text-gray-800">{student.additionalInfo.medicationDetails || (isRTL ? 'مفيش تفاصيل مسجّلة.' : 'No details on file.')}</p>
-                </div>
-              )}
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'الملف الطبي' : 'Medical File'}</h3>
+              <button onClick={handleSaveMedical} disabled={isSavingMedical} className="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-bold">
+                {isSavingMedical ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'حفظ' : 'Save')}
+              </button>
             </div>
-          ) : (
-            <p className="text-gray-400 text-sm">{isRTL ? 'مفيش حالات طبية أو أدوية مسجّلة لهذا الطالب.' : 'No medical conditions or medications on file for this student.'}</p>
-          )}
+            {isLoadingMedical ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
+            ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field editing={true} label={isRTL ? 'فصيلة الدم' : 'Blood Type'} value={medicalInfo.bloodType} onChange={(v) => setMedicalInfo({ ...medicalInfo, bloodType: v })} />
+              <Field editing={true} label={isRTL ? 'الحساسية' : 'Allergies'} value={medicalInfo.allergies} onChange={(v) => setMedicalInfo({ ...medicalInfo, allergies: v })} />
+              <Field editing={true} full label={isRTL ? 'أمراض مزمنة / حالات طبية' : 'Chronic Conditions'} value={medicalInfo.chronicConditions} onChange={(v) => setMedicalInfo({ ...medicalInfo, chronicConditions: v })} />
+              <Field editing={true} label={isRTL ? 'اسم الطبيب المتابع' : "Doctor's Name"} value={medicalInfo.doctorName} onChange={(v) => setMedicalInfo({ ...medicalInfo, doctorName: v })} />
+              <Field editing={true} label={isRTL ? 'رقم الطبيب' : "Doctor's Phone"} value={medicalInfo.doctorPhone} onChange={(v) => setMedicalInfo({ ...medicalInfo, doctorPhone: v })} />
+              <Field editing={true} label={isRTL ? 'شركة التأمين' : 'Insurance Provider'} value={medicalInfo.insuranceProvider} onChange={(v) => setMedicalInfo({ ...medicalInfo, insuranceProvider: v })} />
+              <Field editing={true} label={isRTL ? 'رقم التأمين' : 'Insurance Number'} value={medicalInfo.insuranceNumber} onChange={(v) => setMedicalInfo({ ...medicalInfo, insuranceNumber: v })} />
+            </div>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'زيارات العيادة' : 'Clinic Visits'}</h3>
+              <button onClick={() => setIsAddingVisit(!isAddingVisit)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                <Plus size={16} /> {isRTL ? 'إضافة زيارة' : 'Add Visit'}
+              </button>
+            </div>
+            {isAddingVisit && (
+              <div className="p-4 bg-gray-50 rounded-2xl mb-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field editing={true} type="date" label={isRTL ? 'تاريخ الزيارة' : 'Visit Date'} value={newVisit.visitDate} onChange={(v) => setNewVisit({ ...newVisit, visitDate: v })} />
+                  <Field editing={true} label={isRTL ? 'السبب' : 'Reason'} value={newVisit.reason} onChange={(v) => setNewVisit({ ...newVisit, reason: v })} />
+                </div>
+                <textarea value={newVisit.notes} onChange={(e) => setNewVisit({ ...newVisit, notes: e.target.value })} placeholder={isRTL ? 'ملاحظات...' : 'Notes...'} className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[70px]" />
+                <div className="flex gap-2">
+                  <button onClick={handleAddVisit} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold">{isRTL ? 'حفظ' : 'Save'}</button>
+                  <button onClick={() => setIsAddingVisit(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-bold">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                </div>
+              </div>
+            )}
+            {clinicVisits.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'مفيش زيارات مسجّلة لسه.' : 'No visits recorded yet.'}</p>
+            ) : (
+              <div className="space-y-2">
+                {clinicVisits.map(v => (
+                  <div key={v.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-start justify-between">
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{v.reason || (isRTL ? 'بدون سبب مسجّل' : 'No reason noted')}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{v.visitDate}</p>
+                      {v.notes && <p className="text-sm text-gray-600 mt-2">{v.notes}</p>}
+                      <p className="text-[11px] text-gray-400 mt-2">{v.recordedBy}</p>
+                    </div>
+                    <button onClick={() => handleDeleteVisit(v.id)} className="text-gray-300 hover:text-red-500 shrink-0">
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1064,59 +1324,62 @@ Result: ${doc.gradeAverage}`;
       {activeSection === 'behavioral' && (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'إضافة ملاحظة سلوكية' : 'Add Behavioral Note'}</h3>
-            <div className="flex gap-2 mb-3">
-              {(['positive', 'neutral', 'negative'] as const).map(type => (
-                <button
-                  key={type}
-                  onClick={() => setNewNoteType(type)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-                    newNoteType === type
-                      ? type === 'positive' ? 'bg-green-600 text-white' : type === 'negative' ? 'bg-red-600 text-white' : 'bg-gray-600 text-white'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  {type === 'positive' ? (isRTL ? 'إيجابية' : 'Positive') : type === 'negative' ? (isRTL ? 'سلبية' : 'Negative') : (isRTL ? 'محايدة' : 'Neutral')}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'تسجيل واقعة سلوكية' : 'Record Behavioral Incident'}</h3>
+              <button onClick={() => setIsAddingIncident(!isAddingIncident)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                <Plus size={16} /> {isRTL ? 'إضافة واقعة' : 'Add Incident'}
+              </button>
             </div>
-            <textarea
-              value={newNoteContent}
-              onChange={(e) => setNewNoteContent(e.target.value)}
-              placeholder={isRTL ? 'اكتبي الملاحظة هنا...' : 'Write the note here...'}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 min-h-[100px] mb-3 outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-            />
-            <Button onClick={handleAddBehaviorNote} disabled={isSavingNote || !newNoteContent.trim()} className="px-6">
-              {isSavingNote ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'إضافة الملاحظة' : 'Add Note')}
-            </Button>
+            {isAddingIncident && (
+              <div className="p-4 bg-gray-50 rounded-2xl space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field editing={true} type="date" label={isRTL ? 'التاريخ' : 'Date'} value={newIncident.incidentDate} onChange={(v) => setNewIncident({ ...newIncident, incidentDate: v })} />
+                  <Field editing={true} type="time" label={isRTL ? 'الوقت' : 'Time'} value={newIncident.incidentTime} onChange={(v) => setNewIncident({ ...newIncident, incidentTime: v })} />
+                </div>
+                <Field editing={true} label={isRTL ? 'المشكلة' : 'Problem'} value={newIncident.problemTitle} onChange={(v) => setNewIncident({ ...newIncident, problemTitle: v })} />
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'الوصف' : 'Description'}</p>
+                  <textarea value={newIncident.description} onChange={(e) => setNewIncident({ ...newIncident, description: e.target.value })} className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[70px]" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'الإجراء المُتخذ' : 'Action Taken'}</p>
+                  <textarea value={newIncident.actionTaken} onChange={(e) => setNewIncident({ ...newIncident, actionTaken: e.target.value })} className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[60px]" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddIncident} disabled={isSavingIncident} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold">{isSavingIncident ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? 'حفظ' : 'Save')}</button>
+                  <button onClick={() => setIsAddingIncident(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-bold">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'سجل الملاحظات' : 'Notes History'}</h3>
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'السجل السلوكي' : 'Behavioral History'}</h3>
             {isLoadingBehavior ? (
               <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
-            ) : behaviorNotes.length === 0 ? (
-              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'مفيش ملاحظات مسجّلة لسه.' : 'No notes recorded yet.'}</p>
+            ) : behaviorIncidents.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'مفيش وقائع مسجّلة لسه.' : 'No incidents recorded yet.'}</p>
             ) : (
               <div className="space-y-3">
-                {behaviorNotes.map(note => (
-                  <div key={note.id} className={`p-4 rounded-2xl border ${
-                    note.noteType === 'positive' ? 'bg-green-50 border-green-100' :
-                    note.noteType === 'negative' ? 'bg-red-50 border-red-100' : 'bg-gray-50 border-gray-100'
-                  }`}>
+                {behaviorIncidents.map(inc => (
+                  <div key={inc.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        note.noteType === 'positive' ? 'bg-green-100 text-green-700' :
-                        note.noteType === 'negative' ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-600'
-                      }`}>
-                        {note.noteType === 'positive' ? (isRTL ? 'إيجابية' : 'Positive') : note.noteType === 'negative' ? (isRTL ? 'سلبية' : 'Negative') : (isRTL ? 'محايدة' : 'Neutral')}
-                      </span>
-                      <button onClick={() => handleDeleteBehaviorNote(note.id)} className="text-gray-300 hover:text-red-500">
+                      <div>
+                        <p className="font-bold text-gray-900 text-sm">{inc.problemTitle}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{inc.incidentDate} {inc.incidentTime ? `• ${inc.incidentTime}` : ''}</p>
+                      </div>
+                      <button onClick={() => handleDeleteIncident(inc.id)} className="text-gray-300 hover:text-red-500">
                         <X size={14} />
                       </button>
                     </div>
-                    <p className="text-sm text-gray-800">{note.content}</p>
-                    <p className="text-[11px] text-gray-400 mt-2">{note.authorName} • {new Date(note.createdAt).toLocaleString(isRTL ? 'ar-EG' : 'en-US')}</p>
+                    {inc.description && <p className="text-sm text-gray-700 mt-2">{inc.description}</p>}
+                    {inc.actionTaken && (
+                      <div className="mt-2 p-2 bg-white rounded-lg border border-gray-100">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">{isRTL ? 'الإجراء المُتخذ' : 'Action Taken'}</p>
+                        <p className="text-sm text-gray-700">{inc.actionTaken}</p>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-gray-400 mt-2">{inc.recordedBy}</p>
                   </div>
                 ))}
               </div>
@@ -1154,6 +1417,161 @@ Result: ${doc.gradeAverage}`;
                   <div key={msg.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                     <p className="text-sm text-gray-800">{msg.content}</p>
                     <p className="text-[11px] text-gray-400 mt-2">{msg.senderName} • {new Date(msg.createdAt).toLocaleString(isRTL ? 'ar-EG' : 'en-US')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============ الحضور والإنذارات ============ */}
+      {activeSection === 'attendance' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="text-sm text-gray-500 font-medium mb-1">{isRTL ? 'نسبة الحضور' : 'Attendance Rate'}</p>
+              <h3 className="text-3xl font-bold text-gray-900">{isLoadingAttendanceTab ? '...' : `${attendanceSummary.attendanceRate}%`}</h3>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="text-sm text-gray-500 font-medium mb-1">{isRTL ? 'إجمالي الغياب' : 'Total Absences'}</p>
+              <h3 className="text-3xl font-bold text-red-600">{isLoadingAttendanceTab ? '...' : attendanceSummary.absentCount}</h3>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <p className="text-sm text-gray-500 font-medium mb-1">{isRTL ? 'إجمالي التأخير' : 'Total Late Arrivals'}</p>
+              <h3 className="text-3xl font-bold text-yellow-600">{isLoadingAttendanceTab ? '...' : attendanceSummary.lateCount}</h3>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'الإنذارات' : 'Warnings'}</h3>
+              <button onClick={() => setIsAddingWarning(!isAddingWarning)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                <Plus size={16} /> {isRTL ? 'إصدار إنذار' : 'Issue Warning'}
+              </button>
+            </div>
+            {isAddingWarning && (
+              <div className="p-4 bg-gray-50 rounded-2xl mb-4 space-y-3">
+                <Field editing={true} type="date" label={isRTL ? 'تاريخ الإنذار' : 'Warning Date'} value={newWarning.warningDate} onChange={(v) => setNewWarning({ ...newWarning, warningDate: v })} />
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'السبب' : 'Reason'}</p>
+                  <textarea value={newWarning.reason} onChange={(e) => setNewWarning({ ...newWarning, reason: e.target.value })} className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[70px]" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddWarning} className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold">{isRTL ? 'إصدار' : 'Issue'}</button>
+                  <button onClick={() => setIsAddingWarning(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-bold">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                </div>
+              </div>
+            )}
+            {isLoadingAttendanceTab ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
+            ) : warnings.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'مفيش إنذارات سابقة.' : 'No previous warnings.'}</p>
+            ) : (
+              <div className="space-y-2">
+                {warnings.map(w => (
+                  <div key={w.id} className="p-4 bg-red-50 border border-red-100 rounded-2xl">
+                    <p className="text-xs font-bold text-red-600">{w.warningDate}</p>
+                    <p className="text-sm text-gray-800 mt-1">{w.reason}</p>
+                    <p className="text-[11px] text-gray-400 mt-2">{w.issuedBy}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============ الإجراءات الإدارية ============ */}
+      {activeSection === 'admin' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'الإجراءات الإدارية / العقوبات' : 'Administrative Actions / Penalties'}</h3>
+              <button onClick={() => setIsAddingAction(!isAddingAction)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                <Plus size={16} /> {isRTL ? 'إضافة إجراء' : 'Add Action'}
+              </button>
+            </div>
+            {isAddingAction && (
+              <div className="p-4 bg-gray-50 rounded-2xl mb-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field editing={true} type="date" label={isRTL ? 'التاريخ' : 'Date'} value={newAction.actionDate} onChange={(v) => setNewAction({ ...newAction, actionDate: v })} />
+                  <Field editing={true} label={isRTL ? 'نوع الإجراء' : 'Action Type'} value={newAction.actionType} onChange={(v) => setNewAction({ ...newAction, actionType: v })} />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'السبب' : 'Reason'}</p>
+                  <textarea value={newAction.reason} onChange={(e) => setNewAction({ ...newAction, reason: e.target.value })} className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[70px]" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddAdminAction} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold">{isRTL ? 'حفظ' : 'Save'}</button>
+                  <button onClick={() => setIsAddingAction(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-bold">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                </div>
+              </div>
+            )}
+            {isLoadingAdmin ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
+            ) : adminActions.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'مفيش إجراءات مسجّلة.' : 'No actions recorded.'}</p>
+            ) : (
+              <div className="space-y-2">
+                {adminActions.map(a => (
+                  <div key={a.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-start justify-between">
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{a.actionType}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{a.actionDate}</p>
+                      {a.reason && <p className="text-sm text-gray-600 mt-2">{a.reason}</p>}
+                      <p className="text-[11px] text-gray-400 mt-2">{a.issuedBy}</p>
+                    </div>
+                    <button onClick={() => handleDeleteAdminAction(a.id)} className="text-gray-300 hover:text-red-500 shrink-0">
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900">{isRTL ? 'استدعاء ولي الأمر' : 'Guardian Summons'}</h3>
+              <button onClick={() => setIsAddingSummon(!isAddingSummon)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                <Plus size={16} /> {isRTL ? 'تسجيل استدعاء' : 'Record Summon'}
+              </button>
+            </div>
+            {isAddingSummon && (
+              <div className="p-4 bg-gray-50 rounded-2xl mb-4 space-y-3">
+                <Field editing={true} type="date" label={isRTL ? 'تاريخ الاستدعاء' : 'Summon Date'} value={newSummon.summonDate} onChange={(v) => setNewSummon({ ...newSummon, summonDate: v })} />
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'سبب الاستدعاء' : 'Reason for Summon'}</p>
+                  <textarea value={newSummon.reason} onChange={(e) => setNewSummon({ ...newSummon, reason: e.target.value })} className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[60px]" />
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">{isRTL ? 'اللي تم في الاجتماع' : 'What Was Discussed'}</p>
+                  <textarea value={newSummon.outcome} onChange={(e) => setNewSummon({ ...newSummon, outcome: e.target.value })} className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[70px]" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddSummon} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold">{isRTL ? 'حفظ' : 'Save'}</button>
+                  <button onClick={() => setIsAddingSummon(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-bold">{isRTL ? 'إلغاء' : 'Cancel'}</button>
+                </div>
+              </div>
+            )}
+            {isLoadingAdmin ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'جاري التحميل...' : 'Loading...'}</p>
+            ) : guardianSummons.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-8">{isRTL ? 'مفيش استدعاءات مسجّلة.' : 'No summons recorded.'}</p>
+            ) : (
+              <div className="space-y-2">
+                {guardianSummons.map(s => (
+                  <div key={s.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <p className="text-xs font-bold text-gray-500">{s.summonDate}</p>
+                    {s.reason && <p className="text-sm font-bold text-gray-900 mt-1">{s.reason}</p>}
+                    {s.outcome && (
+                      <div className="mt-2 p-2 bg-white rounded-lg border border-gray-100">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">{isRTL ? 'اللي تم' : 'Outcome'}</p>
+                        <p className="text-sm text-gray-700">{s.outcome}</p>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-gray-400 mt-2">{s.attendedBy}</p>
                   </div>
                 ))}
               </div>
@@ -1263,7 +1681,7 @@ Result: ${doc.gradeAverage}`;
             <div className="text-right">
                <p className="text-slate-400 text-xs uppercase mb-1">المتبقي</p>
                <p className="text-4xl font-extrabold text-violet-700">
-                  {new Intl.NumberFormat(isRTL ? 'ar-LY' : 'en-LY', { style: 'currency', currency: 'LYD' }).format(totalFees - paidFees)}
+                  {new Intl.NumberFormat(isRTL ? 'ar-EG' : 'en-US', { style: 'currency', currency: 'EGP' }).format(totalFees - paidFees)}
                </p>
             </div>
          </div>
@@ -1274,7 +1692,7 @@ Result: ${doc.gradeAverage}`;
                      <span className="text-slate-500 font-medium">قسط {i+1}</span>
                      <span className={ins.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full text-sm inline-block w-fit' : 'bg-violet-50 text-violet-700 font-bold px-3 py-1 rounded-full text-sm inline-block w-fit'}>{ins.status === 'Paid' ? (isRTL ? 'مدفوع' : 'Paid') : ins.status === 'Pending' ? (isRTL ? 'قيد الانتظار' : 'Pending') : ins.status}</span>
                   </div>
-                  <p className="font-mono text-xl font-bold text-slate-800">{new Intl.NumberFormat(isRTL ? 'ar-LY' : 'en-LY', {style: 'currency', currency: 'LYD'}).format(ins.amount)}</p>
+                  <p className="font-mono text-xl font-bold text-slate-800">{new Intl.NumberFormat(isRTL ? 'ar-EG' : 'en-US', {style: 'currency', currency: 'EGP'}).format(ins.amount)}</p>
                   <p className="text-sm text-slate-500 mt-1">{ins.dueDate}</p>
                </div>
             ))}
