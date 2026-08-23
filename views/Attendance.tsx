@@ -58,6 +58,17 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     { id: 'late', label: t('متأخر', 'Late'), color: 'bg-yellow-500' },
     { id: 'excused', label: t('معذور', 'Excused'), color: 'bg-blue-500' }
   ]);
+
+  // تسميات الحالات الافتراضية بتتحدث تلقائي لو اللغة اتغيّرت — الحالات المخصّصة (اللي المستخدم ضافها بنفسه) مبتتلمسش
+  const DEFAULT_STATUS_LABELS: Record<string, { ar: string; en: string }> = {
+    present: { ar: 'حاضر', en: 'Present' },
+    absent: { ar: 'غائب', en: 'Absent' },
+    late: { ar: 'متأخر', en: 'Late' },
+    excused: { ar: 'معذور', en: 'Excused' },
+  };
+  React.useEffect(() => {
+    setStatuses(prev => prev.map(s => DEFAULT_STATUS_LABELS[s.id] ? { ...s, label: isRTL ? DEFAULT_STATUS_LABELS[s.id].ar : DEFAULT_STATUS_LABELS[s.id].en } : s));
+  }, [isRTL]);
   const [isAddingStatus, setIsAddingStatus] = useState(false);
   const [newStatusLabel, setNewStatusLabel] = useState('');
   const [newStatusColor, setNewStatusColor] = useState('bg-purple-500');
