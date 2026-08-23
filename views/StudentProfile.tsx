@@ -135,21 +135,36 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, languag
   const currentUserName = isRTL ? 'المشرف' : 'Admin';
 
   // عنصر مساعد: يعرض القيمة للقراءة، أو حقل إدخال واضح للتعديل — بيتكرر في كل أقسام البيانات الأساسية والطبية
-  const Field: React.FC<{ label: string; value: string; onChange: (v: string) => void; editing: boolean; type?: string; full?: boolean }> = ({ label, value, onChange, editing, type = 'text', full }) => (
+  const Field: React.FC<{ label: string; value: string; onChange: (v: string) => void; editing: boolean; type?: string; full?: boolean; options?: string[] }> = ({ label, value, onChange, editing, type = 'text', full, options }) => (
     <div className={full ? 'md:col-span-2' : ''}>
       <p className="text-gray-400 text-xs mb-1">{label}</p>
       {editing ? (
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
-        />
+        options ? (
+          <select
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <option value="">{isRTL ? 'اختاري...' : 'Select...'}</option>
+            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+        ) : (
+          <input
+            type={type}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+          />
+        )
       ) : (
         <p className="font-bold text-gray-900">{value || '—'}</p>
       )}
     </div>
   );
+
+  const NATIONALITIES = ['Egyptian', 'American', 'British', 'Canadian', 'Australian', 'French', 'German', 'Other'];
+  const YES_NO = ['Yes', 'No'];
+  const GRADE_LEVELS_LIST = ['FS1', 'FS2', 'Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Year 6', 'Year 7', 'Year 8', 'Year 9', 'Year 10', 'Year 11', 'Year 12', 'Year 13'];
 
   // ---- تعديل البيانات الأساسية ----
   const [isEditingBasic, setIsEditingBasic] = useState(false);
@@ -1128,7 +1143,7 @@ Result: ${doc.gradeAverage}`;
 
       {/* ============ البيانات الأساسية ============ */}
       {activeSection === 'basic' && (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-4xl">
           <div className="flex justify-end">
             {isEditingBasic ? (
               <div className="flex gap-2">
@@ -1142,20 +1157,35 @@ Result: ${doc.gradeAverage}`;
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'الهوية' : 'Identity'}</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول (عربي)' : 'First Name (AR)'} value={basicDraft.identityInfo.firstNameAr || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, firstNameAr: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير (عربي)' : 'Last Name (AR)'} value={basicDraft.identityInfo.lastNameAr || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, lastNameAr: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول (إنجليزي)' : 'First Name (EN)'} value={basicDraft.identityInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, firstName: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير (إنجليزي)' : 'Last Name (EN)'} value={basicDraft.identityInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, lastName: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الجنس' : 'Gender'} value={basicDraft.identityInfo.gender || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, gender: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الديانة' : 'Religion'} value={basicDraft.identityInfo.religion || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, religion: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الجنسية' : 'Nationality'} value={basicDraft.identityInfo.nationality || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, nationality: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الجنسية الثانية' : '2nd Nationality'} value={basicDraft.identityInfo.secondNationality || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, secondNationality: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'اللغة الأم' : 'Native Language'} value={basicDraft.identityInfo.nativeLanguage || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, nativeLanguage: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'اللغة الثانية' : '2nd Language'} value={basicDraft.identityInfo.secondLanguage || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, secondLanguage: v } })} />
+          {/* الهوية */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'الهوية' : 'Identity'}</h3>
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? 'الاسم بالعربي (رباعي)' : 'Arabic Name (4 parts)'}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First'} value={basicDraft.identityInfo.firstNameAr || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, firstNameAr: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الثاني' : 'Second'} value={basicDraft.identityInfo.secondNameAr || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, secondNameAr: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الثالث' : 'Third'} value={basicDraft.identityInfo.thirdNameAr || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, thirdNameAr: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'اسم العائلة' : 'Last'} value={basicDraft.identityInfo.lastNameAr || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, lastNameAr: v } })} />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? 'الاسم بالإنجليزي (رباعي)' : 'English Name (4 parts)'}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First'} value={basicDraft.identityInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, firstName: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الثاني' : 'Second'} value={basicDraft.identityInfo.secondName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, secondName: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الثالث' : 'Third'} value={basicDraft.identityInfo.thirdName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, thirdName: v } })} />
+                  <Field editing={isEditingBasic} label={isRTL ? 'اسم العائلة' : 'Last'} value={basicDraft.identityInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, lastName: v } })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm pt-2">
+                <Field editing={isEditingBasic} options={['Male', 'Female']} label={isRTL ? 'الجنس' : 'Gender'} value={basicDraft.identityInfo.gender || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, gender: v } })} />
+                <Field editing={isEditingBasic} options={['Muslim', 'Christian']} label={isRTL ? 'الديانة' : 'Religion'} value={basicDraft.identityInfo.religion || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, religion: v } })} />
+                <Field editing={isEditingBasic} options={NATIONALITIES} label={isRTL ? 'الجنسية' : 'Nationality'} value={basicDraft.identityInfo.nationality || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, nationality: v } })} />
+                <Field editing={isEditingBasic} options={['None', ...NATIONALITIES]} label={isRTL ? 'الجنسية الثانية' : '2nd Nationality'} value={basicDraft.identityInfo.secondNationality || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, secondNationality: v } })} />
+                <Field editing={isEditingBasic} options={['Arabic', 'English']} label={isRTL ? 'اللغة الأم' : 'Native Language'} value={basicDraft.identityInfo.nativeLanguage || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, nativeLanguage: v } })} />
+                <Field editing={isEditingBasic} options={['English', 'French', 'German', 'None']} label={isRTL ? 'اللغة الثانية' : '2nd Language'} value={basicDraft.identityInfo.secondLanguage || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, secondLanguage: v } })} />
                 <Field editing={isEditingBasic} label={isRTL ? 'إجادة الإنجليزية' : 'English Proficiency'} value={basicDraft.identityInfo.englishProficiency || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, englishProficiency: v } })} />
                 <Field editing={isEditingBasic} label={isRTL ? 'العام الدراسي' : 'Academic Year'} value={basicDraft.identityInfo.academicYear || ''} onChange={(v) => setBasicDraft({ ...basicDraft, identityInfo: { ...basicDraft.identityInfo, academicYear: v } })} />
                 <Field editing={isEditingBasic} type="date" label={isRTL ? 'تاريخ الميلاد' : 'Date of Birth'} value={basicDraft.dob} onChange={(v) => setBasicDraft({ ...basicDraft, dob: v })} />
@@ -1163,45 +1193,50 @@ Result: ${doc.gradeAverage}`;
                 <Field editing={isEditingBasic} type="date" label={isRTL ? 'تاريخ الالتحاق' : 'Enrollment Date'} value={basicDraft.enrollmentDate} onChange={(v) => setBasicDraft({ ...basicDraft, enrollmentDate: v })} />
               </div>
             </div>
+          </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
-              <h3 className="font-bold text-gray-900">{isRTL ? 'الوالدين وولي الأمر' : 'Parents & Guardian'}</h3>
-              <div>
-                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? 'الأب' : 'Father'}</p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First Name'} value={basicDraft.fatherInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, firstName: v } })} />
-                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير' : 'Last Name'} value={basicDraft.fatherInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, lastName: v } })} />
-                  <Field editing={isEditingBasic} label={isRTL ? 'الموبايل' : 'Mobile'} value={basicDraft.fatherInfo.mobile || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, mobile: v } })} />
-                  <Field editing={isEditingBasic} label={isRTL ? 'البريد الإلكتروني' : 'Email'} value={basicDraft.fatherInfo.email || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, email: v } })} />
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? 'الأم' : 'Mother'}</p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First Name'} value={basicDraft.motherInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, firstName: v } })} />
-                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير' : 'Last Name'} value={basicDraft.motherInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, lastName: v } })} />
-                  <Field editing={isEditingBasic} label={isRTL ? 'الموبايل' : 'Mobile'} value={basicDraft.motherInfo.mobile || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, mobile: v } })} />
-                  <Field editing={isEditingBasic} label={isRTL ? 'البريد الإلكتروني' : 'Email'} value={basicDraft.motherInfo.email || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, email: v } })} />
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? 'ولي الأمر' : 'Legal Guardian'}</p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <Field editing={isEditingBasic} label={isRTL ? 'الاسم' : 'Name'} value={basicDraft.legalGuardian} onChange={(v) => setBasicDraft({ ...basicDraft, legalGuardian: v })} />
-                  <Field editing={isEditingBasic} label={isRTL ? 'صلة القرابة' : 'Relationship'} value={basicDraft.guardianRelationship} onChange={(v) => setBasicDraft({ ...basicDraft, guardianRelationship: v })} />
-                </div>
-              </div>
+          {/* الأب */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'بيانات الأب' : "Father's Information"}</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First Name'} value={basicDraft.fatherInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, firstName: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير' : 'Last Name'} value={basicDraft.fatherInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, lastName: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'الموبايل' : 'Mobile'} value={basicDraft.fatherInfo.mobile || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, mobile: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'البريد الإلكتروني' : 'Email'} value={basicDraft.fatherInfo.email || ''} onChange={(v) => setBasicDraft({ ...basicDraft, fatherInfo: { ...basicDraft.fatherInfo, email: v } })} />
             </div>
+          </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5">
-              <h3 className="font-bold text-gray-900">{isRTL ? 'جهات اتصال الطوارئ' : 'Emergency Contacts'}</h3>
+          {/* الأم */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'بيانات الأم' : "Mother's Information"}</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First Name'} value={basicDraft.motherInfo.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, firstName: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير' : 'Last Name'} value={basicDraft.motherInfo.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, lastName: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'الموبايل' : 'Mobile'} value={basicDraft.motherInfo.mobile || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, mobile: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'البريد الإلكتروني' : 'Email'} value={basicDraft.motherInfo.email || ''} onChange={(v) => setBasicDraft({ ...basicDraft, motherInfo: { ...basicDraft.motherInfo, email: v } })} />
+            </div>
+          </div>
+
+          {/* ولي الأمر */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'ولي الأمر' : 'Legal Guardian'}</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <Field editing={isEditingBasic} label={isRTL ? 'الاسم' : 'Name'} value={basicDraft.legalGuardian} onChange={(v) => setBasicDraft({ ...basicDraft, legalGuardian: v })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'صلة القرابة' : 'Relationship'} value={basicDraft.guardianRelationship} onChange={(v) => setBasicDraft({ ...basicDraft, guardianRelationship: v })} />
+            </div>
+          </div>
+
+          {/* جهات اتصال الطوارئ */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'جهات اتصال الطوارئ' : 'Emergency Contacts'}</h3>
+            <div className="space-y-6">
               {[1, 2].map((n) => {
                 const key = n === 1 ? 'emergencyContact1' : 'emergencyContact2';
                 const c: any = (basicDraft as any)[key] || {};
                 return (
                   <div key={n}>
                     <p className="text-xs font-bold text-gray-500 uppercase mb-2">{isRTL ? `جهة اتصال ${n}` : `Contact ${n}`}</p>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
                       <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأول' : 'First Name'} value={c.firstName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, [key]: { ...c, firstName: v } } as any)} />
                       <Field editing={isEditingBasic} label={isRTL ? 'الاسم الأخير' : 'Last Name'} value={c.lastName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, [key]: { ...c, lastName: v } } as any)} />
                       <Field editing={isEditingBasic} label={isRTL ? 'صلة القرابة' : 'Relation'} value={c.relativity || ''} onChange={(v) => setBasicDraft({ ...basicDraft, [key]: { ...c, relativity: v } } as any)} />
@@ -1211,42 +1246,44 @@ Result: ${doc.gradeAverage}`;
                 );
               })}
             </div>
+          </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'العنوان' : 'Home Address'}</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <Field editing={isEditingBasic} label={isRTL ? 'المدينة' : 'City'} value={basicDraft.homeAddress.city || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, city: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'المنطقة' : 'Area'} value={basicDraft.homeAddress.area || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, area: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الشارع' : 'Street'} value={basicDraft.homeAddress.street || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, street: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'المبنى' : 'Building'} value={basicDraft.homeAddress.building || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, building: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الشقة' : 'Apartment'} value={basicDraft.homeAddress.apartment || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, apartment: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الأرضي' : 'Landline'} value={basicDraft.homeAddress.landline || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, landline: v } })} />
-              </div>
+          {/* العنوان */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'العنوان' : 'Home Address'}</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <Field editing={isEditingBasic} label={isRTL ? 'المدينة' : 'City'} value={basicDraft.homeAddress.city || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, city: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'المنطقة' : 'Area'} value={basicDraft.homeAddress.area || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, area: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'الشارع' : 'Street'} value={basicDraft.homeAddress.street || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, street: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'المبنى' : 'Building'} value={basicDraft.homeAddress.building || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, building: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'الشقة' : 'Apartment'} value={basicDraft.homeAddress.apartment || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, apartment: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'الأرضي' : 'Landline'} value={basicDraft.homeAddress.landline || ''} onChange={(v) => setBasicDraft({ ...basicDraft, homeAddress: { ...basicDraft.homeAddress, landline: v } })} />
             </div>
+          </div>
 
-            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2">
-              <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'معلومات إضافية' : 'Additional Information'}</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <Field editing={isEditingBasic} label={isRTL ? 'خدمة الباص' : 'Bus Service'} value={basicDraft.additionalInfo.busService || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, busService: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'إخوة بالمدرسة (Yes/No)' : 'Has Siblings (Yes/No)'} value={basicDraft.additionalInfo.hasSiblings || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, hasSiblings: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'اسم الأخ/الأخت' : 'Sibling Name'} value={basicDraft.additionalInfo.siblingName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, siblingName: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'صف الأخ/الأخت' : 'Sibling Grade'} value={basicDraft.additionalInfo.siblingYearGroup || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, siblingYearGroup: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'تقدّم من قبل (Yes/No)' : 'Applied Before (Yes/No)'} value={basicDraft.additionalInfo.appliedBefore || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, appliedBefore: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'الهوايات' : 'Hobbies'} value={basicDraft.additionalInfo.hobbies || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, hobbies: v } })} />
-                <Field editing={isEditingBasic} label={isRTL ? 'مصدر المعرفة بالمدرسة' : 'Marketing Source'} value={basicDraft.additionalInfo.marketing || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, marketing: v } })} />
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-gray-400 text-xs mb-1">{isRTL ? 'ملاحظات إضافية' : 'Additional Notes'}</p>
-                {isEditingBasic ? (
-                  <textarea
-                    value={basicDraft.additionalInfo.additionalNotes || ''}
-                    onChange={(e) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, additionalNotes: e.target.value } })}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[80px]"
-                  />
-                ) : (
-                  <p className="text-gray-700 text-sm">{basicDraft.additionalInfo.additionalNotes || '—'}</p>
-                )}
-              </div>
+          {/* معلومات إضافية */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-4">{isRTL ? 'معلومات إضافية' : 'Additional Information'}</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <Field editing={isEditingBasic} options={YES_NO} label={isRTL ? 'خدمة الباص' : 'Bus Service'} value={basicDraft.additionalInfo.busService || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, busService: v } })} />
+              <Field editing={isEditingBasic} options={YES_NO} label={isRTL ? 'إخوة بالمدرسة' : 'Has Siblings'} value={basicDraft.additionalInfo.hasSiblings || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, hasSiblings: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'اسم الأخ/الأخت' : 'Sibling Name'} value={basicDraft.additionalInfo.siblingName || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, siblingName: v } })} />
+              <Field editing={isEditingBasic} options={GRADE_LEVELS_LIST} label={isRTL ? 'صف الأخ/الأخت' : 'Sibling Grade'} value={basicDraft.additionalInfo.siblingYearGroup || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, siblingYearGroup: v } })} />
+              <Field editing={isEditingBasic} options={YES_NO} label={isRTL ? 'تقدّم من قبل' : 'Applied Before'} value={basicDraft.additionalInfo.appliedBefore || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, appliedBefore: v } })} />
+              <Field editing={isEditingBasic} label={isRTL ? 'الهوايات' : 'Hobbies'} value={basicDraft.additionalInfo.hobbies || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, hobbies: v } })} />
+              <Field editing={isEditingBasic} options={['Social Media', 'Friends/Family', 'Search Engine', 'Advertisement', 'Other']} label={isRTL ? 'مصدر المعرفة بالمدرسة' : 'Marketing Source'} value={basicDraft.additionalInfo.marketing || ''} onChange={(v) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, marketing: v } })} />
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-gray-400 text-xs mb-1">{isRTL ? 'ملاحظات إضافية' : 'Additional Notes'}</p>
+              {isEditingBasic ? (
+                <textarea
+                  value={basicDraft.additionalInfo.additionalNotes || ''}
+                  onChange={(e) => setBasicDraft({ ...basicDraft, additionalInfo: { ...basicDraft.additionalInfo, additionalNotes: e.target.value } })}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 min-h-[80px]"
+                />
+              ) : (
+                <p className="text-gray-700 text-sm">{basicDraft.additionalInfo.additionalNotes || '—'}</p>
+              )}
             </div>
           </div>
         </div>
