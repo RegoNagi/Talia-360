@@ -2587,3 +2587,182 @@ export async function getStudentAttendanceSummary(studentId: string): Promise<St
   const late = data.filter((r: any) => r.status === 'Late').length;
   return { attendanceRate: Math.round((present / total) * 100), absentCount: absent, lateCount: late, totalSessions: total };
 }
+
+
+// ============ إعدادات جدول الحصص ============
+
+export interface ScheduleSettings {
+  id: string;
+  periodsPerDay: number;
+  periodDurationMinutes: number;
+  breakAfterPeriod: number;
+  breakDurationMinutes: number;
+}
+
+export async function getScheduleSettings(): Promise<ScheduleSettings> {
+  const { data, error } = await supabase.from('schedule_settings').select('*').limit(1).maybeSingle();
+  if (error || !data) {
+    return { id: '', periodsPerDay: 7, periodDurationMinutes: 45, breakAfterPeriod: 4, breakDurationMinutes: 30 };
+  }
+  return {
+    id: data.id,
+    periodsPerDay: data.periods_per_day,
+    periodDurationMinutes: data.period_duration_minutes,
+    breakAfterPeriod: data.break_after_period,
+    breakDurationMinutes: data.break_duration_minutes,
+  };
+}
+
+export async function updateScheduleSettings(input: ScheduleSettings): Promise<boolean> {
+  const { error } = await supabase.from('schedule_settings').update({
+    periods_per_day: input.periodsPerDay,
+    period_duration_minutes: input.periodDurationMinutes,
+    break_after_period: input.breakAfterPeriod,
+    break_duration_minutes: input.breakDurationMinutes,
+    updated_at: new Date().toISOString(),
+  }).eq('id', input.id);
+  return !error;
+}
+
+// ============ أكواد المعلمين (لربط ملفات الإكسيل) ============
+
+export async function getTeacherCodesMap(): Promise<Record<string, string>> {
+  const { data } = await supabase.from('teachers').select('id, teacher_code');
+  const map: Record<string, string> = {};
+  (data || []).forEach((t: any) => { if (t.teacher_code) map[t.teacher_code] = t.id; });
+  return map;
+}
+
+export async function getAllTeachersWithCodes(): Promise<{ id: string; code: string; name: string }[]> {
+  const { data } = await supabase.from('teachers').select('id, teacher_code, users(name)');
+  return (data || []).map((t: any) => ({ id: t.id, code: t.teacher_code || '', name: t.users?.name || '' }));
+}
+
+// ============ جدول الحصص الكامل (كل الفصول) — للتقويم والرفع ============
+
+export interface ScheduleEntry {
+  id: string;
+  sectionId: string;
+  sectionName: string;
+  gradeLevel: string;
+  subject: string;
+  day: string;
+  startTime: string;
+  endTime: string;
+  teacherId: string | null;
+  teacherName: string;
+  room: string;
+}
+
+export async function getFullSchedule(): Promise<ScheduleEntry[]> {
+  const [periodsRes, sectionsRes, teachersRes] = await Promise.all([
+    supabase.from('class_periods').select('id, section_id, subject, day, start_time, end_time, teacher_id, room'),
+    supabase.from('class_sections').select('id, name, grade_level'),
+    supabase.from('teachers').select('id, users(name)'),
+  ]);
+
+  const sectionById: Record<string, any> = {};
+  (sectionsRes.data || []).forEach((s: any) => { sectionById[s.id] = s; });
+  const teacherNameById: Record<string, string> = {};
+  (teachersRes.data || []).forEach((t: any) => { teacherNameById[t.id] = t.users?.name || ''; });
+
+  return (periodsRes.data || []).map((p: any) => ({
+    id: p.id,
+    sectionId: p.section_id,
+    sectionName: sectionById[p.section_id]?.name || '—',
+    gradeLevel: sectionById[p.section_id]?.grade_level || '—',
+    subject: p.subject,
+    day: p.day || '',
+    startTime: p.start_time || '',
+    endTime: p.end_time || '',
+    teacherId: p.teacher_id,
+    teacherName: teacherNameById[p.teacher_id] || '',
+    room: p.room || '',
+  }));
+}
+
+export interface ScheduleImportRow {
+  classCode: string;
+  day: string;
+  startTime: string;
+  endTime: string;
+  subject: string;
+  teacherCode: string;
+  room?: string;
+}
+
+export interface ScheduleImportResult {
+  success: boolean;
+  insertedCount: number;
+  errors: string[];
+}
+
+// بيرفع جدول حصص كامل، بعد التحقق من الأكواد والتعارضات — بيمسح الحصص القديمة لنفس الفصول ويحط الجديدة بدالها
+export async function importSchedule(rows: ScheduleImportRow[]): Promise<ScheduleImportResult> {
+  const errors: string[] = [];
+
+  const [sectionsRes, teacherCodesMap] = await Promise.all([
+    supabase.from('class_sections').select('id, name'),
+    getTeacherCodesMap(),
+  ]);
+  const sectionIdByName: Record<string, string> = {};
+  (sectionsRes.data || []).forEach((s: any) => { sectionIdByName[s.name] = s.id; });
+
+  // تحقق من صحة الأكواد
+  const validRows: (ScheduleImportRow & { sectionId: string; teacherId: string })[] = [];
+  rows.forEach((row, idx) => {
+    const sectionId = sectionIdByName[row.classCode];
+    const teacherId = teacherCodesMap[row.teacherCode];
+    if (!sectionId) {
+      errors.push(`صف ${idx + 2}: كود الفصل "${row.classCode}" مش موجود.`);
+      return;
+    }
+    if (!teacherId) {
+      errors.push(`صف ${idx + 2}: كود المعلم "${row.teacherCode}" مش موجود.`);
+      return;
+    }
+    validRows.push({ ...row, sectionId, teacherId });
+  });
+
+  // تحقق من تعارض الجدول: نفس المعلم أو نفس الفصل في نفس اليوم والوقت أكتر من مرة
+  const seenByTeacher: Record<string, string> = {};
+  const seenByClass: Record<string, string> = {};
+  validRows.forEach((row, idx) => {
+    const teacherKey = `${row.teacherId}|${row.day}|${row.startTime}`;
+    const classKey = `${row.sectionId}|${row.day}|${row.startTime}`;
+    if (seenByTeacher[teacherKey]) {
+      errors.push(`تعارض: المعلم صاحب الكود "${row.teacherCode}" عنده حصتين يوم ${row.day} الساعة ${row.startTime}.`);
+    }
+    if (seenByClass[classKey]) {
+      errors.push(`تعارض: الفصل "${row.classCode}" عنده حصتين يوم ${row.day} الساعة ${row.startTime}.`);
+    }
+    seenByTeacher[teacherKey] = classKey;
+    seenByClass[classKey] = teacherKey;
+  });
+
+  if (errors.length > 0) {
+    return { success: false, insertedCount: 0, errors };
+  }
+
+  // امسحي الحصص القديمة بس للفصول اللي هتتحدّث
+  const affectedSectionIds = Array.from(new Set(validRows.map(r => r.sectionId)));
+  if (affectedSectionIds.length > 0) {
+    await supabase.from('class_periods').delete().in('section_id', affectedSectionIds);
+  }
+
+  const inserts = validRows.map(row => ({
+    section_id: row.sectionId,
+    subject: row.subject,
+    day: row.day,
+    start_time: row.startTime,
+    end_time: row.endTime,
+    teacher_id: row.teacherId,
+    room: row.room || null,
+  }));
+
+  const { error } = await supabase.from('class_periods').insert(inserts);
+  if (error) {
+    return { success: false, insertedCount: 0, errors: [error.message] };
+  }
+  return { success: true, insertedCount: inserts.length, errors: [] };
+}
