@@ -2062,3 +2062,113 @@ export async function deleteTrack(id: string): Promise<boolean> {
   }
   return true;
 }
+
+
+// ============ لوحة المشرف الحقيقية للحضور ============
+
+export interface ClassAttendanceOverview {
+  sectionId: string;
+  sectionName: string;
+  gradeLevel: string;
+  teacherName: string | null;
+  expectedCount: number;
+  takenCount: number;
+  status: 'not_taken' | 'partial' | 'complete';
+}
+
+// نظرة عامة حقيقية على كل الفصول ليوم معيّن: مين خد الحضور، مين لسه، ومين خد جزء بس
+export async function getClassesAttendanceOverview(date: string, mode: 'Daily' | 'Period'): Promise<ClassAttendanceOverview[]> {
+  const dayName = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+
+  const [sectionsRes, teachersRes, periodsRes, sessionsRes] = await Promise.all([
+    supabase.from('class_sections').select('id, name, grade_level, teacher_id'),
+    supabase.from('teachers').select('id, name'),
+    supabase.from('class_periods').select('id, section_id, day'),
+    supabase.from('attendance_sessions').select('section_id, period_id').eq('date', date),
+  ]);
+
+  const sections = sectionsRes.data || [];
+  const teachers = teachersRes.data || [];
+  const periods = periodsRes.data || [];
+  const sessions = sessionsRes.data || [];
+
+  const teacherNameById: Record<string, string> = {};
+  (teachers as any[]).forEach((t) => { teacherNameById[t.id] = t.name; });
+
+  return (sections as any[]).map((s) => {
+    let expectedCount: number;
+    let takenCount: number;
+    if (mode === 'Period') {
+      const todaysPeriods = (periods as any[]).filter((p) => p.section_id === s.id && p.day === dayName);
+      expectedCount = todaysPeriods.length;
+      const takenPeriodIds = new Set((sessions as any[]).filter((sess) => sess.section_id === s.id && sess.period_id).map((sess) => sess.period_id));
+      takenCount = todaysPeriods.filter((p) => takenPeriodIds.has(p.id)).length;
+    } else {
+      expectedCount = 1;
+      takenCount = (sessions as any[]).some((sess) => sess.section_id === s.id) ? 1 : 0;
+    }
+    const status: ClassAttendanceOverview['status'] = takenCount === 0 ? 'not_taken' : takenCount >= expectedCount ? 'complete' : 'partial';
+    return {
+      sectionId: s.id,
+      sectionName: s.name,
+      gradeLevel: s.grade_level,
+      teacherName: teacherNameById[s.teacher_id] || null,
+      expectedCount,
+      takenCount,
+      status,
+    };
+  });
+}
+
+export interface AttendanceLogRow {
+  id: string;
+  studentName: string;
+  className: string;
+  teacherName: string;
+  time: string;
+  status: string;
+  gradeLevel: string;
+}
+
+// سجل حقيقي بكل حالات الحضور اللي اتسجلت ليوم معيّن، في كل الفصول
+export async function getAttendanceLogsForDate(date: string): Promise<AttendanceLogRow[]> {
+  const { data: sessions, error } = await supabase
+    .from('attendance_sessions')
+    .select('id, section_id, created_at, class_sections(name, grade_level, teacher_id)')
+    .eq('date', date);
+  if (error || !sessions) return [];
+
+  const sessionIds = (sessions as any[]).map((s) => s.id);
+  if (sessionIds.length === 0) return [];
+
+  const [recordsRes, studentsRes, teachersRes] = await Promise.all([
+    supabase.from('attendance_records').select('id, session_id, student_id, status').in('session_id', sessionIds),
+    supabase.from('students').select('id, name'),
+    supabase.from('teachers').select('id, name'),
+  ]);
+
+  const records = recordsRes.data || [];
+  const studentNameById: Record<string, string> = {};
+  (studentsRes.data || []).forEach((s: any) => { studentNameById[s.id] = s.name; });
+  const teacherNameById: Record<string, string> = {};
+  (teachersRes.data || []).forEach((t: any) => { teacherNameById[t.id] = t.name; });
+
+  const sessionById: Record<string, any> = {};
+  (sessions as any[]).forEach((s) => { sessionById[s.id] = s; });
+
+  const statusMap: Record<string, string> = { Present: 'حاضر', Absent: 'غائب', Late: 'متأخر', Excused: 'معذور' };
+
+  return (records as any[]).map((r) => {
+    const session = sessionById[r.session_id];
+    const cls = session?.class_sections;
+    return {
+      id: r.id,
+      studentName: studentNameById[r.student_id] || '—',
+      className: cls?.name || '—',
+      gradeLevel: cls?.grade_level || '—',
+      teacherName: teacherNameById[cls?.teacher_id] || '—',
+      time: session?.created_at ? new Date(session.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—',
+      status: statusMap[r.status] || r.status,
+    };
+  });
+}
