@@ -249,7 +249,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   };
 
   const handleArchiveYear = async (yearId: string) => {
-    const confirmed = await confirmDialog('متأكد إنك عايز تؤرشف العام الدراسي ده؟', 'أرشفة');
+    const confirmed = await confirmDialog(t('متأكد إنك عايز تؤرشف العام الدراسي ده؟', 'Are you sure you want to archive this academic year?'), t('أرشفة', 'Archive'));
     if (!confirmed) return;
     const ok = await archiveAcademicYear(yearId);
     if (ok) {
@@ -266,7 +266,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
       showToast('العام ده نشط حاليًا، مينفعش يتمسح. فعّلي عام تاني الأول أو أرشفيه.', 'error');
       return;
     }
-    const confirmed = await confirmDialog('متأكد إنك عايز تمسح العام الدراسي ده؟ الإجراء ده مينفعش يترجع.', 'حذف');
+    const confirmed = await confirmDialog(t('متأكد إنك عايز تمسح العام الدراسي ده؟ الإجراء ده مينفعش يترجع.', 'Are you sure you want to delete this academic year? This action cannot be undone.'), t('حذف', 'Delete'));
     if (!confirmed) return;
     const ok = await deleteAcademicYear(yearId);
     if (ok) {
@@ -279,7 +279,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
 
   const handleAddTerm = async () => {
     const termCount = academicYear.terms.length + 1;
-    const nameAr = `الفصل الدراسي ${termCount}`;
+    const nameAr = isRTL ? `الفصل الدراسي ${termCount}` : `Term ${termCount}`;
     const realId = await createTerm(nameAr, '', '');
     const newTerm = {
       id: realId || `t-${Date.now()}`,
@@ -721,7 +721,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     }
   };
   const handleDeleteGradeLevel = async (id: string) => {
-    const confirmed = await confirmDialog('متأكد إنك عايز تمسح الصف الدراسي ده؟ الفصول والمواد المرتبطة بيه هتفضل موجودة لكن مش هتظهر تحت صف حالي.', 'حذف');
+    const confirmed = await confirmDialog(t('متأكد إنك عايز تمسح الصف الدراسي ده؟ الفصول والمواد المرتبطة بيه هتفضل موجودة لكن مش هتظهر تحت صف حالي.', 'Are you sure you want to delete this grade level? Related classes and subjects will remain but will no longer show under a current grade.'), t('حذف', 'Delete'));
     if (!confirmed) return;
     const ok = await deleteGradeLevel(id);
     if (ok) {
@@ -750,7 +750,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     }
   };
   const handleDeleteDepartment = async (id: string) => {
-    const confirmed = await confirmDialog('متأكد إنك عايز تمسح القسم ده؟ المواد المرتبطة بيه هتفضل موجودة لكن من غير قسم.', 'حذف');
+    const confirmed = await confirmDialog(t('متأكد إنك عايز تمسح القسم ده؟ المواد المرتبطة بيه هتفضل موجودة لكن من غير قسم.', 'Are you sure you want to delete this department? Related subjects will remain but without a department.'), t('حذف', 'Delete'));
     if (!confirmed) return;
     const ok = await deleteDepartment(id);
     if (ok) {
@@ -781,7 +781,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
     }
   };
   const handleDeleteTrack = async (id: string) => {
-    const confirmed = await confirmDialog('متأكد إنك عايز تمسح المسار ده؟ المواد المرتبطة بيه هتفضل موجودة لكن من غير مسار.', 'حذف');
+    const confirmed = await confirmDialog(t('متأكد إنك عايز تمسح المسار ده؟ المواد المرتبطة بيه هتفضل موجودة لكن من غير مسار.', 'Are you sure you want to delete this track? Related subjects will remain but without a track.'), t('حذف', 'Delete'));
     if (!confirmed) return;
     const ok = await deleteTrack(id);
     if (ok) {
@@ -793,6 +793,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   };
 
   const isRTL = language === Language.AR;
+  const t = (ar: string, en: string) => (isRTL ? ar : en);
 
   const handleAddCourse = async () => {
     if (!newCourse.code || !newCourse.nameEn || !newCourse.nameAr) return;
@@ -849,7 +850,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
   };
 
   const handleBulkDeleteCourses = async () => {
-    const confirmed = await confirmDialog(`متأكد إنك عايز تمسح ${selectedCourseIds.length} مادة؟ الإجراء ده مينفعش يترجع.`, 'حذف الكل');
+    const confirmed = await confirmDialog(t(`متأكد إنك عايز تمسح ${selectedCourseIds.length} مادة؟ الإجراء ده مينفعش يترجع.`, `Are you sure you want to delete ${selectedCourseIds.length} subject(s)? This action cannot be undone.`), t('حذف الكل', 'Delete All'));
     if (!confirmed) return;
     const results = await Promise.all(selectedCourseIds.map(id => removeCurriculumSubjectById(id)));
     refreshCourses();
@@ -1144,10 +1145,10 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
               <div className="flex-1">
                 {selectedCourseIds.length > 0 && (
                   <div className="mb-6 bg-violet-50 border border-violet-200 rounded-2xl px-5 py-3 flex items-center justify-between">
-                    <span className="text-sm font-bold text-violet-800">{selectedCourseIds.length} مادة محددة</span>
+                    <span className="text-sm font-bold text-violet-800">{selectedCourseIds.length} {t('مادة محددة', 'subject(s) selected')}</span>
                     <div className="flex gap-2">
-                      <button onClick={() => setSelectedCourseIds([])} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-white rounded-lg">إلغاء التحديد</button>
-                      <button onClick={handleBulkDeleteCourses} className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">حذف المحدد</button>
+                      <button onClick={() => setSelectedCourseIds([])} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-white rounded-lg">{t('إلغاء التحديد', 'Deselect')}</button>
+                      <button onClick={handleBulkDeleteCourses} className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">{t('حذف المحدد', 'Delete Selected')}</button>
                     </div>
                   </div>
                 )}
@@ -1882,7 +1883,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                           <button
                             onClick={(e) => { e.stopPropagation(); handleArchiveYear(year.id); }}
                             className="w-8 h-8 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-amber-600 hover:border-amber-200 flex items-center justify-center transition-colors shadow-sm"
-                            title="أرشفة"
+                            title={t('أرشفة', 'Archive')}
                           >
                             <Archive size={14} />
                           </button>
@@ -1890,7 +1891,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteYear(year.id); }}
                           className="w-8 h-8 rounded-lg bg-white border border-gray-100 text-gray-400 hover:text-red-600 hover:border-red-200 flex items-center justify-center transition-colors shadow-sm"
-                          title="حذف"
+                          title={t('حذف', 'Delete')}
                         >
                           <Trash2 size={14} />
                         </button>
@@ -2541,9 +2542,9 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                                 onClick={async () => {
                                   const otherActive = academicYears.find(y => y.status === 'Active' && y.id !== academicYear.id);
                                   const confirmMsg = otherActive
-                                    ? `متأكد إنك عايز تفعّل "${academicYear.name}"؟ العام النشط حاليًا "${otherActive.name}" هيتأرشف تلقائيًا.`
-                                    : `متأكد إنك عايز تفعّل "${academicYear.name}"؟`;
-                                  const confirmed = await confirmDialog(confirmMsg, 'تفعيل');
+                                                                        ? t(`متأكد إنك عايز تفعّل "${academicYear.name}"؟ العام النشط حاليًا "${otherActive.name}" هيتأرشف تلقائيًا.`, `Are you sure you want to activate "${academicYear.name}"? The currently active year "${otherActive.name}" will be archived automatically.`)
+                                                                        : t(`متأكد إنك عايز تفعّل "${academicYear.name}"؟`, `Are you sure you want to activate "${academicYear.name}"?`);
+                                                                    const confirmed = await confirmDialog(confirmMsg, t('تفعيل', 'Activate'));
                                   if (!confirmed) return;
                                   let overallStart = '';
                                   let overallEnd = '';
@@ -3204,7 +3205,7 @@ export const Settings: React.FC<SettingsProps> = ({ role, language }) => {
                               disabled={isSavingBranding}
                               className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-colors"
                             >
-                              {isSavingBranding ? 'جاري الحفظ...' : 'حفظ هوية المدرسة'}
+                              {isSavingBranding ? t('جاري الحفظ...', 'Saving...') : t('حفظ هوية المدرسة', 'Save School Branding')}
                             </button>
                             <p className="text-[10px] text-gray-400">{isRTL ? 'دي الهوية اللي هتظهر في سجل الدرجات والسجل الأكاديمي المطبوعين.' : 'This identity will appear on printed report cards and transcripts.'}</p>
                           </div>
