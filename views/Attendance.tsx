@@ -233,8 +233,8 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
 
   // ============ فلتر موحّد: الصف + الفصل + التاريخ — بيُستخدم في كل الصفحات ============
-  const [filterGrade, setFilterGrade] = useState(t('جميع الصفوف', 'All Grades'));
-  const [filterClassName, setFilterClassName] = useState(t('جميع الفصول', 'All Classes'));
+  const [filterGrade, setFilterGrade] = useState('ALL');
+  const [filterClassName, setFilterClassName] = useState('ALL');
   const [dateFilterMode, setDateFilterMode] = useState<'today' | 'yesterday' | 'week' | 'custom'>('today');
   const [customStartDate, setCustomStartDate] = useState(todayStr);
   const [customEndDate, setCustomEndDate] = useState(todayStr);
@@ -283,17 +283,17 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   };
 
   const availableClassNames = Array.from(new Set(
-    (filterGrade === t('جميع الصفوف', 'All Grades') ? attendanceLogs : attendanceLogs.filter(l => l.gradeLevel === filterGrade)).map(l => l.className)
+    (filterGrade === 'ALL' ? attendanceLogs : attendanceLogs.filter(l => l.gradeLevel === filterGrade)).map(l => l.className)
   ));
 
   const filteredClasses = classesOverview
-    .filter(c => filterGrade === t('جميع الصفوف', 'All Grades') || c.gradeLevel === filterGrade)
-    .filter(c => filterClassName === t('جميع الفصول', 'All Classes') || c.sectionName === filterClassName)
+    .filter(c => filterGrade === 'ALL' || c.gradeLevel === filterGrade)
+    .filter(c => filterClassName === 'ALL' || c.sectionName === filterClassName)
     .filter(c => c.sectionName.toLowerCase().includes(statusSearch.toLowerCase()));
 
   const filteredLogs = attendanceLogs
-    .filter(l => filterGrade === t('جميع الصفوف', 'All Grades') || l.gradeLevel === filterGrade)
-    .filter(l => filterClassName === t('جميع الفصول', 'All Classes') || l.className === filterClassName)
+    .filter(l => filterGrade === 'ALL' || l.gradeLevel === filterGrade)
+    .filter(l => filterClassName === 'ALL' || l.className === filterClassName)
     .filter(l => l.studentName.toLowerCase().includes(statusSearch.toLowerCase()) || l.className.toLowerCase().includes(statusSearch.toLowerCase()) || l.teacherName.toLowerCase().includes(statusSearch.toLowerCase()));
 
   const gradeChartData = realGradeLevels.map(g => {
@@ -310,13 +310,13 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   // شريط الفلتر الموحّد — بيتكرر في أكتر من صفحة
   const renderFilterBar = () => (
     <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-3">
-      <select value={filterGrade} onChange={(e) => { setFilterGrade(e.target.value); setFilterClassName(t('جميع الفصول', 'All Classes')); }} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500">
-        <option>{t('جميع الصفوف', 'All Grades')}</option>
-        {realGradeLevels.map(g => <option key={g.id}>{g.name}</option>)}
+      <select value={filterGrade} onChange={(e) => { setFilterGrade(e.target.value); setFilterClassName('ALL'); }} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500">
+        <option value="ALL">{t('جميع الصفوف', 'All Grades')}</option>
+        {realGradeLevels.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
       </select>
       <select value={filterClassName} onChange={(e) => setFilterClassName(e.target.value)} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500">
-        <option>{t('جميع الفصول', 'All Classes')}</option>
-        {availableClassNames.map(c => <option key={c}>{c}</option>)}
+        <option value="ALL">{t('جميع الفصول', 'All Classes')}</option>
+        {availableClassNames.map(c => <option key={c} value={c}>{c}</option>)}
       </select>
       <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200">
         {(['today', 'yesterday', 'week', 'custom'] as const).map(mode => (
@@ -356,8 +356,8 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [selectedLateClass, setSelectedLateClass] = useState<string | null>(null);
 
   const filteredLateStudents = lateStudents
-    .filter(l => filterGrade === t('جميع الصفوف', 'All Grades') || l.gradeLevel === filterGrade)
-    .filter(l => filterClassName === t('جميع الفصول', 'All Classes') || l.className === filterClassName)
+    .filter(l => filterGrade === 'ALL' || l.gradeLevel === filterGrade)
+    .filter(l => filterClassName === 'ALL' || l.className === filterClassName)
     .filter(l => l.studentName.toLowerCase().includes(statusSearch.toLowerCase()) || l.className.toLowerCase().includes(statusSearch.toLowerCase()));
 
   const lateByClass = filteredLateStudents.reduce((acc: Record<string, LateStudentRow[]>, row) => {
@@ -386,8 +386,8 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [selectedExcuseClass, setSelectedExcuseClass] = useState<string | null>(null);
 
   const filteredExcusedStudents = excusedStudents
-    .filter(e => filterGrade === t('جميع الصفوف', 'All Grades') || e.gradeLevel === filterGrade)
-    .filter(e => filterClassName === t('جميع الفصول', 'All Classes') || e.className === filterClassName)
+    .filter(e => filterGrade === 'ALL' || e.gradeLevel === filterGrade)
+    .filter(e => filterClassName === 'ALL' || e.className === filterClassName)
     .filter(e => e.studentName.toLowerCase().includes(statusSearch.toLowerCase()) || e.className.toLowerCase().includes(statusSearch.toLowerCase()));
 
   const excuseByClass = filteredExcusedStudents.reduce((acc: Record<string, ExcusedStudentRow[]>, row) => {
