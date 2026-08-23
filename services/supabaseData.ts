@@ -2595,21 +2595,19 @@ export interface ScheduleSettings {
   id: string;
   periodsPerDay: number;
   periodDurationMinutes: number;
-  breakAfterPeriod: number;
-  breakDurationMinutes: number;
+  dayStartTime: string;
 }
 
 export async function getScheduleSettings(): Promise<ScheduleSettings> {
   const { data, error } = await supabase.from('schedule_settings').select('*').limit(1).maybeSingle();
   if (error || !data) {
-    return { id: '', periodsPerDay: 7, periodDurationMinutes: 45, breakAfterPeriod: 4, breakDurationMinutes: 30 };
+    return { id: '', periodsPerDay: 7, periodDurationMinutes: 45, dayStartTime: '08:00' };
   }
   return {
     id: data.id,
     periodsPerDay: data.periods_per_day,
     periodDurationMinutes: data.period_duration_minutes,
-    breakAfterPeriod: data.break_after_period,
-    breakDurationMinutes: data.break_duration_minutes,
+    dayStartTime: (data.day_start_time || '08:00').slice(0, 5),
   };
 }
 
@@ -2617,10 +2615,33 @@ export async function updateScheduleSettings(input: ScheduleSettings): Promise<b
   const { error } = await supabase.from('schedule_settings').update({
     periods_per_day: input.periodsPerDay,
     period_duration_minutes: input.periodDurationMinutes,
-    break_after_period: input.breakAfterPeriod,
-    break_duration_minutes: input.breakDurationMinutes,
+    day_start_time: input.dayStartTime,
     updated_at: new Date().toISOString(),
   }).eq('id', input.id);
+  return !error;
+}
+
+// ============ فترات الراحة (ممكن أكتر من واحدة) ============
+
+export interface ScheduleBreak {
+  id: string;
+  afterPeriod: number;
+  durationMinutes: number;
+}
+
+export async function getScheduleBreaks(): Promise<ScheduleBreak[]> {
+  const { data, error } = await supabase.from('schedule_breaks').select('id, after_period, duration_minutes').order('after_period', { ascending: true });
+  if (error) return [];
+  return (data || []).map((row: any) => ({ id: row.id, afterPeriod: row.after_period, durationMinutes: row.duration_minutes }));
+}
+
+export async function addScheduleBreak(input: { afterPeriod: number; durationMinutes: number }): Promise<boolean> {
+  const { error } = await supabase.from('schedule_breaks').insert({ after_period: input.afterPeriod, duration_minutes: input.durationMinutes });
+  return !error;
+}
+
+export async function deleteScheduleBreak(id: string): Promise<boolean> {
+  const { error } = await supabase.from('schedule_breaks').delete().eq('id', id);
   return !error;
 }
 
@@ -2765,4 +2786,91 @@ export async function importSchedule(rows: ScheduleImportRow[]): Promise<Schedul
     return { success: false, insertedCount: 0, errors: [error.message] };
   }
   return { success: true, insertedCount: inserts.length, errors: [] };
+}
+
+
+// ============ غياب المعلمين والاحتياطي ============
+
+export interface TeacherAbsence {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  absenceDate: string;
+  reason: string;
+  recordedBy: string;
+}
+
+export async function getTeacherAbsences(startDate: string, endDate: string): Promise<TeacherAbsence[]> {
+  const { data, error } = await supabase
+    .from('teacher_absences')
+    .select('id, teacher_id, absence_date, reason, recorded_by, teachers(users(name))')
+    .gte('absence_date', startDate)
+    .lte('absence_date', endDate)
+    .order('absence_date', { ascending: false });
+  if (error) return [];
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    teacherId: row.teacher_id,
+    teacherName: row.teachers?.users?.name || '',
+    absenceDate: row.absence_date,
+    reason: row.reason || '',
+    recordedBy: row.recorded_by || '',
+  }));
+}
+
+export async function addTeacherAbsence(input: { teacherId: string; absenceDate: string; reason: string; recordedBy: string }): Promise<string | null> {
+  const { data, error } = await supabase.from('teacher_absences').insert({
+    teacher_id: input.teacherId, absence_date: input.absenceDate, reason: input.reason || null, recorded_by: input.recordedBy,
+  }).select('id').single();
+  if (error || !data) return null;
+  return data.id;
+}
+
+export async function deleteTeacherAbsence(id: string): Promise<boolean> {
+  const { error } = await supabase.from('teacher_absences').delete().eq('id', id);
+  return !error;
+}
+
+// بيجيب كل الحصص اللي المعلم الغائب ده كان هياخدها في يوم معيّن (بناءً على يوم الأسبوع)
+export interface AffectedPeriod {
+  periodId: string;
+  sectionName: string;
+  subject: string;
+  startTime: string;
+  endTime: string;
+  substituteTeacherId: string | null;
+  substituteTeacherName: string;
+}
+
+export async function getAffectedPeriodsForAbsence(teacherId: string, absenceDate: string): Promise<AffectedPeriod[]> {
+  const dayName = new Date(absenceDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  const [periodsRes, subsRes] = await Promise.all([
+    supabase.from('class_periods').select('id, subject, start_time, end_time, class_sections(name)').eq('teacher_id', teacherId).eq('day', dayName),
+    supabase.from('period_substitutions').select('class_period_id, substitute_teacher_id, teachers(users(name))').eq('substitution_date', absenceDate),
+  ]);
+  const subByPeriodId: Record<string, any> = {};
+  (subsRes.data || []).forEach((s: any) => { subByPeriodId[s.class_period_id] = s; });
+
+  return (periodsRes.data || []).map((p: any) => {
+    const sub = subByPeriodId[p.id];
+    return {
+      periodId: p.id,
+      sectionName: p.class_sections?.name || '—',
+      subject: p.subject,
+      startTime: p.start_time || '',
+      endTime: p.end_time || '',
+      substituteTeacherId: sub?.substitute_teacher_id || null,
+      substituteTeacherName: sub?.teachers?.users?.name || '',
+    };
+  });
+}
+
+export async function assignSubstitute(classPeriodId: string, substitutionDate: string, substituteTeacherId: string, notes?: string): Promise<boolean> {
+  const { error } = await supabase.from('period_substitutions').upsert({
+    class_period_id: classPeriodId,
+    substitution_date: substitutionDate,
+    substitute_teacher_id: substituteTeacherId,
+    notes: notes || null,
+  }, { onConflict: 'class_period_id,substitution_date' });
+  return !error;
 }
