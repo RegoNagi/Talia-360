@@ -681,12 +681,12 @@ export async function getLateStudentsForDateRange(startDate: string, endDate: st
   if (!records || records.length === 0) return [];
 
   const [studentsRes, allLateCountsRes] = await Promise.all([
-    supabase.from('students').select('id, name'),
+    supabase.from('students').select('id, users(name)'),
     supabase.from('attendance_records').select('student_id').eq('status', 'Late'),
   ]);
 
   const studentNameById: Record<string, string> = {};
-  (studentsRes.data || []).forEach((s: any) => { studentNameById[s.id] = s.name; });
+  (studentsRes.data || []).forEach((s: any) => { studentNameById[s.id] = s.users?.name || ''; });
 
   const lateCountByStudent: Record<string, number> = {};
   (allLateCountsRes.data || []).forEach((r: any) => { lateCountByStudent[r.student_id] = (lateCountByStudent[r.student_id] || 0) + 1; });
@@ -2144,7 +2144,7 @@ export async function getClassesAttendanceOverview(date: string, mode: 'Daily' |
 
   const [sectionsRes, teachersRes, periodsRes, sessionsRes] = await Promise.all([
     supabase.from('class_sections').select('id, name, grade_level, teacher_id'),
-    supabase.from('teachers').select('id, name'),
+    supabase.from('teachers').select('id, users(name)'),
     supabase.from('class_periods').select('id, section_id, day'),
     supabase.from('attendance_sessions').select('section_id, period_id').eq('date', date),
   ]);
@@ -2155,7 +2155,7 @@ export async function getClassesAttendanceOverview(date: string, mode: 'Daily' |
   const sessions = sessionsRes.data || [];
 
   const teacherNameById: Record<string, string> = {};
-  (teachers as any[]).forEach((t) => { teacherNameById[t.id] = t.name; });
+  (teachers as any[]).forEach((t) => { teacherNameById[t.id] = t.users?.name || ''; });
 
   return (sections as any[]).map((s) => {
     let expectedCount: number;
@@ -2206,15 +2206,15 @@ export async function getAttendanceLogsForDateRange(startDate: string, endDate: 
 
   const [recordsRes, studentsRes, teachersRes] = await Promise.all([
     supabase.from('attendance_records').select('id, session_id, student_id, status').in('session_id', sessionIds),
-    supabase.from('students').select('id, name'),
-    supabase.from('teachers').select('id, name'),
+    supabase.from('students').select('id, users(name)'),
+    supabase.from('teachers').select('id, users(name)'),
   ]);
 
   const records = recordsRes.data || [];
   const studentNameById: Record<string, string> = {};
-  (studentsRes.data || []).forEach((s: any) => { studentNameById[s.id] = s.name; });
+  (studentsRes.data || []).forEach((s: any) => { studentNameById[s.id] = s.users?.name || ''; });
   const teacherNameById: Record<string, string> = {};
-  (teachersRes.data || []).forEach((t: any) => { teacherNameById[t.id] = t.name; });
+  (teachersRes.data || []).forEach((t: any) => { teacherNameById[t.id] = t.users?.name || ''; });
 
   const sessionById: Record<string, any> = {};
   (sessions as any[]).forEach((s) => { sessionById[s.id] = s; });
@@ -2265,9 +2265,9 @@ export async function getExcusedStudentsForDateRange(startDate: string, endDate:
     .eq('status', 'Excused');
   if (!records || records.length === 0) return [];
 
-  const { data: students } = await supabase.from('students').select('id, name');
+  const { data: students } = await supabase.from('students').select('id, users(name)');
   const studentNameById: Record<string, string> = {};
-  (students || []).forEach((s: any) => { studentNameById[s.id] = s.name; });
+  (students || []).forEach((s: any) => { studentNameById[s.id] = s.users?.name || ''; });
 
   const sessionById: Record<string, any> = {};
   (sessions || []).forEach((s: any) => { sessionById[s.id] = s; });
