@@ -374,7 +374,7 @@ export const StudentProfile: React.FC<StudentProfileProps> = ({ student, languag
   const handleSendMessage = async () => {
     if (!messageContent.trim()) return;
     setIsSendingMessage(true);
-    const ok = await addMessageLog(student.id, { senderName: 'المشرف', content: messageContent.trim() });
+    const ok = await addMessageLog(student.id, { senderName: isRTL ? 'المشرف' : 'Admin', content: messageContent.trim() });
     setIsSendingMessage(false);
     if (ok) {
       setMessageContent('');
@@ -498,7 +498,7 @@ Result: ${doc.gradeAverage}`;
             <div className="flex items-center gap-4">
               {schoolBranding?.logoUrl && <img src={schoolBranding.logoUrl} alt="Logo" className="h-14 object-contain" />}
               <div>
-                <h2 className="text-xl font-black text-gray-900">{schoolBranding?.schoolName || 'اسم المدرسة'}</h2>
+                <h2 className="text-xl font-black text-gray-900">{schoolBranding?.schoolName || (isRTL ? 'اسم المدرسة' : 'School Name')}</h2>
                 <p className="text-sm text-gray-400">{isRTL ? 'السجل الأكاديمي الشامل' : 'Academic Transcript'}</p>
               </div>
             </div>
@@ -597,7 +597,7 @@ Result: ${doc.gradeAverage}`;
             <div className="flex items-center gap-4">
               {schoolBranding?.logoUrl && <img src={schoolBranding.logoUrl} alt="Logo" className="h-14 object-contain" />}
               <div>
-                <h2 className="text-xl font-black text-gray-900">{schoolBranding?.schoolName || 'اسم المدرسة'}</h2>
+                <h2 className="text-xl font-black text-gray-900">{schoolBranding?.schoolName || (isRTL ? 'اسم المدرسة' : 'School Name')}</h2>
                 <p className="text-sm text-gray-400">{isRTL ? 'سجل الدرجات' : 'Report Card'}</p>
               </div>
             </div>
@@ -1623,12 +1623,12 @@ Result: ${doc.gradeAverage}`;
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
          {/* Academic Chart */}
          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 lg:col-span-2">
-            <h3 className="font-bold text-lg text-gray-900 mb-6">الأداء الأكاديمي</h3>
+            <h3 className="font-bold text-lg text-gray-900 mb-6">{isRTL ? 'الأداء الأكاديمي' : 'Academic Performance'}</h3>
             {isLoadingGrades ? (
-              <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">جاري التحميل...</div>
+              <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm">{isRTL ? 'جاري التحميل...' : 'Loading...'}</div>
             ) : gradedSubjects.length === 0 ? (
               <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm text-center px-8">
-                مفيش درجات مسجّلة لأي مادة لسه — الدرجات بتظهر هنا أول ما يتسجّل نظام تقييم معتمد وتُدخل درجات فعلية.
+                {isRTL ? 'مفيش درجات مسجّلة لأي مادة لسه — الدرجات بتظهر هنا أول ما يتسجّل نظام تقييم معتمد وتُدخل درجات فعلية.' : 'No grades recorded for any subject yet — grades will appear here once an approved grading system is set up and real scores are entered.'}
               </div>
             ) : (
             <div className="h-[300px] w-full" dir="ltr">
@@ -1648,7 +1648,7 @@ Result: ${doc.gradeAverage}`;
          {/* المستندات */}
          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-6">
-               <h3 className="font-bold text-lg text-gray-900">المستندات</h3>
+               <h3 className="font-bold text-lg text-gray-900">{isRTL ? 'المستندات' : 'Documents'}</h3>
                <div className="flex gap-2">
                   <button onClick={() => setIsAssigning(true)} className="text-violet-600 hover:bg-violet-50 p-2 rounded-full transition-colors">
                     <Plus size={20} />
@@ -1712,11 +1712,11 @@ Result: ${doc.gradeAverage}`;
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 w-full">
          <div className="flex justify-between items-end mb-8 relative z-10">
             <div>
-               <p className="text-sm text-slate-500 font-medium mb-1">الحالة المالية</p>
-               <h3 className="text-2xl font-bold text-slate-800">الرسوم الدراسية</h3>
+               <p className="text-sm text-slate-500 font-medium mb-1">{isRTL ? 'الحالة المالية' : 'Financial Status'}</p>
+               <h3 className="text-2xl font-bold text-slate-800">{isRTL ? 'الرسوم الدراسية' : 'Tuition Fees'}</h3>
             </div>
             <div className="text-right">
-               <p className="text-slate-400 text-xs uppercase mb-1">المتبقي</p>
+               <p className="text-slate-400 text-xs uppercase mb-1">{isRTL ? 'المتبقي' : 'Remaining'}</p>
                <p className="text-4xl font-extrabold text-violet-700">
                   {new Intl.NumberFormat(isRTL ? 'ar-EG' : 'en-US', { style: 'currency', currency: 'EGP' }).format(totalFees - paidFees)}
                </p>
@@ -1726,7 +1726,7 @@ Result: ${doc.gradeAverage}`;
             {student.installmentPlans?.[0]?.installments.map((ins, i) => (
                <div key={i} className="bg-slate-50 border border-slate-100 rounded-2xl p-5 flex flex-col hover:border-violet-200 hover:shadow-sm transition-all">
                   <div className="flex justify-between items-center text-sm mb-3">
-                     <span className="text-slate-500 font-medium">قسط {i+1}</span>
+                     <span className="text-slate-500 font-medium">{isRTL ? 'قسط' : 'Installment'} {i+1}</span>
                      <span className={ins.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 font-bold px-3 py-1 rounded-full text-sm inline-block w-fit' : 'bg-violet-50 text-violet-700 font-bold px-3 py-1 rounded-full text-sm inline-block w-fit'}>{ins.status === 'Paid' ? (isRTL ? 'مدفوع' : 'Paid') : ins.status === 'Pending' ? (isRTL ? 'قيد الانتظار' : 'Pending') : ins.status}</span>
                   </div>
                   <p className="font-mono text-xl font-bold text-slate-800">{new Intl.NumberFormat(isRTL ? 'ar-EG' : 'en-US', {style: 'currency', currency: 'EGP'}).format(ins.amount)}</p>
