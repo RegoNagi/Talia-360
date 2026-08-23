@@ -14,6 +14,7 @@ import { CurriculumHub } from './views/CurriculumHub';
 import { Gradebook } from './views/Gradebook';
 import { ClassManagement } from './views/ClassManagement';
 import { Attendance } from './views/Attendance';
+import { Schedule } from './views/Schedule';
 import { Analytics } from './views/Analytics';
 import { Settings } from './views/Settings';
 import { EditStudentProfile } from './views/EditStudentProfile';
@@ -33,6 +34,7 @@ import {
   FileSpreadsheet,
   Users,
   Calendar,
+  CalendarClock,
   Landmark,
   ChevronDown,
   ChevronUp,
@@ -242,6 +244,7 @@ const App: React.FC = () => {
     },
     { id: 'classes', labelEn: 'Classes', labelAr: 'الفصول', icon: <School size={20} />, view: 'classes' },
     { id: 'attendance', labelEn: 'Attendance', labelAr: 'الحضور', icon: <Calendar size={20} />, view: 'attendance' },
+    { id: 'schedule', labelEn: 'Class Schedule', labelAr: 'جدول الحصص', icon: <CalendarClock size={20} />, view: 'schedule' },
     { id: 'gradebook', labelEn: 'Gradebook', labelAr: 'سجل الدرجات', icon: <FileSpreadsheet size={20} />, view: 'gradebook' },
     { id: 'finance', labelEn: 'Finance', labelAr: 'إدارة المدفوعات', icon: <CreditCard size={20} />, view: 'finance' },
     { id: 'settings', labelEn: 'Settings', labelAr: 'الإعدادات', icon: <SettingsIcon size={20} />, view: 'settings' },
@@ -322,6 +325,8 @@ const App: React.FC = () => {
         return <ClassManagement role={user.role} language={language} user={user} permissions={userPermissions} />;
       case 'attendance':
         return <Attendance role={user.role} language={language} user={user} permissions={userPermissions} />;
+      case 'schedule':
+        return <Schedule role={user.role} language={language} />;
       case 'lessons-planner':
         return <LessonPlanner language={language} permissions={userPermissions} editContext={lessonPlanContext} onExitContext={() => { setLessonPlanContext(null); setActiveView(previousViewBeforePlanRef.current); }} />;
       case 'lessons-library':
