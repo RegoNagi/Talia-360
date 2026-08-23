@@ -308,7 +308,7 @@ export async function getClassSections(): Promise<ClassSection[]> {
 // بيجيب المدرسين الحقيقيين (مع بياناتهم من جدول users)
 const ALL_SUBJECTS = ['رياضيات', 'علوم', 'لغة عربية', 'لغة إنجليزية', 'تاريخ', 'فنون'];
 
-export async function getTeachers(): Promise<(Teacher & { userId: string; grades: string[]; subjects: string[]; teacherType: 'Main' | 'Assistant'; canUseQuestionBank: boolean })[]> {
+export async function getTeachers(): Promise<(Teacher & { userId: string; grades: string[]; subjects: string[]; teacherType: 'Main' | 'Assistant'; canUseQuestionBank: boolean; teacherCode: string })[]> {
   const { data, error } = await supabase
     .from('teachers')
     .select(`
@@ -316,7 +316,9 @@ export async function getTeachers(): Promise<(Teacher & { userId: string; grades
       user_id,
       specialization,
       employment_type,
+      hiring_date,
       teacher_type,
+      teacher_code,
       can_add_to_question_bank,
       users ( name, email ),
       teacher_grades ( grade ),
@@ -336,7 +338,7 @@ export async function getTeachers(): Promise<(Teacher & { userId: string; grades
     avatar: '',
     email: row.users?.email ?? '',
     specialization: row.specialization ?? '',
-    hiringDate: '',
+    hiringDate: row.hiring_date ?? '',
     employmentType: row.employment_type ?? 'Full-time',
     phone: '',
     assignedClasses: [],
@@ -345,6 +347,7 @@ export async function getTeachers(): Promise<(Teacher & { userId: string; grades
     subjects: (row.teacher_subjects || []).map((s: any) => s.subject),
     teacherType: row.teacher_type ?? 'Main',
     canUseQuestionBank: row.can_add_to_question_bank ?? false,
+    teacherCode: row.teacher_code ?? '',
   }));
 }
 
@@ -407,6 +410,15 @@ export async function createTeacher(input: {
   const effectiveSubjects = input.allSubjects ? ALL_SUBJECTS : input.subjects;
   const specializationLabel = input.allSubjects ? 'كل المواد' : (effectiveSubjects.join('، ') || '');
 
+  // كود تلقائي فريد لكل معلم جديد (يُستخدم في ربط ملفات الإكسيل بجدول الحصص)
+  const { data: existingCodes } = await supabase.from('teachers').select('teacher_code').not('teacher_code', 'is', null);
+  const maxNum = (existingCodes || []).reduce((max: number, row: any) => {
+    const match = /T-(\d+)/.exec(row.teacher_code || '');
+    const num = match ? parseInt(match[1], 10) : 0;
+    return Math.max(max, num);
+  }, 0);
+  const newTeacherCode = `T-${String(maxNum + 1).padStart(4, '0')}`;
+
   const { data: teacherRow, error: teacherError } = await supabase
     .from('teachers')
     .insert({
@@ -416,6 +428,7 @@ export async function createTeacher(input: {
       hiring_date: input.hiringDate || null,
       teacher_type: input.teacherType,
       can_add_to_question_bank: input.canUseQuestionBank || false,
+      teacher_code: newTeacherCode,
     })
     .select('id')
     .single();
