@@ -17,7 +17,7 @@ import {
   AlertCircle,
   Users
 } from 'lucide-react';
-import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria } from '../services/supabaseData';
+import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDate, AttendanceLogRow } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { Teacher } from '../types';
 import { Student, ClassSection } from '../types';
@@ -220,6 +220,37 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [currentPage, setCurrentPage] = useState(1);
   const logsPerPage = 10;
 
+  // بيانات حقيقية للوحة المشرف
+  const [realGradeLevels, setRealGradeLevels] = useState<{ id: string; name: string }[]>([]);
+  const [classesOverview, setClassesOverview] = useState<ClassAttendanceOverview[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLogRow[]>([]);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
+  const adminSelectedDate = filterDate === 'الأمس'
+    ? (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); })()
+    : todayStr;
+
+  const refreshAdminDashboard = () => {
+    setIsLoadingDashboard(true);
+    Promise.all([
+      getClassesAttendanceOverview(adminSelectedDate, attendanceMode),
+      getAttendanceLogsForDate(adminSelectedDate),
+    ]).then(([overview, logs]) => {
+      setClassesOverview(overview);
+      setAttendanceLogs(logs);
+      setIsLoadingDashboard(false);
+    });
+  };
+
+  React.useEffect(() => {
+    getGradeLevels().then(setRealGradeLevels);
+  }, []);
+
+  React.useEffect(() => {
+    if (activeTab === 'admin' && adminView === 'dashboard') {
+      refreshAdminDashboard();
+    }
+  }, [activeTab, adminView, adminSelectedDate, attendanceMode]);
+
   const hasActiveFilters = filterDate !== 'اليوم' || filterGrade !== 'جميع الصفوف' || filterClass !== 'جميع الفصول' || filterStatuses.length > 0;
 
   const clearFilters = () => {
@@ -237,37 +268,14 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     setCurrentPage(1);
   };
 
-  // Mock Analytics Data
-  const gradeData = [
-    { name: 'الصف 9', attendance: 95 },
-    { name: 'الصف 10', attendance: 92 },
-    { name: 'الصف 11', attendance: 88 },
-    { name: 'الصف 12', attendance: 96 },
-  ];
-
-  const mockAuditLogs = [
-    { id: 1, student: 'علي حسن', class: '10-A', grade: 'الصف 10', teacher: 'سارة الماجد', time: '08:15 AM', status: 'حاضر' },
-    { id: 2, student: 'عمر خالد', class: '10-A', grade: 'الصف 10', teacher: 'سارة الماجد', time: '08:32 AM', status: 'متأخر' },
-    { id: 3, student: 'فاطمة نور', class: '11-B', grade: 'الصف 11', teacher: 'أحمد خليل', time: '09:00 AM', status: 'غائب' },
-    { id: 4, student: 'عائشة رحمن', class: '9-C', grade: 'الصف 9', teacher: 'جون سميث', time: '08:10 AM', status: 'حاضر' },
-    { id: 5, student: 'يوسف علي', class: '12-A', grade: 'الصف 12', teacher: 'ماريا غارسيا', time: '08:45 AM', status: 'متأخر' },
-    { id: 6, student: 'زينب عباس', class: '10-A', grade: 'الصف 10', teacher: 'سارة الماجد', time: '08:15 AM', status: 'حاضر' },
-    { id: 7, student: 'حسن طارق', class: '11-B', grade: 'الصف 11', teacher: 'أحمد خليل', time: '08:20 AM', status: 'حاضر' },
-    { id: 8, student: 'مريم سعيد', class: '9-C', grade: 'الصف 9', teacher: 'جون سميث', time: '08:12 AM', status: 'حاضر' },
-    { id: 9, student: 'خالد عمر', class: '12-A', grade: 'الصف 12', teacher: 'ماريا غارسيا', time: '08:14 AM', status: 'حاضر' },
-    { id: 10, student: 'سارة أحمد', class: '10-A', grade: 'الصف 10', teacher: 'سارة الماجد', time: '08:16 AM', status: 'حاضر' },
-    { id: 11, student: 'نور علي', class: '11-B', grade: 'الصف 11', teacher: 'أحمد خليل', time: '08:22 AM', status: 'حاضر' },
-    { id: 12, student: 'أحمد حسن', class: '9-C', grade: 'الصف 9', teacher: 'جون سميث', time: '09:05 AM', status: 'غائب' },
-  ];
-
-  const filteredLogs = mockAuditLogs.filter(log => {
-    const matchesSearch = log.student.toLowerCase().includes(logSearch.toLowerCase()) ||
-                          log.class.toLowerCase().includes(logSearch.toLowerCase()) ||
-                          log.teacher.toLowerCase().includes(logSearch.toLowerCase()) ||
+  const filteredLogs = attendanceLogs.filter(log => {
+    const matchesSearch = log.studentName.toLowerCase().includes(logSearch.toLowerCase()) ||
+                          log.className.toLowerCase().includes(logSearch.toLowerCase()) ||
+                          log.teacherName.toLowerCase().includes(logSearch.toLowerCase()) ||
                           log.status.toLowerCase().includes(logSearch.toLowerCase());
     
-    const matchesGrade = filterGrade === 'جميع الصفوف' || log.grade === filterGrade;
-    const matchesClass = filterClass === 'جميع الفصول' || log.class === filterClass;
+    const matchesGrade = filterGrade === 'جميع الصفوف' || log.gradeLevel === filterGrade;
+    const matchesClass = filterClass === 'جميع الفصول' || log.className === filterClass;
     const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(log.status);
 
     return matchesSearch && matchesGrade && matchesClass && matchesStatus;
@@ -276,13 +284,29 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const totalPages = Math.ceil(filteredLogs.length / logsPerPage);
   const paginatedLogs = filteredLogs.slice((currentPage - 1) * logsPerPage, currentPage * logsPerPage);
 
-  // Dynamic classes based on selected grade
+  // الفصول الحقيقية المتاحة حسب الصف المختار
   const availableClasses = filterGrade === 'جميع الصفوف' 
-    ? Array.from(new Set(mockAuditLogs.map(l => l.class)))
-    : Array.from(new Set(mockAuditLogs.filter(l => l.grade === filterGrade).map(l => l.class)));
+    ? Array.from(new Set(attendanceLogs.map(l => l.className)))
+    : Array.from(new Set(attendanceLogs.filter(l => l.gradeLevel === filterGrade).map(l => l.className)));
 
-  // Filtered Chart Data
-  const filteredGradeData = gradeData.filter(g => filterGrade === 'جميع الصفوف' || g.name === filterGrade);
+  // حساب معدل الحضور الحقيقي لكل صف من السجلات الفعلية
+  const filteredGradeData = (() => {
+    const grades = filterGrade === 'جميع الصفوف' ? realGradeLevels.map(g => g.name) : [filterGrade];
+    return grades.map(gradeName => {
+      const gradeLogs = attendanceLogs.filter(l => l.gradeLevel === gradeName);
+      const presentCount = gradeLogs.filter(l => l.status === 'حاضر' || l.status === 'متأخر').length;
+      const attendance = gradeLogs.length > 0 ? Math.round((presentCount / gradeLogs.length) * 100) : 0;
+      return { name: gradeName, attendance };
+    }).filter(g => attendanceLogs.some(l => l.gradeLevel === g.name));
+  })();
+
+  // إحصائيات اليوم الحقيقية
+  const todayStats = {
+    attendanceRate: attendanceLogs.length > 0 ? Math.round((attendanceLogs.filter(l => l.status === 'حاضر' || l.status === 'متأخر').length / attendanceLogs.length) * 100) : 0,
+    absentCount: attendanceLogs.filter(l => l.status === 'غائب').length,
+    pendingClasses: classesOverview.filter(c => c.status !== 'complete').length,
+    totalClasses: classesOverview.length,
+  };
 
   const handleStatusChange = (studentId: string, status: string) => {
     if (!isToday || !canTakeAttendance) return;
@@ -538,24 +562,62 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                   <p className="text-sm text-gray-500 font-medium mb-1">نسبة حضور اليوم</p>
                   <div className="flex items-end gap-2">
-                    <h3 className="text-3xl font-bold text-gray-900">94.2%</h3>
-                    <span className="text-sm font-bold text-green-500 mb-1">+1.2%</span>
+                    <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : `${todayStats.attendanceRate}%`}</h3>
                   </div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                   <p className="text-sm text-gray-500 font-medium mb-1">إجمالي الغائبين</p>
                   <div className="flex items-end gap-2">
-                    <h3 className="text-3xl font-bold text-gray-900">42</h3>
-                    <span className="text-sm font-bold text-red-500 mb-1">-5</span>
+                    <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : todayStats.absentCount}</h3>
                   </div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                   <p className="text-sm text-gray-500 font-medium mb-1">فصول قيد الانتظار</p>
                   <div className="flex items-end gap-2">
-                    <h3 className="text-3xl font-bold text-gray-900">12</h3>
-                    <span className="text-sm text-gray-500 mb-1">/ 45</span>
+                    <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : todayStats.pendingClasses}</h3>
+                    <span className="text-sm text-gray-500 mb-1">/ {todayStats.totalClasses}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* نظرة عامة على الفصول — مين خد الحضور ومين لسه */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">حالة الحضور لكل فصل اليوم</h3>
+                {isLoadingDashboard ? (
+                  <p className="text-sm text-gray-400 text-center py-8">جاري التحميل...</p>
+                ) : classesOverview.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">مفيش فصول متعملة لسه.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {classesOverview.map(cls => (
+                      <div key={cls.sectionId} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">{cls.sectionName}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{cls.gradeLevel} • {cls.teacherName || 'بدون معلم'}</p>
+                          <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            cls.status === 'complete' ? 'bg-green-100 text-green-700' :
+                            cls.status === 'partial' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {cls.status === 'complete' ? 'اتاخد الحضور' : cls.status === 'partial' ? `جزئي (${cls.takenCount}/${cls.expectedCount})` : 'لسه ماخدش'}
+                          </span>
+                        </div>
+                        {cls.status !== 'complete' && (
+                          <button
+                            onClick={() => {
+                              const fullClass = realClasses.find(c => c.id === cls.sectionId);
+                              setSelectedTeacherId(fullClass?.teacherId || null);
+                              setSelectedClass(cls.sectionId);
+                              setActiveTab('teacher');
+                            }}
+                            className="text-xs font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-lg transition-colors shrink-0"
+                          >
+                            خد الحضور
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 gap-6">
@@ -583,10 +645,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                       className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500"
                     >
                       <option>جميع الصفوف</option>
-                      <option>الصف 9</option>
-                      <option>الصف 10</option>
-                      <option>الصف 11</option>
-                      <option>الصف 12</option>
+                      {realGradeLevels.map(g => <option key={g.id}>{g.name}</option>)}
                     </select>
 
                     <select 
