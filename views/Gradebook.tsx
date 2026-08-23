@@ -336,6 +336,7 @@ export const Gradebook: React.FC<GradebookProps> = ({ role, language, permission
   }, []);
 
   const isRTL = language === Language.AR;
+  const t = (ar: string, en: string) => (isRTL ? ar : en);
   const currentTerm = config.terms.find(t => t.id === activeTermId);
   const termAssessments = config.assessments.filter(a => a.termId === activeTermId);
 
