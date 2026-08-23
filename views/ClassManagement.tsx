@@ -618,7 +618,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
          </div>
 
          {activeTab === 'calendar' ? (
-            <ClassCalendar sectionId={classData.id} defaultTeacherId={classData.teacherId} />
+            <ClassCalendar sectionId={classData.id} defaultTeacherId={classData.teacherId} isRTL={isRTL} />
          ) : (
             <>
                {/* QR Overlay (Conditional) */}
