@@ -4,8 +4,11 @@ import { UserRole, Language } from '../types';
 import { showToast } from '../components/Toast';
 import {
   getScheduleSettings, updateScheduleSettings, ScheduleSettings,
+  getScheduleBreaks, addScheduleBreak, deleteScheduleBreak, ScheduleBreak,
   getAllTeachersWithCodes, getClassSections,
   getFullSchedule, ScheduleEntry, importSchedule, ScheduleImportRow, ScheduleImportResult,
+  getTeacherAbsences, addTeacherAbsence, deleteTeacherAbsence, TeacherAbsence,
+  getAffectedPeriodsForAbsence, assignSubstitute, AffectedPeriod,
 } from '../services/supabaseData';
 import {
   Settings as SettingsIcon,
@@ -17,6 +20,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Plus,
+  X,
+  UserX,
 } from 'lucide-react';
 
 interface ScheduleProps {
@@ -24,7 +30,7 @@ interface ScheduleProps {
   language: Language;
 }
 
-type ScheduleSection = 'settings' | 'upload' | 'calendar';
+type ScheduleSection = 'settings' | 'upload' | 'calendar' | 'substitution';
 type CalendarView = 'day' | 'week' | 'month' | 'term';
 
 const DAYS_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -45,15 +51,39 @@ export const Schedule: React.FC<ScheduleProps> = ({ role, language }) => {
   const [activeSection, setActiveSection] = useState<ScheduleSection>('calendar');
 
   // ============ الإعدادات ============
-  const [settings, setSettings] = useState<ScheduleSettings>({ id: '', periodsPerDay: 7, periodDurationMinutes: 45, breakAfterPeriod: 4, breakDurationMinutes: 30 });
+  const [settings, setSettings] = useState<ScheduleSettings>({ id: '', periodsPerDay: 7, periodDurationMinutes: 45, dayStartTime: '08:00' });
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [breaks, setBreaks] = useState<ScheduleBreak[]>([]);
+  const [newBreakAfter, setNewBreakAfter] = useState('');
+  const [newBreakDuration, setNewBreakDuration] = useState('30');
 
   const refreshSettings = () => {
     setIsLoadingSettings(true);
-    getScheduleSettings().then((s) => { setSettings(s); setIsLoadingSettings(false); });
+    Promise.all([getScheduleSettings(), getScheduleBreaks()]).then(([s, b]) => {
+      setSettings(s);
+      setBreaks(b);
+      setIsLoadingSettings(false);
+    });
   };
   useEffect(() => { refreshSettings(); }, []);
+
+  const handleAddBreak = async () => {
+    const after = Number(newBreakAfter);
+    const dur = Number(newBreakDuration);
+    if (!after || !dur) return;
+    const ok = await addScheduleBreak({ afterPeriod: after, durationMinutes: dur });
+    if (ok) {
+      setNewBreakAfter('');
+      setNewBreakDuration('30');
+      refreshSettings();
+    }
+  };
+
+  const handleDeleteBreak = async (id: string) => {
+    const ok = await deleteScheduleBreak(id);
+    if (ok) refreshSettings();
+  };
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
@@ -168,8 +198,65 @@ export const Schedule: React.FC<ScheduleProps> = ({ role, language }) => {
   const navTabs: { id: ScheduleSection; ar: string; en: string; icon: React.ReactNode }[] = [
     { id: 'calendar', ar: 'عرض الجدول', en: 'View Schedule', icon: <CalendarDays size={18} /> },
     { id: 'upload', ar: 'إدخال الجدول', en: 'Import Schedule', icon: <Upload size={18} /> },
+    { id: 'substitution', ar: 'الاحتياطي وغياب المعلمين', en: 'Substitution & Absences', icon: <UserX size={18} /> },
     { id: 'settings', ar: 'الإعدادات', en: 'Settings', icon: <SettingsIcon size={18} /> },
   ];
+
+  // ============ غياب المعلمين والاحتياطي ============
+  const [absenceDate, setAbsenceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [absences, setAbsences] = useState<TeacherAbsence[]>([]);
+  const [isLoadingAbsences, setIsLoadingAbsences] = useState(true);
+  const [isAddingAbsence, setIsAddingAbsence] = useState(false);
+  const [newAbsenceTeacherId, setNewAbsenceTeacherId] = useState('');
+  const [newAbsenceReason, setNewAbsenceReason] = useState('');
+  const [expandedAbsenceId, setExpandedAbsenceId] = useState<string | null>(null);
+  const [affectedPeriods, setAffectedPeriods] = useState<Record<string, AffectedPeriod[]>>({});
+
+  const refreshAbsences = () => {
+    setIsLoadingAbsences(true);
+    getTeacherAbsences(absenceDate, absenceDate).then((rows) => { setAbsences(rows); setIsLoadingAbsences(false); });
+  };
+  useEffect(() => { refreshAbsences(); }, [absenceDate]);
+
+  const handleAddAbsence = async () => {
+    if (!newAbsenceTeacherId) return;
+    const teacher = allTeachers.find(tch => tch.id === newAbsenceTeacherId);
+    const id = await addTeacherAbsence({ teacherId: newAbsenceTeacherId, absenceDate, reason: newAbsenceReason, recordedBy: t('المشرف', 'Admin') });
+    if (id) {
+      setNewAbsenceTeacherId('');
+      setNewAbsenceReason('');
+      setIsAddingAbsence(false);
+      refreshAbsences();
+      showToast(t('تم تسجيل الغياب.', 'Absence recorded.'), 'success');
+    }
+  };
+
+  const handleDeleteAbsence = async (id: string) => {
+    const ok = await deleteTeacherAbsence(id);
+    if (ok) refreshAbsences();
+  };
+
+  const toggleExpandAbsence = async (absence: TeacherAbsence) => {
+    if (expandedAbsenceId === absence.id) {
+      setExpandedAbsenceId(null);
+      return;
+    }
+    setExpandedAbsenceId(absence.id);
+    if (!affectedPeriods[absence.id]) {
+      const periods = await getAffectedPeriodsForAbsence(absence.teacherId, absence.absenceDate);
+      setAffectedPeriods(prev => ({ ...prev, [absence.id]: periods }));
+    }
+  };
+
+  const handleAssignSubstitute = async (absence: TeacherAbsence, periodId: string, substituteTeacherId: string) => {
+    if (!substituteTeacherId) return;
+    const ok = await assignSubstitute(periodId, absence.absenceDate, substituteTeacherId);
+    if (ok) {
+      const periods = await getAffectedPeriodsForAbsence(absence.teacherId, absence.absenceDate);
+      setAffectedPeriods(prev => ({ ...prev, [absence.id]: periods }));
+      showToast(t('تم تعيين المعلم الاحتياطي.', 'Substitute teacher assigned.'), 'success');
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fadeIn pb-20" dir={isRTL ? 'rtl' : 'ltr'}>
@@ -226,29 +313,56 @@ export const Schedule: React.FC<ScheduleProps> = ({ role, language }) => {
                 />
               </div>
 
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-2 block">{t('اليوم بيبدأ الساعة كام؟ (أول حصة)', 'What time does the day start? (1st period)')}</label>
+                <input
+                  type="time"
+                  value={settings.dayStartTime}
+                  onChange={(e) => setSettings({ ...settings, dayStartTime: e.target.value })}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+
               <div className="pt-6 border-t border-gray-100">
                 <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Clock size={16} className="text-violet-600" /> {t('الفريد (وقت الراحة)', 'Break Time')}
+                  <Clock size={16} className="text-violet-600" /> {t('وقت الراحة', 'Break Time')}
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <p className="text-xs text-gray-400 mb-3">{t('تقدري تضيفي أكتر من فترة راحة في اليوم.', 'You can add more than one break in the day.')}</p>
+
+                <div className="space-y-2 mb-4">
+                  {breaks.map(b => (
+                    <div key={b.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                      <p className="text-sm text-gray-700">{t(`بعد الحصة ${b.afterPeriod} — لمدة ${b.durationMinutes} دقيقة`, `After period ${b.afterPeriod} — ${b.durationMinutes} min`)}</p>
+                      <button onClick={() => handleDeleteBreak(b.id)} className="text-gray-300 hover:text-red-500">
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  {breaks.length === 0 && <p className="text-sm text-gray-400">{t('مفيش فترات راحة متضافة لسه.', 'No breaks added yet.')}</p>}
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 items-end">
                   <div>
                     <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">{t('بعد الحصة رقم', 'After Period #')}</label>
                     <input
                       type="number" min="1" max={settings.periodsPerDay}
-                      value={settings.breakAfterPeriod}
-                      onChange={(e) => setSettings({ ...settings, breakAfterPeriod: Number(e.target.value) })}
+                      value={newBreakAfter}
+                      onChange={(e) => setNewBreakAfter(e.target.value)}
                       className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">{t('مدة الفريد (دقيقة)', 'Break Duration (min)')}</label>
+                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">{t('المدة (دقيقة)', 'Duration (min)')}</label>
                     <input
                       type="number" min="5" max="90"
-                      value={settings.breakDurationMinutes}
-                      onChange={(e) => setSettings({ ...settings, breakDurationMinutes: Number(e.target.value) })}
+                      value={newBreakDuration}
+                      onChange={(e) => setNewBreakDuration(e.target.value)}
                       className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
                     />
                   </div>
+                  <button onClick={handleAddBreak} className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-bold flex items-center justify-center gap-1">
+                    <Plus size={16} /> {t('إضافة', 'Add')}
+                  </button>
                 </div>
               </div>
 
@@ -257,8 +371,8 @@ export const Schedule: React.FC<ScheduleProps> = ({ role, language }) => {
                 <p className="text-sm font-bold text-violet-800 mb-2">{t('الملخص', 'Summary')}</p>
                 <p className="text-sm text-violet-700 leading-relaxed">
                   {t(
-                    `اليوم الدراسي فيه ${settings.periodsPerDay} حصص، كل حصة ${settings.periodDurationMinutes} دقيقة. الفريد بيكون بعد الحصة رقم ${settings.breakAfterPeriod} ومدته ${settings.breakDurationMinutes} دقيقة.`,
-                    `The school day has ${settings.periodsPerDay} periods, each ${settings.periodDurationMinutes} minutes long. The break happens after period ${settings.breakAfterPeriod} and lasts ${settings.breakDurationMinutes} minutes.`
+                    `اليوم الدراسي بيبدأ الساعة ${settings.dayStartTime} وفيه ${settings.periodsPerDay} حصص، كل حصة ${settings.periodDurationMinutes} دقيقة${breaks.length > 0 ? '، وفيه ' + breaks.length + ' فترة راحة' : ''}.`,
+                    `The school day starts at ${settings.dayStartTime} and has ${settings.periodsPerDay} periods, each ${settings.periodDurationMinutes} minutes long${breaks.length > 0 ? `, with ${breaks.length} break(s)` : ''}.`
                   )}
                 </p>
               </div>
@@ -471,6 +585,123 @@ export const Schedule: React.FC<ScheduleProps> = ({ role, language }) => {
               })()}
             </>
           )}
+        </div>
+      )}
+
+      {/* ============ الاحتياطي وغياب المعلمين ============ */}
+      {activeSection === 'substitution' && (
+        <div className="max-w-4xl space-y-6">
+          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3">
+            <label className="text-sm font-bold text-gray-700">{t('التاريخ', 'Date')}</label>
+            <input
+              type="date"
+              value={absenceDate}
+              onChange={(e) => setAbsenceDate(e.target.value)}
+              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900">{t('المعلمون الغائبون في هذا اليوم', 'Teachers Absent on This Day')}</h3>
+              <button onClick={() => setIsAddingAbsence(!isAddingAbsence)} className="text-sm font-bold text-violet-600 hover:bg-violet-50 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                <Plus size={16} /> {t('تسجيل غياب', 'Record Absence')}
+              </button>
+            </div>
+
+            {isAddingAbsence && (
+              <div className="p-4 bg-gray-50 rounded-2xl mb-4 space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">{t('المعلم', 'Teacher')}</label>
+                  <select
+                    value={newAbsenceTeacherId}
+                    onChange={(e) => setNewAbsenceTeacherId(e.target.value)}
+                    className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">{t('اختاري معلم...', 'Select a teacher...')}</option>
+                    {allTeachers.map(tch => <option key={tch.id} value={tch.id}>{tch.name} ({tch.code})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">{t('سبب الغياب (اختياري)', 'Reason (optional)')}</label>
+                  <input
+                    type="text"
+                    value={newAbsenceReason}
+                    onChange={(e) => setNewAbsenceReason(e.target.value)}
+                    className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleAddAbsence} className="px-5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-sm font-bold">{t('حفظ', 'Save')}</button>
+                  <button onClick={() => setIsAddingAbsence(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-bold">{t('إلغاء', 'Cancel')}</button>
+                </div>
+              </div>
+            )}
+
+            {isLoadingAbsences ? (
+              <p className="text-gray-400 text-sm text-center py-8">{t('جاري التحميل...', 'Loading...')}</p>
+            ) : absences.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-8">{t('مفيش معلمين غايبين في اليوم ده.', 'No teachers absent on this day.')}</p>
+            ) : (
+              <div className="space-y-3">
+                {absences.map(absence => (
+                  <div key={absence.id} className="border border-gray-100 rounded-2xl overflow-hidden">
+                    <button
+                      onClick={() => toggleExpandAbsence(absence)}
+                      className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100/70 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-red-100 text-red-700 rounded-full flex items-center justify-center shrink-0">
+                          <UserX size={16} />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-bold text-gray-900 text-sm">{absence.teacherName}</p>
+                          {absence.reason && <p className="text-xs text-gray-500">{absence.reason}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span onClick={(e) => { e.stopPropagation(); handleDeleteAbsence(absence.id); }} className="text-gray-400 hover:text-red-500 p-1">
+                          <X size={16} />
+                        </span>
+                        <ChevronRight size={16} className={`text-gray-400 transition-transform ${expandedAbsenceId === absence.id ? 'rotate-90' : (isRTL ? '' : '')}`} />
+                      </div>
+                    </button>
+                    {expandedAbsenceId === absence.id && (
+                      <div className="p-4 space-y-2">
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-2">{t('الحصص المتأثرة — عيّني معلم احتياطي لكل واحدة', 'Affected Periods — Assign a Substitute for Each')}</p>
+                        {(affectedPeriods[absence.id] || []).length === 0 ? (
+                          <p className="text-sm text-gray-400">{t('مفيش حصص لهذا المعلم في هذا اليوم.', 'No periods for this teacher on this day.')}</p>
+                        ) : (
+                          (affectedPeriods[absence.id] || []).map(p => (
+                            <div key={p.periodId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                              <div className="w-28 shrink-0">
+                                <p className="text-xs font-bold text-gray-700">{p.startTime}</p>
+                                <p className="text-[10px] text-gray-400">{p.endTime}</p>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-bold text-gray-900">{p.subject}</p>
+                                <p className="text-xs text-gray-500">{p.sectionName}</p>
+                              </div>
+                              <select
+                                value={p.substituteTeacherId || ''}
+                                onChange={(e) => handleAssignSubstitute(absence, p.periodId, e.target.value)}
+                                className={`px-3 py-2 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-violet-500 ${p.substituteTeacherId ? 'bg-green-50 border-green-200 text-green-800 font-bold' : 'bg-white border-gray-200 text-gray-600'}`}
+                              >
+                                <option value="">{t('عيّني احتياطي...', 'Assign substitute...')}</option>
+                                {allTeachers.filter(tch => tch.id !== absence.teacherId).map(tch => (
+                                  <option key={tch.id} value={tch.id}>{tch.name} ({tch.code})</option>
+                                ))}
+                              </select>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
