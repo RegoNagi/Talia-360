@@ -93,13 +93,13 @@ const AcademicPlanAccordion = ({ gradeLevel, sectionId }: { gradeLevel: string; 
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex-1 overflow-y-auto">
       <div className="mb-6">
-        <h3 className="font-bold text-slate-900 text-lg">الخطة الأكاديمية للأسبوع</h3>
+        <h3 className="font-bold text-slate-900 text-lg">{t('الخطة الأكاديمية للأسبوع', "This Week's Academic Plan")}</h3>
       </div>
 
       {isLoading ? (
-        <p className="text-center text-sm text-slate-400 py-8">جاري التحميل...</p>
+        <p className="text-center text-sm text-slate-400 py-8">{t('جاري التحميل...', 'Loading...')}</p>
       ) : plan.length === 0 ? (
-        <p className="text-center text-sm text-slate-400 py-8">مفيش خطة أسبوعية مسجّلة لأي مادة من مواد الفصل ده للأسبوع الحالي.</p>
+        <p className="text-center text-sm text-slate-400 py-8">{t('مفيش خطة أسبوعية مسجّلة لأي مادة من مواد الفصل ده للأسبوع الحالي.', 'No weekly plan recorded for any subject in this class for the current week.')}</p>
       ) : (
         <div className="space-y-2">
           {plan.map((subjectPlan) => {
@@ -117,7 +117,7 @@ const AcademicPlanAccordion = ({ gradeLevel, sectionId }: { gradeLevel: string; 
                     <div className="text-right">
                       <span className="font-bold text-slate-800 block">{subjectPlan.subject}</span>
                       <span className="text-[11px] text-slate-400">
-                        {subjectPlan.weekNumber != null && `الأسبوع ${subjectPlan.weekNumber} · `}
+                        {subjectPlan.weekNumber != null && `${t('الأسبوع', 'Week')} ${subjectPlan.weekNumber} · `}
                         {formatDate(subjectPlan.startDate)} - {formatDate(subjectPlan.endDate)}
                       </span>
                     </div>
@@ -131,7 +131,7 @@ const AcademicPlanAccordion = ({ gradeLevel, sectionId }: { gradeLevel: string; 
                 {isExpanded && (
                   <div className="px-4 pb-4 pt-2 border-t border-slate-50 bg-slate-50/30">
                     {subjectPlan.topics.length === 0 ? (
-                      <p className="text-xs text-slate-400 py-2">مفيش مواضيع مسجّلة للأسبوع ده.</p>
+                      <p className="text-xs text-slate-400 py-2">{t('مفيش مواضيع مسجّلة للأسبوع ده.', 'No topics recorded for this week.')}</p>
                     ) : (
                       <div className="space-y-2 pt-2">
                         {subjectPlan.topics.map((topic, idx) => (
@@ -183,35 +183,35 @@ const EditClassModal: React.FC<{
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4">
       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl animate-fadeIn">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-900">تعديل بيانات الفصل</h3>
+          <h3 className="text-xl font-bold text-gray-900">{t('تعديل بيانات الفصل', "Edit Class Information")}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={24}/></button>
         </div>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">اسم الفصل</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">{t('اسم الفصل', 'Class Name')}</label>
             <input type="text" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">الصف الدراسي</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">{t('الصف الدراسي', 'Grade Level')}</label>
             <select value={form.gradeLevel} onChange={(e) => setForm({...form, gradeLevel: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500 bg-white">
               {gradeLevels.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">المعلم الرئيسي</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">{t('المعلم الرئيسي', 'Homeroom Teacher')}</label>
             <select value={form.teacherId} onChange={(e) => setForm({...form, teacherId: e.target.value})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500 bg-white">
-              <option value="">بدون معلم محدد</option>
+              <option value="">{t('بدون معلم محدد', 'No teacher assigned')}</option>
               {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">السعة الاستيعابية</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">{t('السعة الاستيعابية', 'Capacity')}</label>
             <input type="number" value={form.capacity} onChange={(e) => setForm({...form, capacity: parseInt(e.target.value) || 0})} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500" />
           </div>
         </div>
         <div className="flex gap-4 mt-8 pt-4 border-t border-gray-100">
-          <Button variant="secondary" className="flex-1" onClick={onClose}>إلغاء</Button>
-          <Button variant="primary" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? 'جاري الحفظ...' : 'حفظ التعديلات'}</Button>
+          <Button variant="secondary" className="flex-1" onClick={onClose}>{t('إلغاء', 'Cancel')}</Button>
+          <Button variant="primary" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={isSubmitting} onClick={handleSubmit}>{isSubmitting ? t('جاري الحفظ...', 'Saving...') : t('حفظ التعديلات', 'Save Changes')}</Button>
         </div>
       </div>
     </div>
@@ -226,6 +226,8 @@ interface ClassManagementProps {
 }
 
 export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language, user, permissions = [] }) => {
+  const isRTL = language === Language.AR;
+  const t = (ar: string, en: string) => (isRTL ? ar : en);
   const canManageClasses = permissions.length === 0 || permissions.includes('classes_manage');
   // Navigation State
   const [viewState, setViewState] = useState<'list' | 'create' | 'class-detail' | 'scanner'>('list');
@@ -279,7 +281,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
   };
 
   const handleDeleteClass = async (cls: ClassSection) => {
-    const confirmed = await confirmDialog(`متأكد إنك عايز تمسح فصل "${cls.name}"؟ هيتمسح معاه كل تسجيلات الطلاب والحصص وسجلات الحضور المرتبطة بيه. الإجراء ده مينفعش يترجع.`, 'حذف');
+                    const confirmed = await confirmDialog(t(`متأكد إنك عايز تمسح فصل "${cls.name}"؟ هيتمسح معاه كل تسجيلات الطلاب والحصص وسجلات الحضور المرتبطة بيه.`, `Are you sure you want to delete the class "${cls.name}"? All enrollments, periods, and related attendance records will be deleted too.`), t('حذف', 'Delete'));
     if (!confirmed) return;
     const ok = await deleteClassSection(cls.id);
     if (ok) {
@@ -291,7 +293,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
   };
 
   const handleBulkDeleteClasses = async () => {
-    const confirmed = await confirmDialog(`متأكد إنك عايز تمسح ${selectedClassIds.length} فصل؟ الإجراء ده مينفعش يترجع.`, 'حذف الكل');
+        const confirmed = await confirmDialog(t(`متأكد إنك عايز تمسح ${selectedClassIds.length} فصل؟ الإجراء ده مينفعش يترجع.`, `Are you sure you want to delete ${selectedClassIds.length} classes? This action cannot be undone.`), t('حذف الكل', 'Delete All'));
     if (!confirmed) return;
     const ok = await bulkDeleteClassSections(selectedClassIds);
     if (ok) {
@@ -406,7 +408,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
     };
 
     const removeStudent = async (studentId: string) => {
-      const confirmed = await confirmDialog('متأكد إنك عايز تشيل الطالب ده من قائمة الفصل؟', 'شيل');
+          const confirmed = await confirmDialog(t('متأكد إنك عايز تشيل الطالب ده من قائمة الفصل؟', 'Are you sure you want to remove this student from the class list?'), t('شيل', 'Remove'));
       if (confirmed) {
         const ok = await removeEnrollment(studentId, classData.id);
         if (ok) {
@@ -537,13 +539,13 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                     onClick={() => setActiveTab('overview')}
                     className={`px-4 py-1.5 text-sm rounded-md transition-all ${activeTab === 'overview' ? 'bg-white text-slate-800 font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
                   >
-                    نظرة عامة
+                    {t('نظرة عامة', 'Overview')}
                   </button>
                   <button 
                     onClick={() => setActiveTab('calendar')}
                     className={`px-4 py-1.5 text-sm rounded-md transition-all ${activeTab === 'calendar' ? 'bg-white text-slate-800 font-semibold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
                   >
-                    الجدول الزمني
+                    {t('الجدول الزمني', 'Schedule')}
                   </button>
                </div>
 
@@ -593,22 +595,22 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                   </div>
 
                   <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-                     <div className="text-sm"><span className="text-slate-500">إجمالي الطلاب:</span> <span className="font-bold text-slate-900">{enrolledStudents.length}</span></div>
+                     <div className="text-sm"><span className="text-slate-500">{t('إجمالي الطلاب:', 'Total Students:')}</span> <span className="font-bold text-slate-900">{enrolledStudents.length}</span></div>
                      <div className="w-px h-4 bg-slate-200"></div>
-                     <div className="text-sm"><span className="text-slate-500">حاضر:</span> <span className="font-bold text-green-600">{presentCount}</span></div>
+                     <div className="text-sm"><span className="text-slate-500">{t('حاضر:', 'Present:')}</span> <span className="font-bold text-green-600">{presentCount}</span></div>
                      <div className="w-px h-4 bg-slate-200"></div>
-                     <div className="text-sm"><span className="text-slate-500">غائب:</span> <span className="font-bold text-red-600">{absentCount}</span></div>
+                     <div className="text-sm"><span className="text-slate-500">{t('غائب:', 'Absent:')}</span> <span className="font-bold text-red-600">{absentCount}</span></div>
                   </div>
                </div>
                <div className="flex gap-3">
                   {role === UserRole.ADMIN && (
                     <Button className="bg-violet-600 text-white hover:bg-violet-700 shadow-md hover:shadow-lg gap-2" onClick={() => setIsAddStudentModalOpen(true)}>
-                       <UserPlus size={18} /> إضافة طالب
+                       <UserPlus size={18} /> {t('إضافة طالب', 'Add Student')}
                     </Button>
                   )}
                   {role === UserRole.TEACHER && (
                     <Button variant={qrActive ? "danger" : undefined} className={!qrActive ? "bg-violet-600 text-white hover:bg-violet-700 shadow-md hover:shadow-lg" : ""} onClick={() => setQrActive(!qrActive)}>
-                       <QrCode size={18} /> {qrActive ? 'إيقاف جلسة QR' : 'بدء جلسة QR'}
+                       <QrCode size={18} /> {qrActive ? t('إيقاف جلسة QR', 'Stop QR Session') : t('بدء جلسة QR', 'Start QR Session')}
                     </Button>
                   )}
                </div>
@@ -637,7 +639,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                      </div>
                      <div className="relative z-10 text-right">
                         <p className="text-4xl font-bold font-mono">{presentCount}/{enrolledStudents.length}</p>
-                        <p className="text-gray-400 text-sm uppercase font-bold">حاضر</p>
+                        <p className="text-gray-400 text-sm uppercase font-bold">{t('حاضر', 'Present')}</p>
                      </div>
                   </div>
                )}
@@ -648,28 +650,28 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                   <div className="flex items-center gap-4">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                       <Users size={18} /> قائمة الطلاب
+                       <Users size={18} /> {t('قائمة الطلاب', 'Student List')}
                     </h3>
                     <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1">
                        <SlidersHorizontal size={14} className="text-gray-400" />
-                       <span className="text-xs text-gray-500">فرز حسب:</span>
+                       <span className="text-xs text-gray-500">{t('فرز حسب:', 'Sort by:')}</span>
                        <select 
                          value={sortBy} 
                          onChange={(e) => setSortBy(e.target.value as any)}
                          className="text-xs font-bold text-gray-900 outline-none bg-transparent"
                        >
                           <option value="name">Name</option>
-                          <option value="attendance">الحضور</option>
+                          <option value="attendance">{t('الحضور', 'Attendance')}</option>
                        </select>
                     </div>
                   </div>
                   {role === UserRole.TEACHER && (
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" className="text-xs h-8" onClick={markAllPresent}>
-                         <CheckCircle2 size={14} /> تسجيل الكل حاضر
+                         <CheckCircle2 size={14} /> {t('تسجيل الكل حاضر', 'Mark All Present')}
                       </Button>
                       <Button variant="primary" className="text-xs h-8 bg-violet-600 hover:bg-violet-700 text-white" onClick={saveAttendance} disabled={isSavingAttendance}>
-                         {isSavingAttendance ? 'جاري الحفظ...' : attendanceSaved ? 'تم الحفظ ✓' : 'حفظ الحضور'}
+                         {isSavingAttendance ? t('جاري الحفظ...', 'Saving...') : attendanceSaved ? t('تم الحفظ ✓', 'Saved ✓') : t('حفظ الحضور', 'Save Attendance')}
                       </Button>
                     </div>
                   )}
@@ -678,9 +680,9 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                   <table className="w-full text-left border-collapse">
                      <thead className="bg-white text-xs text-gray-500 uppercase sticky top-0 z-10">
                         <tr>
-                           <th className="p-3 border-b border-gray-100">الطالب</th>
-                           <th className="p-3 border-b border-gray-100">{role === UserRole.TEACHER ? 'الحالة' : 'الحضور'}</th>
-                           <th className="p-3 border-b border-gray-100 text-right">إجراء</th>
+                           <th className="p-3 border-b border-gray-100">{t('الطالب', 'Student')}</th>
+                           <th className="p-3 border-b border-gray-100">{role === UserRole.TEACHER ? t('الحالة', 'Status') : t('الحضور', 'Attendance')}</th>
+                           <th className="p-3 border-b border-gray-100 text-right">{t('إجراء', 'Action')}</th>
                         </tr>
                      </thead>
                      <tbody className="text-sm">
@@ -724,25 +726,25 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                                             onClick={() => setManualAttendance(prev => ({...prev, [student.id]: 'Present'}))}
                                             className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${status === 'Present' ? 'bg-green-100 text-green-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
                                          >
-                                            حاضر
+                                            {t('حاضر', 'Present')}
                                          </button>
                                          <button 
                                             onClick={() => setManualAttendance(prev => ({...prev, [student.id]: 'Absent'}))}
                                             className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${status === 'Absent' || !status ? 'bg-red-100 text-red-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
                                          >
-                                            غائب
+                                            {t('غائب', 'Absent')}
                                          </button>
                                          <button 
                                             onClick={() => setManualAttendance(prev => ({...prev, [student.id]: 'Late'}))}
                                             className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${status === 'Late' ? 'bg-yellow-100 text-yellow-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
                                          >
-                                            متأخر
+                                            {t('متأخر', 'Late')}
                                          </button>
                                          <button 
                                             onClick={() => setManualAttendance(prev => ({...prev, [student.id]: 'Excused'}))}
                                             className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${status === 'Excused' ? 'bg-gray-200 text-gray-700 shadow-sm' : 'text-gray-500 hover:bg-gray-200'}`}
                                          >
-                                            عذر
+                                            {t('عذر', 'Excused')}
                                          </button>
                                       </div>
                                     ) : (
@@ -760,7 +762,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                                         <button
                                           onClick={() => { setTransferringStudent(student); setTransferTargetClassId(null); }}
                                           className="text-gray-400 hover:text-violet-600 p-2 rounded-full hover:bg-violet-50 transition-colors"
-                                          title="نقل لفصل تاني"
+                                          title={t('نقل لفصل تاني', 'Transfer to another class')}
                                         >
                                            <ArrowLeftRight size={16} />
                                         </button>
@@ -790,16 +792,16 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
             <div className="space-y-6 flex flex-col">
                <AcademicPlanAccordion gradeLevel={classData.gradeLevel} sectionId={classData.id} />
                <div className="bg-violet-50 rounded-3xl p-6 border border-violet-100">
-                  <h4 className="font-bold text-violet-900 mb-2">أداء الفصل</h4>
+                  <h4 className="font-bold text-violet-900 mb-2">{t('أداء الفصل', 'Class Performance')}</h4>
                   <div className="flex justify-between items-end">
                      <div>
                         <p className="text-3xl font-bold text-violet-700">92%</p>
-                        <p className="text-xs text-violet-600">معدل الحضور</p>
+                        <p className="text-xs text-violet-600">{t('معدل الحضور', 'Attendance Rate')}</p>
                      </div>
                      <div className="h-8 w-px bg-violet-200"></div>
                      <div>
                         <p className="text-3xl font-bold text-violet-700">A-</p>
-                        <p className="text-xs text-violet-600">درجة سلوك الفصل</p>
+                        <p className="text-xs text-violet-600">{t('درجة سلوك الفصل', 'Class Behavior Score')}</p>
                      </div>
                   </div>
                </div>
@@ -813,7 +815,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 animate-fadeIn">
              <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100">
                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                 <h3 className="text-xl font-bold text-gray-900">إضافة طالب للقائمة</h3>
+                 <h3 className="text-xl font-bold text-gray-900">{t('إضافة طالب للقائمة', 'Add Student to List')}</h3>
                  <button onClick={() => setIsAddStudentModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                    <X size={20} />
                  </button>
@@ -852,7 +854,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                  </div>
                </div>
                <div className="p-6 bg-gray-50 border-t border-gray-100">
-                 <Button variant="secondary" className="w-full" onClick={() => setIsAddStudentModalOpen(false)}>إغلاق</Button>
+                 <Button variant="secondary" className="w-full" onClick={() => setIsAddStudentModalOpen(false)}>{t('إغلاق', 'Close')}</Button>
                </div>
              </div>
            </div>
@@ -863,15 +865,15 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
             <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-fadeIn max-h-[85vh] flex flex-col">
               <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">نقل {transferringStudent.name}</h3>
-                  <p className="text-xs text-gray-500 mt-1">اختار الفصل الجديد (من نفس الصف {classData.gradeLevel})</p>
+                  <h3 className="text-lg font-bold text-gray-900">{t('نقل', 'Transfer')} {transferringStudent.name}</h3>
+                  <p className="text-xs text-gray-500 mt-1">{t(`اختار الفصل الجديد (من نفس الصف ${classData.gradeLevel})`, `Choose the new class (from the same grade ${classData.gradeLevel})`)}</p>
                 </div>
                 <button onClick={() => { setTransferringStudent(null); setTransferTargetClassId(null); }} className="text-gray-400 hover:text-gray-700"><X size={22} /></button>
               </div>
 
               <div className="p-4 overflow-y-auto flex-1 space-y-2">
                 {otherSameGradeClasses.length === 0 && (
-                  <p className="text-center text-gray-400 py-8 text-sm">مفيش فصول تانية في نفس الصف.</p>
+                  <p className="text-center text-gray-400 py-8 text-sm">{t('مفيش فصول تانية في نفس الصف.', 'No other classes in the same grade.')}</p>
                 )}
                 {otherSameGradeClasses.map((c) => {
                   const enrolled = c.students.length;
@@ -884,7 +886,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                         <div>
                           <p className="font-bold text-gray-900">{c.name}</p>
                           <p className={`text-xs mt-0.5 font-bold ${hasRoom ? 'text-emerald-600' : 'text-red-500'}`}>
-                            {enrolled}/{capacity} طالب {hasRoom ? `(متاح ${capacity - enrolled} مكان)` : '(الفصل مكتمل)'}
+                            {enrolled}/{capacity} {t('طالب', 'students')} {hasRoom ? t(`(متاح ${capacity - enrolled} مكان)`, `(${capacity - enrolled} spot(s) available)`) : t('(الفصل مكتمل)', '(Class full)')}
                           </p>
                         </div>
                         {hasRoom ? (
@@ -894,7 +896,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                             disabled={isTransferring}
                             onClick={() => handleTransferStudent(c.id)}
                           >
-                            نقل هنا
+                            {t('نقل هنا', 'Transfer Here')}
                           </Button>
                         ) : (
                           <Button
@@ -902,14 +904,14 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                             className="text-xs h-9 px-4"
                             onClick={() => setTransferTargetClassId(isTargetSelected ? null : c.id)}
                           >
-                            {isTargetSelected ? 'إلغاء الاستبدال' : 'استبدال بدل طالب'}
+                            {isTargetSelected ? t('إلغاء الاستبدال', 'Cancel Swap') : t('استبدال بدل طالب', 'Swap with a Student')}
                           </Button>
                         )}
                       </div>
 
                       {isTargetSelected && !hasRoom && (
                         <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
-                          <p className="text-[11px] text-gray-400 font-bold mb-2">اختار طالب من {c.name} يستبدل مكانه مع {transferringStudent.name}:</p>
+                          <p className="text-[11px] text-gray-400 font-bold mb-2">{t(`اختار طالب من ${c.name} يستبدل مكانه مع ${transferringStudent.name}:`, `Choose a student from ${c.name} to swap places with ${transferringStudent.name}:`)}</p>
                           {realStudents.filter(s => c.students.includes(s.id)).map((s) => (
                             <button
                               key={s.id}
@@ -918,7 +920,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                               className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gray-50 hover:bg-violet-50 hover:border-violet-200 border border-transparent transition-colors text-sm"
                             >
                               <span className="font-bold text-gray-800">{s.name}</span>
-                              <span className="text-violet-600 font-bold text-xs flex items-center gap-1"><ArrowLeftRight size={12} /> استبدال</span>
+                              <span className="text-violet-600 font-bold text-xs flex items-center gap-1"><ArrowLeftRight size={12} /> {t('استبدال', 'Swap')}</span>
                             </button>
                           ))}
                         </div>
@@ -960,7 +962,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
     const handleConfirmCreate = async () => {
       setIsCreatingClass(true);
       const newId = await createClassSection({
-        name: classData.name || 'فصل بدون اسم',
+        name: classData.name || t('فصل بدون اسم', 'Unnamed Class'),
         gradeLevel: classData.grade,
         teacherId: classData.teachers['MainTeacher'],
         academicYear: '2025/2026',
@@ -981,7 +983,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
     const [teacherFilterSubject, setTeacherFilterSubject] = useState('');
     const [studentSearchQuery, setStudentSearchQuery] = useState('');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
-    const [selectedGrade, setSelectedGrade] = useState('كل الصفوف');
+    const [selectedGrade, setSelectedGrade] = useState('ALL');
 
     const toggleStudent = (studentId: string) => {
       setClassData(prev => {
@@ -1069,10 +1071,10 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
         <div className="max-w-5xl mx-auto animate-fadeIn pb-10">
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">إنشاء فصل جديد</h2>
+              <h2 className="text-3xl font-bold text-gray-900">{t('إنشاء فصل جديد', 'Create New Class')}</h2>
               <p className="text-gray-500">Define class details, assign teachers, and enroll students.</p>
             </div>
-            <Button variant="secondary" onClick={() => setViewState('list')}>إلغاء</Button>
+            <Button variant="secondary" onClick={() => setViewState('list')}>{t('إلغاء', 'Cancel')}</Button>
           </div>
 
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
@@ -1084,7 +1086,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                        {s < step ? <CheckCircle2 size={16} /> : s}
                     </div>
                     <span className="text-sm font-medium hidden md:block">
-                      {s === 1 ? 'التفاصيل 1' : s === 2 ? 'المعلمون 2' : s === 3 ? 'الطلاب 3' : 'المراجعة 4'}
+                      {s === 1 ? t('التفاصيل 1', 'Details 1') : s === 2 ? t('المعلمون 2', 'Teachers 2') : s === 3 ? t('الطلاب 3', 'Students 3') : t('المراجعة 4', 'Review 4')}
                     </span>
                  </div>
                ))}
@@ -1093,9 +1095,9 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
             <div className="p-8 min-h-[400px]">
                {step === 1 && (
                  <div className="space-y-6 max-w-lg mx-auto">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4">تفاصيل الفصل</h3>
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">{t('تفاصيل الفصل', 'Class Details')}</h3>
                     <div>
-                       <label className="block text-sm font-bold text-gray-700 mb-2">اسم الفصل</label>
+                       <label className="block text-sm font-bold text-gray-700 mb-2">{t('اسم الفصل', 'Class Name')}</label>
                        <input 
                           type="text" 
                           placeholder="e.g. 10-A" 
@@ -1105,7 +1107,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                        />
                     </div>
                     <div>
-                       <label className="block text-sm font-bold text-gray-700 mb-2">الصف الدراسي</label>
+                       <label className="block text-sm font-bold text-gray-700 mb-2">{t('الصف الدراسي', 'Grade Level')}</label>
                        <select 
                           className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500" 
                           value={classData.grade} 
@@ -1115,7 +1117,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                        </select>
                     </div>
                     <div>
-                       <label className="block text-sm font-bold text-gray-700 mb-2">السعة الاستيعابية</label>
+                       <label className="block text-sm font-bold text-gray-700 mb-2">{t('السعة الاستيعابية', 'Capacity')}</label>
                        <input 
                           type="number" 
                           placeholder="e.g. 25" 
@@ -1133,12 +1135,12 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                       <>
                         {/* Class Management Section */}
                         <div className="mb-4">
-                          <h4 className="text-lg font-bold text-gray-900 mb-4">إدارة الفصل</h4>
+                          <h4 className="text-lg font-bold text-gray-900 mb-4">{t('إدارة الفصل', 'Class Management')}</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Main Teacher Card */}
                             <div className="p-4 border border-slate-100 rounded-xl flex items-center justify-between bg-white shadow-none">
                               <div>
-                                <p className="font-bold text-gray-900">معلم رئيسي</p>
+                                <p className="font-bold text-gray-900">{t('معلم رئيسي', 'Main Teacher')}</p>
                                 <p className="text-xs text-slate-500">Required • Homeroom</p>
                               </div>
                               {classData.teachers['MainTeacher'] ? (
@@ -1176,7 +1178,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                             {/* Assistant Teacher Card */}
                             <div className="p-4 border border-slate-100 rounded-xl flex items-center justify-between bg-white shadow-none">
                               <div>
-                                <p className="font-bold text-gray-900">معلم مساعد</p>
+                                <p className="font-bold text-gray-900">{t('معلم مساعد', 'Assistant Teacher')}</p>
                                 <p className="text-xs text-slate-500">Optional • Co-Teacher</p>
                               </div>
                               {classData.teachers['AssistantTeacher'] ? (
@@ -1225,8 +1227,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                               <ArrowRight size={20} className="text-gray-600" />
                             </button>
                             <div>
-                              <h3 className="text-xl font-bold text-gray-900">تعيين معلم {activeSubjectForTeacher}</h3>
-                              <p className="text-sm text-gray-500">اختر معلماً لهذه المادة.</p>
+                              <h3 className="text-xl font-bold text-gray-900">{t('تعيين معلم', 'Assign Teacher for')} {activeSubjectForTeacher}</h3>
+                              <p className="text-sm text-gray-500">{t('اختر معلماً لهذه المادة.', 'Choose a teacher for this subject.')}</p>
                             </div>
                           </div>
                           <div className={`px-4 py-2 rounded-xl font-bold text-sm ${classData.teachers[activeSubjectForTeacher] ? 'bg-violet-50 text-violet-600 border border-violet-200' : 'bg-gray-50 text-gray-600 border border-gray-200'}`}>
@@ -1251,7 +1253,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                               onChange={(e) => setTeacherFilterSubject(e.target.value)}
                               className="p-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 text-sm"
                             >
-                              <option value="">كل المواد</option>
+                              <option value="">{t('كل المواد', 'All Subjects')}</option>
                               {['رياضيات', 'علوم', 'لغة عربية', 'لغة إنجليزية', 'تاريخ', 'فنون'].map(s => (
                                 <option key={s} value={s}>{s}</option>
                               ))}
@@ -1329,11 +1331,11 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                  <div className="space-y-6 max-w-4xl mx-auto">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">تسجيل الطلاب</h3>
+                        <h3 className="text-xl font-bold text-gray-900">{t('تسجيل الطلاب', 'Enroll Students')}</h3>
                         <p className="text-sm text-gray-500">Select students from {classData.grade} to add to this class.</p>
                       </div>
                       <div className={`px-4 py-2 rounded-xl font-bold text-sm ${isOverCapacity ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-violet-50 text-violet-600 border border-violet-200'}`}>
-                        Selected: {classData.students.length} / {classData.capacity} (السعة الاستيعابية)
+                        Selected: {classData.students.length} / {classData.capacity} ({t('السعة الاستيعابية', 'capacity')})
                       </div>
                     </div>
 
@@ -1406,30 +1408,30 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                     <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
                        <CheckCircle2 size={40} />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">جاهز للإنشاء</h3>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{t('جاهز للإنشاء', 'Ready to Create')}</h3>
                     <div className="bg-gray-50 p-6 rounded-2xl max-w-md mx-auto mb-8 text-left space-y-3">
-                       <div className="flex justify-between text-sm"><span className="text-gray-500">اسم الفصل</span><span className="font-bold">{classData.name || 'Unnamed Class'}</span></div>
-                       <div className="flex justify-between text-sm"><span className="text-gray-500">الصف الدراسي</span><span className="font-bold">{classData.grade}</span></div>
-                       <div className="flex justify-between text-sm"><span className="text-gray-500">السعة الاستيعابية</span><span className="font-bold">{classData.capacity}</span></div>
-                       <div className="flex justify-between text-sm"><span className="text-gray-500">المعلمون المعينون</span><span className="font-bold">{Object.keys(classData.teachers).length}</span></div>
-                       <div className="flex justify-between text-sm"><span className="text-gray-500">الطلاب المسجلين</span><span className="font-bold">{classData.students.length}</span></div>
+                       <div className="flex justify-between text-sm"><span className="text-gray-500">{t('اسم الفصل', 'Class Name')}</span><span className="font-bold">{classData.name || 'Unnamed Class'}</span></div>
+                       <div className="flex justify-between text-sm"><span className="text-gray-500">{t('الصف الدراسي', 'Grade Level')}</span><span className="font-bold">{classData.grade}</span></div>
+                       <div className="flex justify-between text-sm"><span className="text-gray-500">{t('السعة الاستيعابية', 'Capacity')}</span><span className="font-bold">{classData.capacity}</span></div>
+                       <div className="flex justify-between text-sm"><span className="text-gray-500">{t('المعلمون المعينون', 'Assigned Teachers')}</span><span className="font-bold">{Object.keys(classData.teachers).length}</span></div>
+                       <div className="flex justify-between text-sm"><span className="text-gray-500">{t('الطلاب المسجلين', 'Enrolled Students')}</span><span className="font-bold">{classData.students.length}</span></div>
                     </div>
                     <Button onClick={handleConfirmCreate} disabled={isCreatingClass} className="w-full max-w-xs mx-auto text-lg py-3 bg-violet-600 hover:bg-violet-700">
-                       {isCreatingClass ? 'جاري الإنشاء...' : 'تأكيد وإنشاء الفصل'}
+                       {isCreatingClass ? t('جاري الإنشاء...', 'Creating...') : t('تأكيد وإنشاء الفصل', 'Confirm & Create Class')}
                     </Button>
                  </div>
                )}
             </div>
             
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-between">
-               <Button variant="ghost" disabled={step === 1} onClick={() => setStep(s => s - 1)}>رجوع</Button>
+               <Button variant="ghost" disabled={step === 1} onClick={() => setStep(s => s - 1)}>{t('رجوع', 'Back')}</Button>
                {step < 4 && (
                  <Button 
                    onClick={() => setStep(s => s + 1)} 
                    disabled={step === 3 && classData.students.length > classData.capacity}
                    className="bg-violet-600 hover:bg-violet-700"
                  >
-                   الخطوة التالية <ArrowRight size={16} />
+                   {t('الخطوة التالية', 'Next Step')} <ArrowRight size={16} />
                  </Button>
                )}
             </div>
@@ -1446,8 +1448,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
       <div className="animate-fadeIn space-y-8">
          <div className="flex justify-between items-center">
             <div>
-               <h2 className="text-3xl font-bold text-gray-900">دليل الفصول</h2>
-               <p className="text-gray-500">إدارة الفصول، التسجيل، وتعيينات طاقم العمل.</p>
+               <h2 className="text-3xl font-bold text-gray-900">{t('دليل الفصول', 'Class Directory')}</h2>
+               <p className="text-gray-500">{t('إدارة الفصول، التسجيل، وتعيينات طاقم العمل.', 'Manage classes, enrollment, and staff assignments.')}</p>
             </div>
          </div>
 
@@ -1457,7 +1459,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                <div className="relative">
                   <input 
                      type="text" 
-                     placeholder="البحث عن فصول أو قاعات..." 
+                     placeholder={t('البحث عن فصول أو قاعات...', 'Search classes or rooms...')} 
                      className="w-72 bg-white border border-slate-200 rounded-lg px-4 py-2 pl-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                   />
                   <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
@@ -1467,12 +1469,12 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                      onClick={() => setIsFilterOpen(!isFilterOpen)}
                      className="flex items-center justify-between w-40 bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
                   >
-                     <span>{selectedGrade}</span>
+                     <span>{selectedGrade === 'ALL' ? t('كل الصفوف', 'All Grades') : selectedGrade}</span>
                      <ChevronDown size={16} className="text-slate-400" />
                   </button>
                   {isFilterOpen && (
                      <div className="absolute top-full right-0 mt-2 z-50 w-48 bg-white border border-slate-200 rounded-lg shadow-xl py-1">
-                        {['كل الصفوف', ...gradeLevels].map((grade) => (
+                        {['ALL', ...gradeLevels].map((grade) => (
                            <div
                               key={grade}
                               onClick={() => {
@@ -1481,7 +1483,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                               }}
                               className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm text-slate-700 transition-colors"
                            >
-                              {grade}
+                              {grade === 'ALL' ? t('كل الصفوف', 'All Grades') : grade}
                            </div>
                         ))}
                      </div>
@@ -1490,18 +1492,18 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
             </div>
             <div className="flex items-center gap-3 w-full md:w-auto">
               {canManageClasses && (
-              <Button variant="secondary" onClick={() => { setIsAutoDistributeOpen(true); setDistributeResult(null); setDistributeGrade(selectedGrade !== 'كل الصفوف' ? selectedGrade : ''); }} className="shadow-sm border-slate-200">
-                 <Users size={18} className="mr-2" /> توزيع تلقائي
+              <Button variant="secondary" onClick={() => { setIsAutoDistributeOpen(true); setDistributeResult(null); setDistributeGrade(selectedGrade !== 'ALL' ? selectedGrade : ''); }} className="shadow-sm border-slate-200">
+                 <Users size={18} className="mr-2" /> {t('توزيع تلقائي', 'Auto-Distribute')}
               </Button>
               )}
               {canManageClasses && (
               <Button variant="secondary" onClick={() => setIsBulkImportModalOpen(true)} className="shadow-sm border-slate-200">
-                 <FileSpreadsheet size={18} className="mr-2" /> استيراد جماعي
+                 <FileSpreadsheet size={18} className="mr-2" /> {t('استيراد جماعي', 'Bulk Import')}
               </Button>
               )}
               {canManageClasses && (
               <Button onClick={() => setViewState('create')} className="shadow-sm">
-                 <Plus size={18} className="mr-2" /> تأكيد وإنشاء الفصل
+                 <Plus size={18} className="mr-2" /> {t('تأكيد وإنشاء الفصل', 'Confirm & Create Class')}
               </Button>
               )}
             </div>
@@ -1517,8 +1519,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                      <FileSpreadsheet size={24} />
                    </div>
                    <div>
-                     <h3 className="text-2xl font-bold text-gray-900">استيراد جماعي Classes</h3>
-                     <p className="text-sm text-gray-500">قم برفع ملف CSV لإنشاء فصول متعددة دفعة واحدة.</p>
+                     <h3 className="text-2xl font-bold text-gray-900">{t('استيراد جماعي', 'Bulk Import')} Classes</h3>
+                     <p className="text-sm text-gray-500">{t('قم برفع ملف CSV لإنشاء فصول متعددة دفعة واحدة.', 'Upload a CSV file to create multiple classes at once.')}</p>
                    </div>
                  </div>
                  <button onClick={() => setIsBulkImportModalOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
@@ -1533,9 +1535,9 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                      <Info size={20} />
                    </div>
                    <div className="space-y-2">
-                     <h4 className="font-bold text-violet-900 text-sm">التعليمات</h4>
+                     <h4 className="font-bold text-violet-900 text-sm">{t('التعليمات', 'Instructions')}</h4>
                      <ul className="text-xs text-violet-700 space-y-1 list-disc ml-4">
-                       <li>تأكد من أن ملف CSV الخاص بك يتبع هيكل النموذج بدقة.</li>
+                       <li>{t('تأكد من أن ملف CSV الخاص بك يتبع هيكل النموذج بدقة.', 'Make sure your CSV file follows the template structure exactly.')}</li>
                        <li>Required columns: <strong>Name, Grade, Room, Curriculum, Year</strong>.</li>
                        <li>Curriculum must be one of: <strong>National, American, IG</strong>.</li>
                        <li>Maximum 100 rows per upload.</li>
@@ -1550,7 +1552,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                        <FileSpreadsheet size={24} />
                      </div>
                      <div>
-                       <p className="font-bold text-gray-900">نموذج CSV</p>
+                       <p className="font-bold text-gray-900">{t('نموذج CSV', 'CSV Template')}</p>
                        <p className="text-xs text-gray-500">Download the pre-formatted template</p>
                      </div>
                    </div>
@@ -1569,18 +1571,18 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                    <div className="w-20 h-20 bg-white rounded-3xl shadow-sm flex items-center justify-center mx-auto mb-6 text-violet-600 group-hover:scale-110 transition-transform">
                      <Upload size={32} />
                    </div>
-                   <h4 className="text-xl font-bold text-gray-900 mb-2">ارفع ملف CSV الخاص بك</h4>
-                   <p className="text-sm text-gray-500 mb-8">اسحب وأفلت الملف هنا، أو انقر للتصفح</p>
+                   <h4 className="text-xl font-bold text-gray-900 mb-2">{t('ارفع ملف CSV الخاص بك', 'Upload Your CSV File')}</h4>
+                   <p className="text-sm text-gray-500 mb-8">{t('اسحب وأفلت الملف هنا، أو انقر للتصفح', 'Drag and drop the file here, or click to browse')}</p>
                    <input type="file" className="hidden" id="csv-upload" accept=".csv" />
                    <label htmlFor="csv-upload">
-                     <Button className="bg-violet-600 text-white hover:bg-violet-700 shadow-md hover:shadow-lg px-8 cursor-pointer">اختيار ملف</Button>
+                     <Button className="bg-violet-600 text-white hover:bg-violet-700 shadow-md hover:shadow-lg px-8 cursor-pointer">{t('اختيار ملف', 'Choose File')}</Button>
                    </label>
                  </div>
                </div>
 
                <div className="p-8 bg-gray-50 border-t border-gray-100 flex gap-3">
-                 <Button variant="secondary" className="flex-1" onClick={() => setIsBulkImportModalOpen(false)}>إلغاء</Button>
-                 <Button className="bg-violet-600 text-white hover:bg-violet-700 shadow-md hover:shadow-lg flex-1" disabled>بدء الاستيراد</Button>
+                 <Button variant="secondary" className="flex-1" onClick={() => setIsBulkImportModalOpen(false)}>{t('إلغاء', 'Cancel')}</Button>
+                 <Button className="bg-violet-600 text-white hover:bg-violet-700 shadow-md hover:shadow-lg flex-1" disabled>{t('بدء الاستيراد', 'Start Import')}</Button>
                </div>
              </div>
            </div>
@@ -1592,8 +1594,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
              <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl animate-fadeIn">
                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                  <div>
-                   <h3 className="text-lg font-bold text-gray-900">توزيع تلقائي للطلاب</h3>
-                   <p className="text-xs text-gray-500 mt-1">هيوزّع كل الطلاب اللي مش متسكّنين في أي فصل، بالتساوي على فصول الصف اللي هتختاره (على حسب الأماكن المتاحة).</p>
+                   <h3 className="text-lg font-bold text-gray-900">{t('توزيع تلقائي للطلاب', 'Auto-Distribute Students')}</h3>
+                   <p className="text-xs text-gray-500 mt-1">{t('هيوزّع كل الطلاب اللي مش متسكّنين في أي فصل، بالتساوي على فصول الصف اللي هتختاره (على حسب الأماكن الفاضية).', 'Will distribute all unassigned students evenly across the grade\'s classes (based on available spots).')}</p>
                  </div>
                  <button onClick={() => setIsAutoDistributeOpen(false)} className="text-gray-400 hover:text-gray-700"><XCircle size={22} /></button>
                </div>
@@ -1601,19 +1603,19 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                <div className="p-6 space-y-4">
                  {distributeResult ? (
                    <div className="text-center py-6">
-                     <p className="text-2xl font-bold text-gray-900 mb-2">تم التوزيع</p>
+                     <p className="text-2xl font-bold text-gray-900 mb-2">{t('تم التوزيع', 'Distribution Complete')}</p>
                      <p className="text-sm text-gray-500">
-                       اتسكّن {distributeResult.assigned} طالب
-                       {distributeResult.skipped > 0 ? ` — ${distributeResult.skipped} طالب متسكّنوش (الفصول مليانة أو حصل خطأ)` : ''}
+                       {t('اتسكّن', 'Assigned')} {distributeResult.assigned} {t('طالب', 'student(s)')}
+                       {distributeResult.skipped > 0 ? t(` — ${distributeResult.skipped} طالب متسكّنوش (الفصول مليانة أو حصل خطأ)`, ` — ${distributeResult.skipped} student(s) not assigned (classes full or an error occurred)`) : ''}
                      </p>
                      <Button variant="primary" className="mt-6" onClick={() => { setIsAutoDistributeOpen(false); setDistributeResult(null); }}>تمام</Button>
                    </div>
                  ) : (
                    <>
                      <div>
-                       <label className="block text-sm font-bold text-gray-700 mb-2">الصف الدراسي</label>
+                       <label className="block text-sm font-bold text-gray-700 mb-2">{t('الصف الدراسي', 'Grade Level')}</label>
                        <select value={distributeGrade} onChange={(e) => setDistributeGrade(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-violet-500 bg-white">
-                         <option value="">اختار الصف...</option>
+                         <option value="">{t('اختار الصف...', 'Select grade...')}</option>
                          {gradeLevels.map(g => <option key={g} value={g}>{g}</option>)}
                        </select>
                      </div>
@@ -1624,16 +1626,16 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                        const totalRoom = gradeClasses.reduce((sum, c) => sum + Math.max(0, (c.capacity ?? 25) - c.students.length), 0);
                        return (
                          <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-1">
-                           <p>فصول الصف ده: <span className="font-bold text-gray-900">{gradeClasses.length}</span></p>
-                           <p>طلاب مش متسكّنين: <span className="font-bold text-gray-900">{unassignedCount}</span></p>
-                           <p>أماكن متاحة إجمالًا: <span className="font-bold text-gray-900">{totalRoom}</span></p>
+                           <p>{t('فصول الصف ده:', 'Classes in this grade:')} <span className="font-bold text-gray-900">{gradeClasses.length}</span></p>
+                           <p>{t('طلاب مش متسكّنين:', 'Unassigned students:')} <span className="font-bold text-gray-900">{unassignedCount}</span></p>
+                           <p>{t('أماكن متاحة إجمالًا:', 'Total available spots:')} <span className="font-bold text-gray-900">{totalRoom}</span></p>
                          </div>
                        );
                      })()}
                      <div className="flex gap-3 pt-2">
-                       <Button variant="secondary" className="flex-1" onClick={() => setIsAutoDistributeOpen(false)}>إلغاء</Button>
+                       <Button variant="secondary" className="flex-1" onClick={() => setIsAutoDistributeOpen(false)}>{t('إلغاء', 'Cancel')}</Button>
                        <Button variant="primary" className="flex-1" disabled={!distributeGrade || isDistributing} onClick={handleAutoDistribute}>
-                         {isDistributing ? 'جاري التوزيع...' : 'ابدأ التوزيع'}
+                         {isDistributing ? t('جاري التوزيع...', 'Distributing...') : t('ابدأ التوزيع', 'Start Distribution')}
                        </Button>
                      </div>
                    </>
@@ -1644,14 +1646,14 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
          )}
 
           {classesLoading && (
-            <div className="text-center py-10 text-gray-400">جاري تحميل الفصول من قاعدة البيانات...</div>
+            <div className="text-center py-10 text-gray-400">{t('جاري تحميل الفصول من قاعدة البيانات...', 'Loading classes from the database...')}</div>
           )}
           {selectedClassIds.length > 0 && (
             <div className="bg-violet-50 border border-violet-200 rounded-2xl px-5 py-3 flex items-center justify-between">
-              <span className="text-sm font-bold text-violet-800">{selectedClassIds.length} فصل محدد</span>
+              <span className="text-sm font-bold text-violet-800">{selectedClassIds.length} {t('فصل محدد', 'class(es) selected')}</span>
               <div className="flex gap-2">
-                <button onClick={() => setSelectedClassIds([])} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-white rounded-lg">إلغاء التحديد</button>
-                <button onClick={handleBulkDeleteClasses} className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">حذف المحدد</button>
+                <button onClick={() => setSelectedClassIds([])} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-white rounded-lg">{t('إلغاء التحديد', 'Deselect')}</button>
+                <button onClick={handleBulkDeleteClasses} className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">{t('حذف المحدد', 'Delete Selected')}</button>
               </div>
             </div>
           )}
@@ -1671,8 +1673,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                        <button onClick={() => setOpenClassMenu(openClassMenu === cls.id ? null : cls.id)} className="text-gray-300 hover:text-gray-600"><MoreVertical size={20} /></button>
                        {openClassMenu === cls.id && (
                          <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1 w-32" onMouseLeave={() => setOpenClassMenu(null)}>
-                           {canManageClasses && <button onClick={() => { setEditingClass(cls); setOpenClassMenu(null); }} className="w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">تعديل</button>}
-                           {canManageClasses && <button onClick={() => { handleDeleteClass(cls); setOpenClassMenu(null); }} className="w-full text-right px-4 py-2 text-sm text-red-600 hover:bg-red-50">حذف</button>}
+                           {canManageClasses && <button onClick={() => { setEditingClass(cls); setOpenClassMenu(null); }} className="w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">{t('تعديل', 'Edit')}</button>}
+                           {canManageClasses && <button onClick={() => { handleDeleteClass(cls); setOpenClassMenu(null); }} className="w-full text-right px-4 py-2 text-sm text-red-600 hover:bg-red-50">{t('حذف', 'Delete')}</button>}
                          </div>
                        )}
                      </div>
@@ -1681,15 +1683,15 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                   <div className="space-y-3 mb-6">
                      <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Users size={16} className="text-gray-400" />
-                        <span>{cls.students.length} إجمالي الطلاب</span>
+                        <span>{cls.students.length} {t('إجمالي الطلاب', 'total students')}</span>
                      </div>
                      <div className="flex items-center gap-2 text-sm text-gray-600">
                         <CheckCircle2 size={16} className="text-gray-400" />
-                        <span>{Math.round(85 + Math.random() * 10)}% إجمالي الحضور</span>
+                        <span>{Math.round(85 + Math.random() * 10)}% {t('إجمالي الحضور', 'attendance rate')}</span>
                      </div>
                      <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Briefcase size={16} className="text-gray-400" />
-                        <span>{Math.ceil(Math.random() * 3) + 2} إجمالي المدرسين</span>
+                        <span>{Math.ceil(Math.random() * 3) + 2} {t('إجمالي المدرسين', 'total teachers')}</span>
                      </div>
                   </div>
 
@@ -1723,8 +1725,8 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
       <div className="animate-fadeIn space-y-8">
          <div className="flex justify-between items-center">
             <div>
-               <h2 className="text-3xl font-bold text-gray-900">فصولي</h2>
-               <p className="text-gray-500">إدارة جدولك اليومي وحصصك.</p>
+               <h2 className="text-3xl font-bold text-gray-900">{t('فصولي', 'My Classes')}</h2>
+               <p className="text-gray-500">{t('إدارة جدولك اليومي وحصصك.', 'Manage your daily schedule and periods.')}</p>
             </div>
          </div>
 
@@ -1852,7 +1854,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                       </div>
                       <div className="flex justify-between text-sm">
                          <span className="opacity-80">Status</span>
-                         <span className="font-bold">حاضر</span>
+                         <span className="font-bold">{t('حاضر', 'Present')}</span>
                       </div>
                    </div>
                    <button onClick={() => setViewState('list')} className="bg-white text-green-600 w-full py-3 rounded-xl font-bold">Done</button>
@@ -1875,12 +1877,12 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
              
              <div className="bg-white/10 rounded-2xl p-4 flex justify-between items-center backdrop-blur-sm">
                 <div>
-                   <p className="text-violet-100 text-xs font-bold uppercase mb-1">معدل الحضور</p>
+                   <p className="text-violet-100 text-xs font-bold uppercase mb-1">{t('معدل الحضور', 'Attendance Rate')}</p>
                    <p className="text-3xl font-bold">98%</p>
                 </div>
                 <div className="h-10 w-px bg-white/20"></div>
                 <div>
-                   <p className="text-violet-100 text-xs font-bold uppercase mb-1">الفصول</p>
+                   <p className="text-violet-100 text-xs font-bold uppercase mb-1">{t('الفصول', 'Classes')}</p>
                    <p className="text-3xl font-bold">12</p>
                 </div>
              </div>
@@ -1897,7 +1899,7 @@ export const ClassManagement: React.FC<ClassManagementProps> = ({ role, language
                    </div>
                    <div className="text-left">
                       <h4 className="font-bold text-gray-900 text-lg">Check-In</h4>
-                      <p className="text-gray-500 text-sm">امسح رمز QR للحضور</p>
+                      <p className="text-gray-500 text-sm">{t('امسح رمز QR للحضور', 'Scan the QR code for attendance')}</p>
                    </div>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
