@@ -20,8 +20,9 @@ import {
   FileWarning,
   Sliders
 } from 'lucide-react';
-import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDate, AttendanceLogRow, getLateStudentsForDate, saveLateReason, LateStudentRow, getExcusedStudentsForDate, saveExcuseDetails, uploadExcuseFile, ExcusedStudentRow } from '../services/supabaseData';
+import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDateRange, AttendanceLogRow, getLateStudentsForDateRange, saveLateReason, LateStudentRow, getExcusedStudentsForDateRange, saveExcuseDetails, uploadExcuseFile, ExcusedStudentRow } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Teacher } from '../types';
 import { Student, ClassSection } from '../types';
 
@@ -230,16 +231,33 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [classesOverview, setClassesOverview] = useState<ClassAttendanceOverview[]>([]);
   const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLogRow[]>([]);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
+
+  // ============ فلتر موحّد: الصف + الفصل + التاريخ — بيُستخدم في كل الصفحات ============
   const [filterGrade, setFilterGrade] = useState(t('جميع الصفوف', 'All Grades'));
+  const [filterClassName, setFilterClassName] = useState(t('جميع الفصول', 'All Classes'));
+  const [dateFilterMode, setDateFilterMode] = useState<'today' | 'yesterday' | 'week' | 'custom'>('today');
+  const [customStartDate, setCustomStartDate] = useState(todayStr);
+  const [customEndDate, setCustomEndDate] = useState(todayStr);
   const [statusSearch, setStatusSearch] = useState('');
+
+  const yesterdayStr = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); })();
+  const weekAgoStr = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10); })();
+
+  const [rangeStart, rangeEnd] = dateFilterMode === 'today' ? [todayStr, todayStr]
+    : dateFilterMode === 'yesterday' ? [yesterdayStr, yesterdayStr]
+    : dateFilterMode === 'week' ? [weekAgoStr, todayStr]
+    : [customStartDate, customEndDate];
+
+  // "حالة الحضور لكل فصل" بتاعة يوم واحد بس — بنستخدم آخر يوم في المدى المختار
+  const statusOverviewDate = rangeEnd;
 
   const refreshAdminDashboard = () => {
     setIsLoadingDashboard(true);
     Promise.all([
-      getClassesAttendanceOverview(todayStr, attendanceMode),
-      getAttendanceLogsForDate(todayStr),
-      getLateStudentsForDate(todayStr),
-      getExcusedStudentsForDate(todayStr),
+      getClassesAttendanceOverview(statusOverviewDate, attendanceMode),
+      getAttendanceLogsForDateRange(rangeStart, rangeEnd),
+      getLateStudentsForDateRange(rangeStart, rangeEnd),
+      getExcusedStudentsForDateRange(rangeStart, rangeEnd),
     ]).then(([overview, logs, late, excused]) => {
       setClassesOverview(overview);
       setAttendanceLogs(logs);
@@ -255,24 +273,81 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
 
   React.useEffect(() => {
     refreshAdminDashboard();
-  }, [attendanceMode]);
+  }, [attendanceMode, dateFilterMode, customStartDate, customEndDate]);
 
   const todayStats = {
-    attendanceRate: attendanceLogs.length > 0 ? Math.round((attendanceLogs.filter(l => l.status === t('حاضر', 'Present') || l.status === 'حاضر' || l.status === t('متأخر', 'Late') || l.status === 'متأخر').length / attendanceLogs.length) * 100) : 0,
+    attendanceRate: attendanceLogs.length > 0 ? Math.round((attendanceLogs.filter(l => l.status === 'حاضر' || l.status === 'متأخر').length / attendanceLogs.length) * 100) : 0,
     absentCount: attendanceLogs.filter(l => l.status === 'غائب').length,
     pendingClasses: classesOverview.filter(c => c.status !== 'complete').length,
     totalClasses: classesOverview.length,
-    lateCount: 0,
-    excuseCount: 0,
   };
 
-  const filteredClasses = classesOverview.filter(c => filterGrade === t('جميع الصفوف', 'All Grades') || c.gradeLevel === filterGrade)
+  const availableClassNames = Array.from(new Set(
+    (filterGrade === t('جميع الصفوف', 'All Grades') ? attendanceLogs : attendanceLogs.filter(l => l.gradeLevel === filterGrade)).map(l => l.className)
+  ));
+
+  const filteredClasses = classesOverview
+    .filter(c => filterGrade === t('جميع الصفوف', 'All Grades') || c.gradeLevel === filterGrade)
+    .filter(c => filterClassName === t('جميع الفصول', 'All Classes') || c.sectionName === filterClassName)
     .filter(c => c.sectionName.toLowerCase().includes(statusSearch.toLowerCase()));
+
+  const filteredLogs = attendanceLogs
+    .filter(l => filterGrade === t('جميع الصفوف', 'All Grades') || l.gradeLevel === filterGrade)
+    .filter(l => filterClassName === t('جميع الفصول', 'All Classes') || l.className === filterClassName)
+    .filter(l => l.studentName.toLowerCase().includes(statusSearch.toLowerCase()) || l.className.toLowerCase().includes(statusSearch.toLowerCase()) || l.teacherName.toLowerCase().includes(statusSearch.toLowerCase()));
+
+  const gradeChartData = realGradeLevels.map(g => {
+    const gradeLogs = attendanceLogs.filter(l => l.gradeLevel === g.name);
+    const presentCount = gradeLogs.filter(l => l.status === 'حاضر' || l.status === 'متأخر').length;
+    return { name: g.name, attendance: gradeLogs.length > 0 ? Math.round((presentCount / gradeLogs.length) * 100) : 0 };
+  }).filter(g => attendanceLogs.some(l => l.gradeLevel === g.name));
 
   const enterTakeAttendance = (sectionId: string) => {
     setTakingAttendanceForClass(sectionId);
     setActiveSection('status');
   };
+
+  // شريط الفلتر الموحّد — بيتكرر في أكتر من صفحة
+  const renderFilterBar = () => (
+    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-3">
+      <select value={filterGrade} onChange={(e) => { setFilterGrade(e.target.value); setFilterClassName(t('جميع الفصول', 'All Classes')); }} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500">
+        <option>{t('جميع الصفوف', 'All Grades')}</option>
+        {realGradeLevels.map(g => <option key={g.id}>{g.name}</option>)}
+      </select>
+      <select value={filterClassName} onChange={(e) => setFilterClassName(e.target.value)} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500">
+        <option>{t('جميع الفصول', 'All Classes')}</option>
+        {availableClassNames.map(c => <option key={c}>{c}</option>)}
+      </select>
+      <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200">
+        {(['today', 'yesterday', 'week', 'custom'] as const).map(mode => (
+          <button
+            key={mode}
+            onClick={() => setDateFilterMode(mode)}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${dateFilterMode === mode ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            {mode === 'today' ? t('اليوم', 'Today') : mode === 'yesterday' ? t('الأمس', 'Yesterday') : mode === 'week' ? t('هذا الأسبوع', 'This Week') : t('مخصص', 'Custom')}
+          </button>
+        ))}
+      </div>
+      {dateFilterMode === 'custom' && (
+        <div className="flex items-center gap-2">
+          <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" />
+          <span className="text-gray-400 text-sm">{t('إلى', 'to')}</span>
+          <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500" />
+        </div>
+      )}
+      <div className="relative flex-1 min-w-[180px]">
+        <input
+          type="text"
+          value={statusSearch}
+          onChange={(e) => setStatusSearch(e.target.value)}
+          placeholder={t('البحث...', 'Search...')}
+          className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 text-sm`}
+        />
+        <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-2.5 text-gray-400`} size={16} />
+      </div>
+    </div>
+  );
 
   // ============ حالات التأخير — بدرِل داون على مستوى الفصل ============
   const [lateStudents, setLateStudents] = useState<LateStudentRow[]>([]);
@@ -280,7 +355,12 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [lateReasonDraft, setLateReasonDraft] = useState('');
   const [selectedLateClass, setSelectedLateClass] = useState<string | null>(null);
 
-  const lateByClass = lateStudents.reduce((acc: Record<string, LateStudentRow[]>, row) => {
+  const filteredLateStudents = lateStudents
+    .filter(l => filterGrade === t('جميع الصفوف', 'All Grades') || l.gradeLevel === filterGrade)
+    .filter(l => filterClassName === t('جميع الفصول', 'All Classes') || l.className === filterClassName)
+    .filter(l => l.studentName.toLowerCase().includes(statusSearch.toLowerCase()) || l.className.toLowerCase().includes(statusSearch.toLowerCase()));
+
+  const lateByClass = filteredLateStudents.reduce((acc: Record<string, LateStudentRow[]>, row) => {
     if (!acc[row.className]) acc[row.className] = [];
     acc[row.className].push(row);
     return acc;
@@ -305,7 +385,12 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [isSavingExcuse, setIsSavingExcuse] = useState(false);
   const [selectedExcuseClass, setSelectedExcuseClass] = useState<string | null>(null);
 
-  const excuseByClass = excusedStudents.reduce((acc: Record<string, ExcusedStudentRow[]>, row) => {
+  const filteredExcusedStudents = excusedStudents
+    .filter(e => filterGrade === t('جميع الصفوف', 'All Grades') || e.gradeLevel === filterGrade)
+    .filter(e => filterClassName === t('جميع الفصول', 'All Classes') || e.className === filterClassName)
+    .filter(e => e.studentName.toLowerCase().includes(statusSearch.toLowerCase()) || e.className.toLowerCase().includes(statusSearch.toLowerCase()));
+
+  const excuseByClass = filteredExcusedStudents.reduce((acc: Record<string, ExcusedStudentRow[]>, row) => {
     if (!acc[row.className]) acc[row.className] = [];
     acc[row.className].push(row);
     return acc;
@@ -371,18 +456,18 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <button onClick={() => setActiveSection('status')} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left hover:border-violet-300 hover:shadow-md transition-all">
-              <p className="text-sm text-gray-500 font-medium mb-1">{t('نسبة حضور اليوم', "Today's Attendance Rate")}</p>
+              <p className="text-sm text-gray-500 font-medium mb-1">{t('نسبة الحضور', 'Attendance Rate')}</p>
               <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : `${todayStats.attendanceRate}%`}</h3>
             </button>
             <button onClick={() => setActiveSection('status')} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left hover:border-violet-300 hover:shadow-md transition-all">
-              <p className="text-sm text-gray-500 font-medium mb-1">{t('فصول قيد الانتظار', 'Classes Pending')}</p>
+              <p className="text-sm text-gray-500 font-medium mb-1">{t('فصول قيد الانتظار (اليوم)', 'Classes Pending (Today)')}</p>
               <div className="flex items-end gap-2">
                 <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : todayStats.pendingClasses}</h3>
                 <span className="text-sm text-gray-500 mb-1">/ {todayStats.totalClasses}</span>
               </div>
             </button>
             <button onClick={() => setActiveSection('late')} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left hover:border-violet-300 hover:shadow-md transition-all">
-              <p className="text-sm text-gray-500 font-medium mb-1">{t('حالات التأخير اليوم', "Today's Late Cases")}</p>
+              <p className="text-sm text-gray-500 font-medium mb-1">{t('حالات التأخير', 'Late Cases')}</p>
               <h3 className="text-3xl font-bold text-gray-900">{isLoadingDashboard ? '...' : lateStudents.length}</h3>
             </button>
             <button onClick={() => setActiveSection('excuse')} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-left hover:border-violet-300 hover:shadow-md transition-all">
@@ -391,14 +476,64 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
             </button>
           </div>
 
+          {renderFilterBar()}
+
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">{t('إجمالي الغائبين اليوم', "Today's Total Absences")}</h3>
-              <button onClick={() => setActiveSection('status')} className="text-sm font-bold text-violet-600 hover:underline flex items-center gap-1">
-                {t('عرض التفاصيل', 'View Details')} <ChevronRight size={16} className={isRTL ? 'rotate-180' : ''} />
-              </button>
+            <h3 className="text-lg font-bold text-gray-900 mb-6">{t('معدل الحضور حسب الصف', 'Attendance Rate by Grade')}</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={gradeChartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} dx={isRTL ? 10 : -10} domain={[0, 100]} />
+                  <Tooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Bar dataKey="attendance" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <h2 className="text-4xl font-black text-gray-900">{isLoadingDashboard ? '...' : todayStats.absentCount}</h2>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">{t('سجل الحضور التفصيلي', 'Detailed Attendance Log')}</h3>
+            <div className="overflow-x-auto">
+              <table className={`w-full ${isRTL ? 'text-right' : 'text-left'} border-collapse`}>
+                <thead>
+                  <tr className="border-b border-gray-100 text-sm text-gray-500">
+                    <th className="pb-3 font-medium">{t('الطالب', 'Student')}</th>
+                    <th className="pb-3 font-medium">{t('الفصل', 'Class')}</th>
+                    <th className="pb-3 font-medium">{t('المعلم', 'Teacher')}</th>
+                    <th className="pb-3 font-medium">{t('الوقت', 'Time')}</th>
+                    <th className="pb-3 font-medium">{t('الحالة', 'Status')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoadingDashboard ? (
+                    <tr><td colSpan={5} className="py-8 text-center text-gray-400 text-sm">{t('جاري التحميل...', 'Loading...')}</td></tr>
+                  ) : filteredLogs.length > 0 ? filteredLogs.slice(0, 50).map(log => (
+                    <tr key={log.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                      <td className="py-3 text-sm font-bold text-gray-900">{log.studentName}</td>
+                      <td className="py-3 text-sm text-gray-600">{log.className}</td>
+                      <td className="py-3 text-sm text-gray-600">{log.teacherName}</td>
+                      <td className="py-3 text-sm text-gray-500">{log.time}</td>
+                      <td className="py-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          log.status === 'حاضر' ? 'bg-green-100 text-green-800' : 
+                          log.status === 'متأخر' ? 'bg-yellow-100 text-yellow-800' :
+                          log.status === 'معذور' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {log.status}
+                        </span>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={5} className="py-8 text-center text-gray-500 text-sm">{t('مفيش سجلات مطابقة للفلتر.', 'No logs matching your filters.')}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {filteredLogs.length > 50 && (
+              <p className="text-xs text-gray-400 mt-4 text-center">{t(`عرض أول 50 من إجمالي ${filteredLogs.length} نتيجة — ضيّقي الفلتر لعرض تفاصيل أكتر.`, `Showing first 50 of ${filteredLogs.length} results — narrow your filters for more detail.`)}</p>
+            )}
           </div>
         </div>
       )}
@@ -408,26 +543,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
         <div className="space-y-6">
           {!takingAttendanceForClass ? (
             <>
-              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={statusSearch}
-                    onChange={(e) => setStatusSearch(e.target.value)}
-                    placeholder={t('البحث عن فصل...', 'Search for a class...')}
-                    className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-violet-500 text-sm`}
-                  />
-                  <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-2.5 text-gray-400`} size={16} />
-                </div>
-                <select
-                  value={filterGrade}
-                  onChange={(e) => setFilterGrade(e.target.value)}
-                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-violet-500"
-                >
-                  <option>{t('جميع الصفوف', 'All Grades')}</option>
-                  {realGradeLevels.map(g => <option key={g.id}>{g.name}</option>)}
-                </select>
-              </div>
+              {renderFilterBar()}
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {isLoadingDashboard ? (
@@ -619,14 +735,16 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
       {activeSection === 'late' && (
         <div className="space-y-6">
           {!selectedLateClass ? (
+            <>
+            {renderFilterBar()}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-50">
-                <h3 className="text-lg font-bold text-gray-900">{t('الفصول اللي فيها حالات تأخير اليوم', "Today's Classes With Late Cases")}</h3>
+                <h3 className="text-lg font-bold text-gray-900">{t('الفصول اللي فيها حالات تأخير', 'Classes With Late Cases')}</h3>
               </div>
               {isLoadingDashboard ? (
                 <p className="text-sm text-gray-400 text-center py-12">{t('جاري التحميل...', 'Loading...')}</p>
               ) : Object.keys(lateByClass).length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-12">{t('مفيش حالات تأخير النهاردة.', 'No late cases today.')}</p>
+                <p className="text-sm text-gray-400 text-center py-12">{t('مفيش حالات تأخير في الفترة دي.', 'No late cases in this period.')}</p>
               ) : (
                 <div className="divide-y divide-gray-50">
                   {Object.entries(lateByClass).map(([className, rows]) => (
@@ -650,6 +768,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                 </div>
               )}
             </div>
+            </>
           ) : (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-50 flex items-center gap-3">
@@ -713,14 +832,16 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
       {activeSection === 'excuse' && (
         <div className="space-y-6">
           {!selectedExcuseClass ? (
+            <>
+            {renderFilterBar()}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-50">
-                <h3 className="text-lg font-bold text-gray-900">{t('الفصول اللي فيها حالات عذر اليوم', "Today's Classes With Excuse Cases")}</h3>
+                <h3 className="text-lg font-bold text-gray-900">{t('الفصول اللي فيها حالات عذر', 'Classes With Excuse Cases')}</h3>
               </div>
               {isLoadingDashboard ? (
                 <p className="text-sm text-gray-400 text-center py-12">{t('جاري التحميل...', 'Loading...')}</p>
               ) : Object.keys(excuseByClass).length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-12">{t('مفيش حالات عذر النهاردة.', 'No excuse cases today.')}</p>
+                <p className="text-sm text-gray-400 text-center py-12">{t('مفيش حالات عذر في الفترة دي.', 'No excuse cases in this period.')}</p>
               ) : (
                 <div className="divide-y divide-gray-50">
                   {Object.entries(excuseByClass).map(([className, rows]) => (
@@ -744,6 +865,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                 </div>
               )}
             </div>
+            </>
           ) : (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-50 flex items-center gap-3">
