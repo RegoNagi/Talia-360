@@ -2232,3 +2232,72 @@ export async function getAttendanceLogsForDate(date: string): Promise<Attendance
     };
   });
 }
+
+
+export interface ExcusedStudentRow {
+  recordId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  time: string;
+  reason: string | null;
+  fileUrl: string | null;
+}
+
+// كل حالات "معذور" اللي المعلم سجّلها ليوم معيّن، جاهزة لمراجعة المشرف
+export async function getExcusedStudentsForDate(date: string): Promise<ExcusedStudentRow[]> {
+  const { data: sessions } = await supabase
+    .from('attendance_sessions')
+    .select('id, created_at, class_sections(name)')
+    .eq('date', date);
+  const sessionIds = (sessions || []).map((s: any) => s.id);
+  if (sessionIds.length === 0) return [];
+
+  const { data: records } = await supabase
+    .from('attendance_records')
+    .select('id, session_id, student_id, excuse_reason, excuse_file_url')
+    .in('session_id', sessionIds)
+    .eq('status', 'Excused');
+  if (!records || records.length === 0) return [];
+
+  const studentIds = Array.from(new Set(records.map((r: any) => r.student_id)));
+  const { data: students } = await supabase.from('students').select('id, name').in('id', studentIds);
+  const studentNameById: Record<string, string> = {};
+  (students || []).forEach((s: any) => { studentNameById[s.id] = s.name; });
+
+  const sessionById: Record<string, any> = {};
+  (sessions || []).forEach((s: any) => { sessionById[s.id] = s; });
+
+  return (records as any[]).map((r) => {
+    const session = sessionById[r.session_id];
+    return {
+      recordId: r.id,
+      studentId: r.student_id,
+      studentName: studentNameById[r.student_id] || '—',
+      className: session?.class_sections?.name || '—',
+      time: session?.created_at ? new Date(session.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—',
+      reason: r.excuse_reason || null,
+      fileUrl: r.excuse_file_url || null,
+    };
+  });
+}
+
+export async function saveExcuseDetails(recordId: string, reason: string, fileUrl: string | null): Promise<boolean> {
+  const patch: any = { excuse_reason: reason };
+  if (fileUrl !== null) patch.excuse_file_url = fileUrl;
+  const { error } = await supabase.from('attendance_records').update(patch).eq('id', recordId);
+  return !error;
+}
+
+// بيرفع ملف عذر (تقرير طبي مثلاً) لمساحة التخزين وبيرجع رابطه العام
+export async function uploadExcuseFile(recordId: string, file: File): Promise<string | null> {
+  const ext = file.name.split('.').pop();
+  const path = `${recordId}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('excuse-documents').upload(path, file, { upsert: true });
+  if (error) {
+    console.error('Error uploading excuse file:', error);
+    return null;
+  }
+  const { data } = supabase.storage.from('excuse-documents').getPublicUrl(path);
+  return data.publicUrl;
+}
