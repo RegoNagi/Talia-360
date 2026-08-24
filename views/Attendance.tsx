@@ -20,7 +20,8 @@ import {
   FileWarning,
   Sliders
 } from 'lucide-react';
-import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDateRange, AttendanceLogRow, getLateStudentsForDateRange, saveLateReason, LateStudentRow, getExcusedStudentsForDateRange, saveExcuseDetails, uploadExcuseFile, unexcuseAttendanceRecord, ExcusedStudentRow } from '../services/supabaseData';
+import { getStudents, getClassSections, saveAttendanceSession, getPeriods, getAttendanceSettings, saveAttendanceSettings, getAttendanceForDate, getTeachers, getEarlyWarningCriteria, updateEarlyWarningCriteria, EarlyWarningCriteria, getGradeLevels, getClassesAttendanceOverview, ClassAttendanceOverview, getAttendanceLogsForDateRange, AttendanceLogRow, getLateStudentsForDateRange, LateStudentRow, getExcusedStudentsForDateRange, saveExcuseDetails, uploadExcuseFile, unexcuseAttendanceRecord, ExcusedStudentRow,
+  getCustomAttendanceStatuses, addCustomAttendanceStatus, deleteCustomAttendanceStatus, CustomAttendanceStatus } from '../services/supabaseData';
 import { showToast } from '../components/Toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Teacher } from '../types';
@@ -66,29 +67,57 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     late: { ar: 'متأخر', en: 'Late' },
     excused: { ar: 'معذور', en: 'Excused' },
   };
+  const [customStatuses, setCustomStatuses] = useState<CustomAttendanceStatus[]>([]);
+  const [isLoadingCustomStatuses, setIsLoadingCustomStatuses] = useState(true);
+
+  const refreshCustomStatuses = () => {
+    setIsLoadingCustomStatuses(true);
+    getCustomAttendanceStatuses().then((rows) => {
+      setCustomStatuses(rows);
+      setIsLoadingCustomStatuses(false);
+    });
+  };
+  React.useEffect(() => { refreshCustomStatuses(); }, []);
+
   React.useEffect(() => {
     setStatuses(prev => prev.map(s => DEFAULT_STATUS_LABELS[s.id] ? { ...s, label: isRTL ? DEFAULT_STATUS_LABELS[s.id].ar : DEFAULT_STATUS_LABELS[s.id].en } : s));
   }, [isRTL]);
+
+  // قائمة الحالات الكاملة للعرض: الافتراضية + المخصّصة الحقيقية من قاعدة البيانات
+  const allStatuses = [
+    ...statuses,
+    ...customStatuses.map(cs => ({ id: cs.id, label: isRTL ? cs.labelAr : cs.labelEn, color: cs.color })),
+  ];
+
   const [isAddingStatus, setIsAddingStatus] = useState(false);
   const [newStatusLabel, setNewStatusLabel] = useState('');
   const [newStatusColor, setNewStatusColor] = useState('bg-purple-500');
+  const [isSavingCustomStatus, setIsSavingCustomStatus] = useState(false);
 
   const availableColors = ['bg-green-500', 'bg-red-500', 'bg-yellow-500', 'bg-blue-500', 'bg-purple-500', 'bg-pink-500', 'bg-violet-500', 'bg-teal-500'];
 
-  const handleAddStatus = () => {
-    if (newStatusLabel.trim()) {
-      setStatuses([...statuses, { 
-        id: newStatusLabel.toLowerCase().replace(/\s+/g, '-'), 
-        label: newStatusLabel.trim(), 
-        color: newStatusColor 
-      }]);
+  const handleAddStatus = async () => {
+    if (!newStatusLabel.trim()) return;
+    setIsSavingCustomStatus(true);
+    const id = await addCustomAttendanceStatus({
+      labelAr: isRTL ? newStatusLabel.trim() : newStatusLabel.trim(),
+      labelEn: isRTL ? newStatusLabel.trim() : newStatusLabel.trim(),
+      color: newStatusColor,
+    });
+    setIsSavingCustomStatus(false);
+    if (id) {
       setNewStatusLabel('');
       setIsAddingStatus(false);
+      refreshCustomStatuses();
+      showToast(t('تم إضافة الحالة.', 'Status added.'), 'success');
+    } else {
+      showToast(t('حصل خطأ أثناء الحفظ.', 'Error saving.'), 'error');
     }
   };
 
-  const handleDeleteStatus = (id: string) => {
-    setStatuses(statuses.filter(s => s.id !== id));
+  const handleDeleteStatus = async (id: string) => {
+    const ok = await deleteCustomAttendanceStatus(id);
+    if (ok) refreshCustomStatuses();
   };
 
   // Take-attendance state (شاشة "حالة الحضور" وقت ما تدخلي فصل بعينه)
@@ -102,6 +131,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [isSavingAttendance, setIsSavingAttendance] = useState(false);
   const [attendanceSaved, setAttendanceSaved] = useState(false);
+  const [isLoadingAttendanceData, setIsLoadingAttendanceData] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -147,7 +177,11 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
 
   React.useEffect(() => {
     if (takingAttendanceForClass) {
-      getAttendanceForDate(takingAttendanceForClass, selectedDate).then(setAttendanceData);
+      setIsLoadingAttendanceData(true);
+      getAttendanceForDate(takingAttendanceForClass, selectedDate).then((fetched) => {
+        setAttendanceData(fetched);
+        setIsLoadingAttendanceData(false);
+      });
     }
   }, [takingAttendanceForClass, selectedDate]);
 
@@ -189,6 +223,10 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
       return;
     }
     if (!takingAttendanceForClass) return;
+    if (isLoadingAttendanceData) {
+      showToast(t('استنّي لحد ما بيانات الحضور تخلص تحميل.', 'Please wait for attendance data to finish loading.'), 'error');
+      return;
+    }
     if (attendanceMode === 'Period' && !selectedPeriodId) {
       showToast(t('اختار حصة الأول قبل ما تحفظ الحضور.', 'Pick a period first before saving attendance.'), 'error');
       return;
@@ -221,6 +259,8 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
 
   const handleStatusChange = (studentId: string, status: string) => {
     if (!isToday || !canTakeAttendance) return;
+    if (isLoadingAttendanceData) return;
+    if (attendanceMode === 'Period' && !selectedPeriodId) return;
     setAttendanceData(prev => ({
       ...prev,
       [activeKey]: { ...(prev[activeKey] || {}), [studentId]: status },
@@ -229,6 +269,8 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
 
   const markAllPresent = () => {
     if (!isToday || !canTakeAttendance) return;
+    if (isLoadingAttendanceData) return;
+    if (attendanceMode === 'Period' && !selectedPeriodId) return;
     const classStudentIds = realClasses.find(c => c.id === takingAttendanceForClass)?.students || [];
     const updated: Record<string, string> = { ...(attendanceData[activeKey] || {}) };
     realStudents.filter(s => classStudentIds.includes(s.id)).forEach(student => {
@@ -362,8 +404,11 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
 
   // ============ حالات التأخير — بدرِل داون على مستوى الفصل ============
   const [lateStudents, setLateStudents] = useState<LateStudentRow[]>([]);
-  const [editingLateReasonId, setEditingLateReasonId] = useState<string | null>(null);
-  const [lateReasonDraft, setLateReasonDraft] = useState('');
+  const [editingExcuseId, setEditingExcuseId] = useState<string | null>(null);
+  const [excuseReasonDraft, setExcuseReasonDraft] = useState('');
+  const [excuseFileDraft, setExcuseFileDraft] = useState<File | null>(null);
+  const [isSavingExcuse, setIsSavingExcuse] = useState(false);
+  const [isUnexcusingId, setIsUnexcusingId] = useState<string | null>(null);
   const [selectedLateClass, setSelectedLateClass] = useState<string | null>(null);
 
   const filteredLateStudents = lateStudents
@@ -377,24 +422,8 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     return acc;
   }, {});
 
-  const handleSaveLateReason = async (recordId: string) => {
-    const ok = await saveLateReason(recordId, lateReasonDraft.trim());
-    if (ok) {
-      setLateStudents(prev => prev.map(l => l.recordId === recordId ? { ...l, reason: lateReasonDraft.trim() } : l));
-      setEditingLateReasonId(null);
-      showToast(t('تم حفظ سبب التأخير.', 'Late reason saved.'), 'success');
-    } else {
-      showToast(t('حصل خطأ أثناء الحفظ.', 'Error saving.'), 'error');
-    }
-  };
-
   // ============ حالات العذر — بدرِل داون على مستوى الفصل ============
   const [excusedStudents, setExcusedStudents] = useState<ExcusedStudentRow[]>([]);
-  const [editingExcuseId, setEditingExcuseId] = useState<string | null>(null);
-  const [excuseReasonDraft, setExcuseReasonDraft] = useState('');
-  const [excuseFileDraft, setExcuseFileDraft] = useState<File | null>(null);
-  const [isSavingExcuse, setIsSavingExcuse] = useState(false);
-  const [isUnexcusingId, setIsUnexcusingId] = useState<string | null>(null);
   const [selectedExcuseClass, setSelectedExcuseClass] = useState<string | null>(null);
 
   const filteredExcusedStudents = excusedStudents
@@ -408,7 +437,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     return acc;
   }, {});
 
-  const handleSaveExcuse = async (recordId: string) => {
+  const handleSaveExcuse = async (recordId: string, originalStatus: 'Absent' | 'Late' = 'Absent') => {
     setIsSavingExcuse(true);
     let fileUrl: string | null = null;
     if (excuseFileDraft) {
@@ -419,10 +448,14 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
         return;
       }
     }
-    const ok = await saveExcuseDetails(recordId, excuseReasonDraft.trim(), fileUrl);
+    const ok = await saveExcuseDetails(recordId, excuseReasonDraft.trim(), fileUrl, originalStatus);
     setIsSavingExcuse(false);
     if (ok) {
-      setExcusedStudents(prev => prev.map(e => e.recordId === recordId ? { ...e, reason: excuseReasonDraft.trim(), fileUrl: fileUrl || e.fileUrl } : e));
+      if (originalStatus === 'Late') {
+        setLateStudents(prev => prev.map(l => l.recordId === recordId ? { ...l, excuseReason: excuseReasonDraft.trim(), status: 'Excused' as const } : l));
+      } else {
+        setExcusedStudents(prev => prev.map(e => e.recordId === recordId ? { ...e, reason: excuseReasonDraft.trim(), fileUrl: fileUrl || e.fileUrl, status: 'Excused' as const } : e));
+      }
       setEditingExcuseId(null);
       setExcuseFileDraft(null);
       showToast(t('تم حفظ تفاصيل العذر.', 'Excuse details saved.'), 'success');
@@ -436,9 +469,10 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     const ok = await unexcuseAttendanceRecord(recordId);
     setIsUnexcusingId(null);
     if (ok) {
-      setExcusedStudents(prev => prev.filter(e => e.recordId !== recordId));
+      setExcusedStudents(prev => prev.map(e => e.recordId === recordId ? { ...e, status: 'Absent' as const, reason: null, fileUrl: null } : e));
+      setLateStudents(prev => prev.map(l => l.recordId === recordId ? { ...l, status: 'Late' as const, excuseReason: null } : l));
       if (editingExcuseId === recordId) setEditingExcuseId(null);
-      showToast(t('تم إلغاء التبرير — الحالة بقت غياب عادي.', 'Excuse removed — the case is now a plain absence.'), 'success');
+      showToast(t('تم إلغاء العذر — رجعت للحالة الأصلية.', 'Excuse removed — reverted to the original status.'), 'success');
     } else {
       showToast(t('حصل خطأ أثناء الحفظ.', 'Error saving.'), 'error');
     }
@@ -696,7 +730,9 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {realStudents.filter(s => (realClasses.find(c => c.id === takingAttendanceForClass)?.students || []).includes(s.id) && s.name.toLowerCase().includes(studentSearch.toLowerCase())).map(student => {
+                {isLoadingAttendanceData ? (
+                  <p className="col-span-full text-center text-gray-400 text-sm py-10">{t('جاري تحميل الحضور المسجّل مسبقًا... استنّي شوية قبل ما تبدئي التسجيل.', 'Loading previously recorded attendance... please wait before marking.')}</p>
+                ) : realStudents.filter(s => (realClasses.find(c => c.id === takingAttendanceForClass)?.students || []).includes(s.id) && s.name.toLowerCase().includes(studentSearch.toLowerCase())).map(student => {
                   const status = currentAttendance[student.id];
                   
                   return (
@@ -807,22 +843,28 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
               <div className="divide-y divide-gray-50">
                 {(lateByClass[selectedLateClass] || []).map(l => (
                   <div key={l.recordId} className="p-4">
-                    {editingLateReasonId === l.recordId ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center shrink-0">
-                          <Clock size={16} />
+                    {editingExcuseId === l.recordId ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 bg-yellow-100 text-yellow-700 rounded-full flex items-center justify-center shrink-0">
+                            <Clock size={16} />
+                          </div>
+                          <p className="font-bold text-gray-900 text-sm shrink-0 w-32 truncate">{l.studentName}</p>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={excuseReasonDraft}
+                            onChange={(e) => setExcuseReasonDraft(e.target.value)}
+                            placeholder={t('سبب العذر...', 'Reason for excuse...')}
+                            className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
+                          />
                         </div>
-                        <p className="font-bold text-gray-900 text-sm shrink-0 w-32 truncate">{l.studentName}</p>
-                        <input
-                          autoFocus
-                          type="text"
-                          value={lateReasonDraft}
-                          onChange={(e) => setLateReasonDraft(e.target.value)}
-                          placeholder={t('سبب التأخير...', 'Reason for being late...')}
-                          className="flex-1 p-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"
-                        />
-                        <button onClick={() => handleSaveLateReason(l.recordId)} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-bold shrink-0">{t('حفظ', 'Save')}</button>
-                        <button onClick={() => setEditingLateReasonId(null)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold shrink-0">{t('إلغاء', 'Cancel')}</button>
+                        <div className="flex items-center gap-2 pl-12">
+                          <button onClick={() => handleSaveExcuse(l.recordId, 'Late')} disabled={isSavingExcuse} className="px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shrink-0">
+                            {isSavingExcuse ? t('جاري الحفظ...', 'Saving...') : t('حفظ', 'Save')}
+                          </button>
+                          <button onClick={() => setEditingExcuseId(null)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-bold shrink-0">{t('إلغاء', 'Cancel')}</button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-3">
@@ -833,15 +875,29 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                           <p className="font-bold text-gray-900 text-sm truncate">{l.studentName}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{l.time}</p>
                         </div>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${l.status === 'Excused' ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
+                          {l.status === 'Excused' ? t('بعذر', 'With excuse') : t('بدون عذر', 'No excuse')}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => { setEditingExcuseId(l.recordId); setExcuseReasonDraft(l.excuseReason || ''); }}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${l.status === 'Excused' ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-700 hover:bg-violet-100'}`}
+                          >
+                            {t('بعذر', 'With excuse')}
+                          </button>
+                          <button
+                            onClick={() => handleUnexcuse(l.recordId)}
+                            disabled={isUnexcusingId === l.recordId || l.status !== 'Excused'}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap disabled:cursor-default ${l.status !== 'Excused' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                          >
+                            {isUnexcusingId === l.recordId ? t('جاري...', '...') : t('بدون عذر', 'No excuse')}
+                          </button>
+                        </div>
                         <div className="flex-1 min-w-0">
-                          {l.reason ? (
-                            <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(l.reason || ''); }} className={`text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full truncate ${isRTL ? 'text-right' : 'text-left'} hover:border-violet-300`}>
-                              {l.reason}
-                            </button>
-                          ) : (
-                            <button onClick={() => { setEditingLateReasonId(l.recordId); setLateReasonDraft(''); }} className="text-xs text-violet-600 font-bold hover:underline whitespace-nowrap">
-                              + {t('إضافة سبب التأخير', 'Add late reason')}
-                            </button>
+                          {l.excuseReason && (
+                            <p className={`text-xs text-gray-600 bg-white border border-gray-200 rounded-lg px-3 py-2 w-full truncate ${isRTL ? 'text-right' : 'text-left'}`}>
+                              {l.excuseReason}
+                            </p>
                           )}
                         </div>
                         {l.totalLateCount > maxLateCount && (
@@ -945,19 +1001,22 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                           <p className="font-bold text-gray-900 text-sm truncate">{ex.studentName}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{ex.time}</p>
                         </div>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${ex.status === 'Excused' ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>
+                          {ex.status === 'Excused' ? t('بعذر', 'With excuse') : t('بدون عذر', 'No excuse')}
+                        </span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(ex.reason || ''); }}
-                            className="px-2.5 py-1.5 bg-violet-50 text-violet-700 hover:bg-violet-100 rounded-lg text-xs font-bold whitespace-nowrap"
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${ex.status === 'Excused' ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-700 hover:bg-violet-100'}`}
                           >
-                            {t('تبرير', 'Excuse')}
+                            {t('بعذر', 'With excuse')}
                           </button>
                           <button
                             onClick={() => handleUnexcuse(ex.recordId)}
-                            disabled={isUnexcusingId === ex.recordId}
-                            className="px-2.5 py-1.5 bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 rounded-lg text-xs font-bold whitespace-nowrap"
+                            disabled={isUnexcusingId === ex.recordId || ex.status !== 'Excused'}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap disabled:cursor-default ${ex.status !== 'Excused' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                           >
-                            {isUnexcusingId === ex.recordId ? t('جاري...', '...') : t('إلغاء التبرير', 'Un-excuse')}
+                            {isUnexcusingId === ex.recordId ? t('جاري...', '...') : t('بدون عذر', 'No excuse')}
                           </button>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1136,6 +1195,18 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                     <div className={`w-4 h-4 rounded-full ${status.color}`}></div>
                     <span className="font-bold text-gray-900">{status.label}</span>
                   </div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">{t('أساسية', 'Built-in')}</span>
+                </div>
+              ))}
+
+              {isLoadingCustomStatuses ? (
+                <p className="text-sm text-gray-400 text-center py-3">{t('جاري التحميل...', 'Loading...')}</p>
+              ) : customStatuses.map((status) => (
+                <div key={status.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-xl bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full ${status.color}`}></div>
+                    <span className="font-bold text-gray-900">{isRTL ? status.labelAr : status.labelEn}</span>
+                  </div>
                   <button onClick={() => handleDeleteStatus(status.id)} className="text-gray-400 hover:text-red-500 transition-colors">
                     <Trash2 size={16} />
                   </button>
@@ -1168,7 +1239,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                   </div>
                   <div className="flex gap-2 pt-2">
                     <Button variant="secondary" className="flex-1 py-1.5 text-xs" onClick={() => setIsAddingStatus(false)}>{t('إلغاء', 'Cancel')}</Button>
-                    <Button className="flex-1 py-1.5 text-xs" onClick={handleAddStatus}>{t('حفظ', 'Save')}</Button>
+                    <Button className="flex-1 py-1.5 text-xs" disabled={isSavingCustomStatus} onClick={handleAddStatus}>{isSavingCustomStatus ? t('جاري الحفظ...', 'Saving...') : t('حفظ', 'Save')}</Button>
                   </div>
                 </div>
               )}
