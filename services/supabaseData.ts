@@ -674,9 +674,11 @@ export interface LateStudentRow {
   time: string;
   reason: string | null;
   totalLateCount: number;
+  status: 'Late' | 'Excused';
+  excuseReason: string | null;
 }
 
-// كل حالات التأخير بتاعة يوم معيّن، مع إجمالي مرات التأخير التاريخية لكل طالب (لمقارنتها بالحد المسموح)
+// كل حالات التأخير بتاعة يوم معيّن (بعذر وبدونه)، مع إجمالي مرات التأخير التاريخية لكل طالب (لمقارنتها بالحد المسموح)
 export async function getLateStudentsForDateRange(startDate: string, endDate: string): Promise<LateStudentRow[]> {
   const { data: sessions } = await supabase
     .from('attendance_sessions')
@@ -688,14 +690,14 @@ export async function getLateStudentsForDateRange(startDate: string, endDate: st
 
   const { data: records } = await supabase
     .from('attendance_records')
-    .select('id, session_id, student_id, late_reason')
+    .select('id, session_id, student_id, late_reason, excuse_reason, status')
     .in('session_id', sessionIds)
-    .eq('status', 'Late');
+    .or('status.eq.Late,and(status.eq.Excused,excuse_of_status.eq.Late)');
   if (!records || records.length === 0) return [];
 
   const [studentsRes, allLateCountsRes] = await Promise.all([
     supabase.from('students').select('id, users(name)'),
-    supabase.from('attendance_records').select('student_id').eq('status', 'Late'),
+    supabase.from('attendance_records').select('student_id').in('status', ['Late', 'Excused']),
   ]);
 
   const studentNameById: Record<string, string> = {};
@@ -718,6 +720,8 @@ export async function getLateStudentsForDateRange(startDate: string, endDate: st
       time: session?.created_at ? new Date(session.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—',
       reason: r.late_reason || null,
       totalLateCount: lateCountByStudent[r.student_id] || 0,
+      status: r.status,
+      excuseReason: r.excuse_reason || null,
     };
   });
 }
@@ -2259,9 +2263,10 @@ export interface ExcusedStudentRow {
   time: string;
   reason: string | null;
   fileUrl: string | null;
+  status: 'Absent' | 'Excused';
 }
 
-// كل حالات "معذور" اللي المعلم سجّلها ليوم معيّن، جاهزة لمراجعة المشرف
+// كل حالات الغياب (معذورة وغير معذورة) ليوم معيّن، جاهزة لمراجعة المشرف — يقدر يبرر أو يلغي التبرير من هنا
 export async function getExcusedStudentsForDateRange(startDate: string, endDate: string): Promise<ExcusedStudentRow[]> {
   const { data: sessions } = await supabase
     .from('attendance_sessions')
@@ -2273,9 +2278,9 @@ export async function getExcusedStudentsForDateRange(startDate: string, endDate:
 
   const { data: records } = await supabase
     .from('attendance_records')
-    .select('id, session_id, student_id, excuse_reason, excuse_file_url')
+    .select('id, session_id, student_id, excuse_reason, excuse_file_url, status')
     .in('session_id', sessionIds)
-    .eq('status', 'Excused');
+    .or('status.eq.Absent,and(status.eq.Excused,excuse_of_status.eq.Absent)');
   if (!records || records.length === 0) return [];
 
   const { data: students } = await supabase.from('students').select('id, users(name)');
@@ -2296,21 +2301,25 @@ export async function getExcusedStudentsForDateRange(startDate: string, endDate:
       time: session?.created_at ? new Date(session.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : '—',
       reason: r.excuse_reason || null,
       fileUrl: r.excuse_file_url || null,
+      status: r.status,
     };
   });
 }
 
-export async function saveExcuseDetails(recordId: string, reason: string, fileUrl: string | null): Promise<boolean> {
+export async function saveExcuseDetails(recordId: string, reason: string, fileUrl: string | null, originalStatus?: 'Absent' | 'Late'): Promise<boolean> {
   const patch: any = { excuse_reason: reason, status: 'Excused' };
   if (fileUrl !== null) patch.excuse_file_url = fileUrl;
+  if (originalStatus) patch.excuse_of_status = originalStatus;
   const { error } = await supabase.from('attendance_records').update(patch).eq('id', recordId);
   return !error;
 }
 
-// بيلغي التبرير عن حالة غياب — بيرجّعها "غائب" عادي وبيمسح سبب العذر
+// بيلغي التبرير عن حالة (غياب أو تأخير) — بيرجّعها لحالتها الأصلية وبيمسح سبب العذر
 export async function unexcuseAttendanceRecord(recordId: string): Promise<boolean> {
+  const { data: existing } = await supabase.from('attendance_records').select('excuse_of_status').eq('id', recordId).maybeSingle();
+  const revertTo = (existing as any)?.excuse_of_status || 'Absent';
   const { error } = await supabase.from('attendance_records').update({
-    status: 'Absent', excuse_reason: null, excuse_file_url: null,
+    status: revertTo, excuse_reason: null, excuse_file_url: null, excuse_of_status: null,
   }).eq('id', recordId);
   return !error;
 }
@@ -2893,5 +2902,34 @@ export async function assignSubstitute(classPeriodId: string, substitutionDate: 
     substitute_teacher_id: substituteTeacherId,
     notes: notes || null,
   }, { onConflict: 'class_period_id,substitution_date' });
+  return !error;
+}
+
+
+// ============ الحالات المخصّصة لأخذ الحضور (بتتحفظ فعليًا في قاعدة البيانات) ============
+
+export interface CustomAttendanceStatus {
+  id: string;
+  labelAr: string;
+  labelEn: string;
+  color: string;
+}
+
+export async function getCustomAttendanceStatuses(): Promise<CustomAttendanceStatus[]> {
+  const { data, error } = await supabase.from('attendance_custom_statuses').select('id, label_ar, label_en, color').order('created_at', { ascending: true });
+  if (error) return [];
+  return (data || []).map((row: any) => ({ id: row.id, labelAr: row.label_ar, labelEn: row.label_en, color: row.color }));
+}
+
+export async function addCustomAttendanceStatus(input: { labelAr: string; labelEn: string; color: string }): Promise<string | null> {
+  const { data, error } = await supabase.from('attendance_custom_statuses').insert({
+    label_ar: input.labelAr, label_en: input.labelEn, color: input.color,
+  }).select('id').single();
+  if (error || !data) return null;
+  return data.id;
+}
+
+export async function deleteCustomAttendanceStatus(id: string): Promise<boolean> {
+  const { error } = await supabase.from('attendance_custom_statuses').delete().eq('id', id);
   return !error;
 }
