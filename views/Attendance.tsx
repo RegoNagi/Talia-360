@@ -462,15 +462,15 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
     }
   };
 
-  const handleUnexcuse = async (recordId: string) => {
+  const handleUnexcuse = async (recordId: string, originalStatus: 'Absent' | 'Late' = 'Absent') => {
     setIsUnexcusingId(recordId);
-    const ok = await unexcuseAttendanceRecord(recordId);
+    const ok = await unexcuseAttendanceRecord(recordId, originalStatus);
     setIsUnexcusingId(null);
     if (ok) {
       setExcusedStudents(prev => prev.map(e => e.recordId === recordId ? { ...e, status: 'Absent' as const, reason: null, fileUrl: null } : e));
       setLateStudents(prev => prev.map(l => l.recordId === recordId ? { ...l, status: 'Late' as const, excuseReason: null } : l));
       if (editingExcuseId === recordId) setEditingExcuseId(null);
-      showToast(t('تم إلغاء العذر — رجعت للحالة الأصلية.', 'Excuse removed — reverted to the original status.'), 'success');
+      showToast(t('تم التسجيل بدون عذر.', 'Recorded without an excuse.'), 'success');
     } else {
       showToast(t('حصل خطأ أثناء الحفظ.', 'Error saving.'), 'error');
     }
@@ -864,17 +864,17 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                           <p className="font-bold text-gray-900 text-sm truncate">{l.studentName}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{l.time}</p>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={() => { setEditingExcuseId(l.recordId); setExcuseReasonDraft(l.excuseReason || ''); }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${l.status === 'Excused' ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-700 hover:bg-violet-100'}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border-2 transition-colors ${l.status === 'Excused' ? 'bg-green-500 border-green-500 text-white' : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'}`}
                           >
                             {t('بعذر', 'With excuse')}
                           </button>
                           <button
-                            onClick={() => handleUnexcuse(l.recordId)}
-                            disabled={isUnexcusingId === l.recordId || l.status !== 'Excused'}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap disabled:cursor-default ${l.status !== 'Excused' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                            onClick={() => handleUnexcuse(l.recordId, 'Late')}
+                            disabled={isUnexcusingId === l.recordId}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border-2 transition-colors disabled:opacity-50 ${l.status !== 'Excused' ? 'bg-red-500 border-red-500 text-white' : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'}`}
                           >
                             {isUnexcusingId === l.recordId ? t('جاري...', '...') : t('بدون عذر', 'No excuse')}
                           </button>
@@ -987,17 +987,17 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                           <p className="font-bold text-gray-900 text-sm truncate">{ex.studentName}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{ex.time}</p>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={() => { setEditingExcuseId(ex.recordId); setExcuseReasonDraft(ex.reason || ''); }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${ex.status === 'Excused' ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-700 hover:bg-violet-100'}`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border-2 transition-colors ${ex.status === 'Excused' ? 'bg-green-500 border-green-500 text-white' : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'}`}
                           >
                             {t('بعذر', 'With excuse')}
                           </button>
                           <button
-                            onClick={() => handleUnexcuse(ex.recordId)}
-                            disabled={isUnexcusingId === ex.recordId || ex.status !== 'Excused'}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap disabled:cursor-default ${ex.status !== 'Excused' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                            onClick={() => handleUnexcuse(ex.recordId, 'Absent')}
+                            disabled={isUnexcusingId === ex.recordId}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border-2 transition-colors disabled:opacity-50 ${ex.status !== 'Excused' ? 'bg-red-500 border-red-500 text-white' : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'}`}
                           >
                             {isUnexcusingId === ex.recordId ? t('جاري...', '...') : t('بدون عذر', 'No excuse')}
                           </button>
