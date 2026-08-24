@@ -2315,11 +2315,9 @@ export async function saveExcuseDetails(recordId: string, reason: string, fileUr
 }
 
 // بيلغي التبرير عن حالة (غياب أو تأخير) — بيرجّعها لحالتها الأصلية وبيمسح سبب العذر
-export async function unexcuseAttendanceRecord(recordId: string): Promise<boolean> {
-  const { data: existing } = await supabase.from('attendance_records').select('excuse_of_status').eq('id', recordId).maybeSingle();
-  const revertTo = (existing as any)?.excuse_of_status || 'Absent';
+export async function unexcuseAttendanceRecord(recordId: string, originalStatus: 'Absent' | 'Late' = 'Absent'): Promise<boolean> {
   const { error } = await supabase.from('attendance_records').update({
-    status: revertTo, excuse_reason: null, excuse_file_url: null, excuse_of_status: null,
+    status: originalStatus, excuse_reason: null, excuse_file_url: null, excuse_of_status: null,
   }).eq('id', recordId);
   return !error;
 }
