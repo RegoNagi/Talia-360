@@ -3055,12 +3055,13 @@ export async function getHouseDetails(houseId: string): Promise<HouseDetails | n
     totalPoints: pointsByStudent[s.id] || 0,
   }));
 
-  const totalPoints = students.reduce((sum, s) => sum + s.totalPoints, 0);
+  // الإجمالي = مجموع كل نقاط الطلاب + أي نقاط اتضافت للهاوس نفسه (student_id فاضي)
+  const totalPoints = (pointsRes.data || []).reduce((sum: number, p: any) => sum + p.points, 0);
 
   const pointsLog: HousePointEntry[] = (pointsRes.data || []).map((p: any) => ({
     id: p.id,
     studentId: p.student_id,
-    studentName: studentNameById[p.student_id] || 'بدون اسم',
+    studentName: p.student_id ? (studentNameById[p.student_id] || 'Unknown') : null,
     houseId,
     points: p.points,
     note: p.note,
@@ -3084,7 +3085,8 @@ export async function getHouseDetails(houseId: string): Promise<HouseDetails | n
 
 // بيضيف نقاط لطالب داخل هاوسه — نفس الفانكشن تستخدمه Talia Learn (من بروفايل الطالب، المعلم)
 // و Talia 360 (من جوا كارت الهاوس، الأدمن) — سجل موحّد واحد
-export async function addHousePoints(input: { studentId: string; houseId: string; points: number; note?: string; awardedByName: string }): Promise<boolean> {
+// لو studentId فاضي (null)، النقاط بتتحسب على الهاوس نفسه مش على طالب معيّن
+export async function addHousePoints(input: { studentId: string | null; houseId: string; points: number; note?: string; awardedByName: string }): Promise<boolean> {
   const { error } = await supabase.from('house_points').insert({
     student_id: input.studentId,
     house_id: input.houseId,
