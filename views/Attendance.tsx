@@ -885,7 +885,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                           </button>
                           <button
                             onClick={() => handleUnexcuse(l.recordId, 'Late')}
-                            disabled={isUnexcusingId === l.recordId || l.status !== 'Excused'}
+                            disabled={isUnexcusingId === l.recordId}
                             className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${l.status !== 'Excused' ? 'bg-red-500 border-red-500 text-white' : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'}`}
                           >
                             {isUnexcusingId === l.recordId ? t('جاري...', '...') : t('بدون عذر', 'No excuse')}
@@ -1008,7 +1008,7 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                           </button>
                           <button
                             onClick={() => handleUnexcuse(ex.recordId, 'Absent')}
-                            disabled={isUnexcusingId === ex.recordId || ex.status !== 'Excused'}
+                            disabled={isUnexcusingId === ex.recordId}
                             className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${ex.status !== 'Excused' ? 'bg-red-500 border-red-500 text-white' : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'}`}
                           >
                             {isUnexcusingId === ex.recordId ? t('جاري...', '...') : t('بدون عذر', 'No excuse')}
