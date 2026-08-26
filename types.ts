@@ -526,8 +526,8 @@ export interface House {
 
 export interface HousePointEntry {
   id: string;
-  studentId: string;
-  studentName: string;
+  studentId: string | null;
+  studentName: string | null;
   houseId: string;
   points: number;
   note?: string | null;
