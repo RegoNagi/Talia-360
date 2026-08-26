@@ -146,6 +146,7 @@ export interface Student {
   nationalId?: string;
   enrollmentDate?: string;
   avatar?: string;
+  houseId?: string;
   fatherInfo?: ParentInfo;
   motherInfo?: ParentInfo;
   legalGuardian?: string;
@@ -510,4 +511,26 @@ export interface ClassSpace {
   pendingFlags: number;
   mood: 'Positive' | 'Neutral' | 'Stressed' | 'Excited';
   settings: SpaceGovernance;
+}
+
+// --- Houses Types ---
+
+export interface House {
+  id: string;
+  name: string;
+  color: string;
+  logoUrl: string | null;
+  studentCount: number;
+  totalPoints: number;
+}
+
+export interface HousePointEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  houseId: string;
+  points: number;
+  note?: string | null;
+  awardedByName: string;
+  awardedAt: string;
 }
