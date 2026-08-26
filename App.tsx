@@ -20,6 +20,7 @@ import { Settings } from './views/Settings';
 import { EditStudentProfile } from './views/EditStudentProfile';
 import { MOEDashboardView } from './views/MOEDashboardView';
 import { FinancialManagement } from './views/FinancialManagement';
+import { Houses } from './views/Houses';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -41,7 +42,8 @@ import {
   CreditCard,
   LogOut,
   User as UserIcon,
-  Lock
+  Lock,
+  Trophy
 } from 'lucide-react';
 import taliaLogo from './assets/talia-360-logo.png';
 
@@ -244,6 +246,7 @@ const App: React.FC = () => {
     },
     { id: 'classes', labelEn: 'Classes', labelAr: 'الفصول', icon: <School size={20} />, view: 'classes' },
     { id: 'attendance', labelEn: 'Attendance', labelAr: 'الحضور', icon: <Calendar size={20} />, view: 'attendance' },
+    { id: 'houses', labelEn: 'Houses', labelAr: 'الهاوسز', icon: <Trophy size={20} />, view: 'houses' },
     { id: 'schedule', labelEn: 'Class Schedule', labelAr: 'جدول الحصص', icon: <CalendarClock size={20} />, view: 'schedule' },
     { id: 'gradebook', labelEn: 'Gradebook', labelAr: 'سجل الدرجات', icon: <FileSpreadsheet size={20} />, view: 'gradebook' },
     { id: 'finance', labelEn: 'Finance', labelAr: 'إدارة المدفوعات', icon: <CreditCard size={20} />, view: 'finance' },
@@ -325,6 +328,8 @@ const App: React.FC = () => {
         return <ClassManagement role={user.role} language={language} user={user} permissions={userPermissions} />;
       case 'attendance':
         return <Attendance role={user.role} language={language} user={user} permissions={userPermissions} />;
+      case 'houses':
+        return <Houses language={language} user={user} />;
       case 'schedule':
         return <Schedule role={user.role} language={language} />;
       case 'lessons-planner':
