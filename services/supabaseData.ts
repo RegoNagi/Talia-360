@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { Student, ClassSection, Teacher } from '../types';
+import { Student, ClassSection, Teacher, House, HousePointEntry } from '../types';
 import { calculateWeightedGrade } from '../lib/gradeCalculations';
 
 // بيجيب الطلاب الحقيقيين من قاعدة البيانات (Supabase) بدل الـ mock data.
@@ -94,6 +94,7 @@ export async function getStudents(): Promise<(Student & { userId: string; email:
       legal_guardian,
       guardian_relationship,
       student_code,
+      house_id,
       users ( name, email )
     `);
 
@@ -120,6 +121,7 @@ export async function getStudents(): Promise<(Student & { userId: string; email:
     dob: row.dob ?? undefined,
     nationalId: row.national_id ?? undefined,
     enrollmentDate: row.enrollment_date ?? undefined,
+    houseId: row.house_id ?? undefined,
     fatherInfo: row.father_info ?? undefined,
     motherInfo: row.mother_info ?? undefined,
     legalGuardian: row.legal_guardian ?? undefined,
@@ -201,6 +203,7 @@ export async function getStudentById(studentId: string): Promise<(Student & { us
       home_address,
       additional_info,
       student_code,
+      house_id,
       users ( name, email )
     `)
     .eq('id', studentId)
@@ -227,6 +230,7 @@ export async function getStudentById(studentId: string): Promise<(Student & { us
     dob: row.dob ?? undefined,
     nationalId: row.national_id ?? undefined,
     enrollmentDate: row.enrollment_date ?? undefined,
+    houseId: row.house_id ?? undefined,
     fatherInfo: row.father_info ?? undefined,
     motherInfo: row.mother_info ?? undefined,
     legalGuardian: row.legal_guardian ?? undefined,
@@ -2930,4 +2934,186 @@ export async function addCustomAttendanceStatus(input: { labelAr: string; labelE
 export async function deleteCustomAttendanceStatus(id: string): Promise<boolean> {
   const { error } = await supabase.from('attendance_custom_statuses').delete().eq('id', id);
   return !error;
+}
+
+// ============ الهاوسز (Houses) ============
+
+export async function getHouses(): Promise<House[]> {
+  const [housesRes, studentsRes, pointsRes] = await Promise.all([
+    supabase.from('houses').select('id, name, color, logo_url'),
+    supabase.from('students').select('id, house_id'),
+    supabase.from('house_points').select('house_id, points'),
+  ]);
+
+  if (housesRes.error) {
+    console.error('Error fetching houses:', housesRes.error);
+    return [];
+  }
+
+  const studentCountByHouse: Record<string, number> = {};
+  (studentsRes.data || []).forEach((s: any) => {
+    if (s.house_id) studentCountByHouse[s.house_id] = (studentCountByHouse[s.house_id] || 0) + 1;
+  });
+
+  const totalPointsByHouse: Record<string, number> = {};
+  (pointsRes.data || []).forEach((p: any) => {
+    totalPointsByHouse[p.house_id] = (totalPointsByHouse[p.house_id] || 0) + p.points;
+  });
+
+  return (housesRes.data || []).map((h: any) => ({
+    id: h.id,
+    name: h.name,
+    color: h.color,
+    logoUrl: h.logo_url,
+    studentCount: studentCountByHouse[h.id] || 0,
+    totalPoints: totalPointsByHouse[h.id] || 0,
+  }));
+}
+
+export async function createHouse(input: { name: string; color: string; logoUrl?: string | null }): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('houses')
+    .insert({ name: input.name, color: input.color, logo_url: input.logoUrl || null })
+    .select('id')
+    .single();
+  if (error || !data) {
+    console.error('Error creating house:', error);
+    return null;
+  }
+  return data.id;
+}
+
+export async function updateHouse(input: { id: string; name: string; color: string; logoUrl?: string | null }): Promise<boolean> {
+  const patch: any = { name: input.name, color: input.color };
+  if (input.logoUrl !== undefined) patch.logo_url = input.logoUrl;
+  const { error } = await supabase.from('houses').update(patch).eq('id', input.id);
+  if (error) {
+    console.error('Error updating house:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function deleteHouse(id: string): Promise<boolean> {
+  const { error } = await supabase.from('houses').delete().eq('id', id);
+  if (error) {
+    console.error('Error deleting house:', error);
+    return false;
+  }
+  return true;
+}
+
+// بيرفع لوجو الهاوس لمساحة التخزين وبيرجع رابطه العام
+export async function uploadHouseLogo(file: File): Promise<string | null> {
+  const ext = file.name.split('.').pop();
+  const path = `house-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from('house-logos').upload(path, file, { upsert: true });
+  if (error) {
+    console.error('Error uploading house logo:', error);
+    return null;
+  }
+  const { data } = supabase.storage.from('house-logos').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export interface HouseStudentRow {
+  studentId: string;
+  studentName: string;
+  totalPoints: number;
+}
+
+export interface HouseDetails {
+  house: House;
+  students: HouseStudentRow[];
+  pointsLog: HousePointEntry[];
+}
+
+// بيجيب تفاصيل هاوس واحد كاملة: طلابه (مع نقط كل واحد)، وسجل كل نقطة اتضافت (مين ضافها وإمتى)
+export async function getHouseDetails(houseId: string): Promise<HouseDetails | null> {
+  const [houseRes, studentsRes, pointsRes] = await Promise.all([
+    supabase.from('houses').select('id, name, color, logo_url').eq('id', houseId).maybeSingle(),
+    supabase.from('students').select('id, users(name)').eq('house_id', houseId),
+    supabase.from('house_points').select('id, student_id, points, note, awarded_by_name, awarded_at').eq('house_id', houseId).order('awarded_at', { ascending: false }),
+  ]);
+
+  if (houseRes.error || !houseRes.data) {
+    console.error('Error fetching house details:', houseRes.error);
+    return null;
+  }
+
+  const studentNameById: Record<string, string> = {};
+  (studentsRes.data || []).forEach((s: any) => { studentNameById[s.id] = s.users?.name || 'بدون اسم'; });
+
+  const pointsByStudent: Record<string, number> = {};
+  (pointsRes.data || []).forEach((p: any) => {
+    pointsByStudent[p.student_id] = (pointsByStudent[p.student_id] || 0) + p.points;
+  });
+
+  const students: HouseStudentRow[] = (studentsRes.data || []).map((s: any) => ({
+    studentId: s.id,
+    studentName: studentNameById[s.id],
+    totalPoints: pointsByStudent[s.id] || 0,
+  }));
+
+  const totalPoints = students.reduce((sum, s) => sum + s.totalPoints, 0);
+
+  const pointsLog: HousePointEntry[] = (pointsRes.data || []).map((p: any) => ({
+    id: p.id,
+    studentId: p.student_id,
+    studentName: studentNameById[p.student_id] || 'بدون اسم',
+    houseId,
+    points: p.points,
+    note: p.note,
+    awardedByName: p.awarded_by_name,
+    awardedAt: p.awarded_at,
+  }));
+
+  return {
+    house: {
+      id: houseRes.data.id,
+      name: houseRes.data.name,
+      color: houseRes.data.color,
+      logoUrl: houseRes.data.logo_url,
+      studentCount: students.length,
+      totalPoints,
+    },
+    students,
+    pointsLog,
+  };
+}
+
+// بيضيف نقاط لطالب داخل هاوسه — نفس الفانكشن تستخدمه Talia Learn (من بروفايل الطالب، المعلم)
+// و Talia 360 (من جوا كارت الهاوس، الأدمن) — سجل موحّد واحد
+export async function addHousePoints(input: { studentId: string; houseId: string; points: number; note?: string; awardedByName: string }): Promise<boolean> {
+  const { error } = await supabase.from('house_points').insert({
+    student_id: input.studentId,
+    house_id: input.houseId,
+    points: input.points,
+    note: input.note || null,
+    awarded_by_name: input.awardedByName,
+  });
+  if (error) {
+    console.error('Error adding house points:', error);
+    return false;
+  }
+  return true;
+}
+
+// بيجيب هاوس الطالب (لو ليه هاوس) — يُستخدم أثناء إنشاء/تعديل الفصل لعرض هاوس كل طالب
+export async function getStudentHouseMap(): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from('students').select('id, house_id');
+  if (error) return {};
+  const map: Record<string, string> = {};
+  (data || []).forEach((s: any) => { if (s.house_id) map[s.id] = s.house_id; });
+  return map;
+}
+
+// بيحدّث هاوس طالب واحد (من شاشة إنشاء/تعديل الفصل)
+export async function updateStudentHouse(studentId: string, houseId: string | null): Promise<boolean> {
+  const { error } = await supabase.from('students').update({ house_id: houseId }).eq('id', studentId);
+  if (error) {
+    console.error('Error updating student house:', error);
+    return false;
+  }
+  return true;
 }
