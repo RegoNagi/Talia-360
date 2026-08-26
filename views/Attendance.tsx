@@ -862,7 +862,12 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                         </div>
                         <div className="w-36 shrink-0">
                           <p className="font-bold text-gray-900 text-sm truncate">{l.studentName}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{l.time}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <p className="text-xs text-gray-400">{l.time}</p>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${l.status === 'Excused' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {l.status === 'Excused' ? t('بعذر', 'Excused') : t('بدون عذر', 'No excuse')}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex-1 min-w-0">
                           {l.excuseReason && (
@@ -985,7 +990,12 @@ export const Attendance: React.FC<AttendanceProps> = ({ role, language, user, pe
                         </div>
                         <div className="w-36 shrink-0">
                           <p className="font-bold text-gray-900 text-sm truncate">{ex.studentName}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{ex.time}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <p className="text-xs text-gray-400">{ex.time}</p>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${ex.status === 'Excused' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {ex.status === 'Excused' ? t('بعذر', 'Excused') : t('بدون عذر', 'No excuse')}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex-1 min-w-0">
                           {ex.reason && (
